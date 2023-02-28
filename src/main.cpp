@@ -1,7 +1,7 @@
-#include <iostream>
-using namespace std;
-
-int main()
+#include "Framework/Application.h"
+#include "Beacon.h"
+int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow)
 {
-    std::cout << "Hello World" << std::endl;
+    Beacon* renderer = new Beacon(1280, 720, L"Beacon Renderer");
+    Application::Run(renderer, hInstance, nCmdShow);
 }
