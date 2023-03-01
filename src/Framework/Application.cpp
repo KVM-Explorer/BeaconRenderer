@@ -9,8 +9,7 @@ HWND Application::GetHandle()
     return mHandle;
 }
 
-
-int Application::Run(RendererBase* renderer, HINSTANCE hInstance, int hCmdShow)
+int Application::Run(RendererBase *renderer, HINSTANCE hInstance, int hCmdShow)
 {
     WNDCLASSEX WindowsClass = {};
     WindowsClass.hInstance = hInstance;
@@ -44,11 +43,11 @@ int Application::Run(RendererBase* renderer, HINSTANCE hInstance, int hCmdShow)
                                       renderer);
 
     mHandle = WindowsHandle;
-    
-    ShowWindow(WindowsHandle, hCmdShow);
-    UpdateWindow(WindowsHandle);
 
     renderer->OnInit();
+
+    ShowWindow(WindowsHandle, hCmdShow);
+    UpdateWindow(WindowsHandle);
 
     MSG msg = {};
     while (msg.message != WM_QUIT) {
@@ -58,7 +57,7 @@ int Application::Run(RendererBase* renderer, HINSTANCE hInstance, int hCmdShow)
             DispatchMessage(&msg);
         }
     }
-
+    
     renderer->OnDestory();
 
     // Return this part of the WM_QUIT message to Windows.
@@ -67,7 +66,7 @@ int Application::Run(RendererBase* renderer, HINSTANCE hInstance, int hCmdShow)
 
 LRESULT CALLBACK Application::WindowProc(HWND hWnd, uint32_t message, WPARAM wParam, LPARAM lParam)
 {
-    RendererBase* renderer = reinterpret_cast<RendererBase*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+    RendererBase *renderer = reinterpret_cast<RendererBase *>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
     switch (message) {
     case WM_CREATE: {
         // Save the DXSample* passed in to CreateWindow.
