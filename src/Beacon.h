@@ -40,6 +40,5 @@ private:
     ComPtr<ID3D12CommandAllocator> mCommandAllocator;
     ComPtr<IDXGISwapChain4> mSwapChain;
     ComPtr<ID3D12Fence> mFence;
-    HANDLE mFenceEvent;
     std::unique_ptr<Scene> mScene;
 };

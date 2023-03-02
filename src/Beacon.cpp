@@ -19,6 +19,9 @@ void Beacon::OnInit()
     CreateFence();
     LoadScene();
     // Upload Committed Resource 0 - > 1
+    mCommandList->Close();
+    std::array<ID3D12CommandList *, 1> taskList = {mCommandList.Get()};
+    mCommandQueue->ExecuteCommandLists(taskList.size(), taskList.data());
     SyncTask();
 }
 
@@ -33,6 +36,9 @@ void Beacon::OnRender()
     mScene->RenderScene(mCommandList.Get(), frameIndex);
     mScene->RenderUI();
 
+    mCommandList->Close();
+    std::array<ID3D12CommandList *, 1> taskList = {mCommandList.Get()};
+    mCommandQueue->ExecuteCommandLists(taskList.size(), taskList.data());
     SyncTask();
 }
 
@@ -42,10 +48,6 @@ void Beacon::OnUpdate()
 
 void Beacon::OnDestory()
 {
-    ComPtr<IDXGIDebug1> debuger;
-    if (SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&debuger)))) {
-        debuger->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_IGNORE_INTERNAL);
-    }
 }
 
 void Beacon::OnMouseDown()
@@ -138,21 +140,20 @@ void Beacon::LoadScene()
 void Beacon::CreateFence()
 {
     ThrowIfFailed(mDevice->CreateFence(mFenceValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&mFence)));
-    mFenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
     mFenceValue = 0;
-    SetEvent(mFenceEvent);
 }
 
 void Beacon::SyncTask()
 {
-    mCommandList->Close();
     mFenceValue++;
-    std::array<ID3D12CommandList *, 1> taskList = {mCommandList.Get()};
-    mCommandQueue->ExecuteCommandLists(taskList.size(), taskList.data());
     mCommandQueue->Signal(mFence.Get(), mFenceValue);
-    ThrowIfFailed(mFence->SetEventOnCompletion(mFenceValue, mFenceEvent));
 
     if (mFence->GetCompletedValue() < mFenceValue) {
-        WaitForSingleObject(mFenceEvent, INFINITE);
+        HANDLE fenceEvent = CreateEventEx(nullptr, false, false, EVENT_ALL_ACCESS);
+
+        ThrowIfFailed(mFence->SetEventOnCompletion(mFenceValue, fenceEvent));
+        WaitForSingleObject(fenceEvent, INFINITE);
+
+        CloseHandle(fenceEvent);
     }
 }
