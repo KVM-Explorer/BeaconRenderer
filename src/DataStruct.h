@@ -13,3 +13,12 @@ struct Vertex {
     DirectX::XMFLOAT3 Position;
     DirectX::XMFLOAT4 Color;
 };
+
+enum class EntityType {
+    Sky,
+    Debug,
+    Opaque, // 不透明
+};
+
+
+

@@ -128,9 +128,9 @@ void Beacon::LoadScene()
     auto scene = std::make_unique<Scene>(Path);
 
     SceneAdapter adapater{
-        .Device = mDevice,
+        .Device = mDevice.Get(),
         .CommandList = mCommandList.Get(),
-        .SwapChain = mSwapChain,
+        .SwapChain = mSwapChain.Get(),
         .FrameWidth = mWidth,
         .FrameHeight = mHeight,
         .FrameCount = mFrameCount};
