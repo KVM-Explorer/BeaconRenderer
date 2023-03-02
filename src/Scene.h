@@ -5,6 +5,7 @@
 #include "D3DHelpler/DescroptorHeap.h"
 #include "D3DHelpler/DefaultBuffer.h"
 #include "DataStruct.h"
+#include "Tools/DataLoader.h"
 
 
 class Scene {
@@ -35,6 +36,8 @@ private:
     std::unordered_map<std::string, ComPtr<ID3DBlob>> mShaders;
     std::unordered_map<std::string, Camera> mCamera;
     std::wstring mRootPath;
+
+    std::unique_ptr<DataLoader> mDataLoader;
 
     std::unique_ptr<DescriptorHeap> RTVDescriptorHeap;
     std::vector<ComPtr<ID3D12Resource>> RTVBuffer;

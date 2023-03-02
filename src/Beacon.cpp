@@ -124,7 +124,7 @@ void Beacon::CreateSwapChain(HWND handle)
 void Beacon::LoadScene()
 {
     // TODO add read config file
-    std::wstring Path = L"Configs";
+    std::wstring Path = L"C:\\Users\\Geek\\Desktop\\dst\\lighthouse";
     auto scene = std::make_unique<Scene>(Path);
 
     SceneAdapter adapater{

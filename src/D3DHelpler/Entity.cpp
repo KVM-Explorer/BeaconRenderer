@@ -4,14 +4,7 @@ Entity::Entity(EntityType type) :
     mType(type)
 {}
 
-Entity &Entity::SetMaterialIndex(uint index)
-{
-    
-}
-Entity &Entity::SetEntityIndex(uint index, D3D12_GPU_VIRTUAL_ADDRESS base, uint elementSize)
-{
-    
-}
+
 Entity &Entity::SetVertexInfo(uint index, D3D12_GPU_VIRTUAL_ADDRESS base, uint elementSize, uint totalSize)
 {
     mVertexBufferView.BufferLocation = base + index * elementSize;

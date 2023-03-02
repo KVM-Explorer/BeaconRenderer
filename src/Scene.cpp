@@ -3,6 +3,7 @@
 #include "Tools/FrameworkHelper.h"
 
 Scene::Scene(const std::wstring &path)
+    :mRootPath(path)
 {
 }
 
@@ -14,6 +15,8 @@ void Scene::Init(SceneAdapter &adapter)
     CreateRootSignature(adapter.Device);
     CreatePipelineStateObject(adapter.Device);
     CreateTriangleVertex(adapter.Device, adapter.CommandList);
+    mDataLoader = std::make_unique<DataLoader>(mRootPath);
+    
 }
 
 void Scene::RenderScene(ID3D12GraphicsCommandList *commandList, uint frameIndex)
