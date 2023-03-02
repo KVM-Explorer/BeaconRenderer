@@ -39,6 +39,7 @@ void Beacon::OnRender()
     mCommandList->Close();
     std::array<ID3D12CommandList *, 1> taskList = {mCommandList.Get()};
     mCommandQueue->ExecuteCommandLists(taskList.size(), taskList.data());
+    mSwapChain->Present(1,0);
     SyncTask();
 }
 
@@ -48,6 +49,7 @@ void Beacon::OnUpdate()
 
 void Beacon::OnDestory()
 {
+    mScene.reset();
 }
 
 void Beacon::OnMouseDown()
@@ -126,9 +128,9 @@ void Beacon::LoadScene()
     auto scene = std::make_unique<Scene>(Path);
 
     SceneAdapter adapater{
-        .Device = mDevice.Get(),
+        .Device = mDevice,
         .CommandList = mCommandList.Get(),
-        .SwapChain = mSwapChain.Get(),
+        .SwapChain = mSwapChain,
         .FrameWidth = mWidth,
         .FrameHeight = mHeight,
         .FrameCount = mFrameCount};
