@@ -1,8 +1,9 @@
 #include "DataLoader.h"
 #include <iostream>
 #include <fstream>
-DataLoader::DataLoader(std::wstring path) :
-    mScenePath(path)
+DataLoader::DataLoader(std::wstring path, std::wstring name) :
+    mScenePath(path + L"\\" + name),
+    mRootPath(path)
 {
     GetModelMetaFile();
     ReadSceneFromFile();
@@ -20,7 +21,7 @@ void DataLoader::ReadSceneFromFile()
         ReadBlinnMaterials(reader);
         ReadTransforms(reader);
         ReadModels(reader);
-    }else {
+    } else {
         throw std::exception("Unkonwn Model Type");
     }
 }
@@ -102,6 +103,11 @@ void DataLoader::ReadTransforms(std::stringstream &reader)
     }
 }
 
+std::vector<DirectX::XMFLOAT4X4> DataLoader::GetTransforms() const
+{
+    return mModel.Transforms;
+}
+
 void DataLoader::ReadModels(std::stringstream &reader)
 {
     std::string tmp;
@@ -117,4 +123,84 @@ void DataLoader::ReadModels(std::stringstream &reader)
         reader >> tmp >> model.transform;
         mModel.Models.emplace_back(model);
     }
+}
+
+ModelLight DataLoader::GetLight() const
+{
+    return mModel.LightInfo;
+}
+
+std::vector<ModelMaterial> DataLoader::GetMaterials() const
+{
+    return mModel.Materials;
+}
+
+Mesh DataLoader::ReadMesh(std::wstring path)
+{
+    std::ifstream file(path);
+    std::stringstream reader;
+    std::string line;
+    std::string tmp;
+    std::string type;
+    std::vector<DirectX::XMFLOAT3> vertices;
+    std::vector<DirectX::XMFLOAT2> uvs;
+    std::vector<DirectX::XMFLOAT3> normals;
+    std::vector<uint16> indices;
+
+    while (getline(file, line)) {
+        reader.clear();
+        reader << line;
+        reader >> type;
+
+        if (type == "v") {
+            DirectX::XMFLOAT3 vertex;
+            reader >> vertex.x >> vertex.y >> vertex.z;
+            vertices.emplace_back(vertex);
+        }
+        if (type == "vt") {
+            DirectX::XMFLOAT2 uv;
+            reader >> uv.x >> uv.y;
+            uvs.emplace_back(uv);
+        }
+        if (type == "vn") {
+            DirectX::XMFLOAT3 normal;
+            reader >> normal.x >> normal.y >> normal.z;
+            normals.emplace_back(normal);
+        }
+        if (type == "f") {
+            uint16 index1, index2, index3;
+            reader >> index1 >> tmp >> index1 >> tmp >> index1;
+            reader >> index2 >> tmp >> index2 >> tmp >> index2;
+            reader >> index3 >> tmp >> index3 >> tmp >> index3;
+            indices.push_back(index1);
+            indices.push_back(index2);
+            indices.push_back(index3);
+        }
+    }
+    if (vertices.size() != uvs.size() || vertices.size() != normals.size() || normals.size() != uvs.size()) {
+        throw std::exception("Model Data Not Normalize");
+    }
+
+    std::vector<ModelVertex> modelVertex;
+    for (uint i = 0; i < vertices.size(); i++) {
+        modelVertex.push_back({vertices[i],
+                               uvs[i],
+                               normals[i]});
+    }
+
+    return {modelVertex, indices};
+}
+
+std::unordered_map<std::string, Mesh> DataLoader::GetMeshes()
+{
+    std::unordered_map<std::string, Mesh> ret;
+
+    for (const auto &item : mModel.Models) {
+        std::wstring path = mRootPath.wstring() + L"\\" + string2wstring(item.mesh);
+        std::replace(path.begin(), path.end(), '/', '\\');
+        auto mesh = ReadMesh(path);
+        ret[item.mesh] = mesh;
+    }
+
+    return ret;
 }

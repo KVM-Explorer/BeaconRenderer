@@ -1,6 +1,8 @@
 #pragma once
 #include <stdafx.h>
 #include <filesystem>
+#include <DataStruct.h>
+#include <unordered_map>
 
 struct ModelLight {
     DirectX::XMFLOAT4 background;
@@ -39,7 +41,12 @@ struct ModelProps {
 
 class DataLoader {
 public:
-    DataLoader(std::wstring path);
+    DataLoader(std::wstring path, std::wstring name);
+
+    [[nodiscard]] std::vector<DirectX::XMFLOAT4X4> GetTransforms() const;
+    [[nodiscard]] ModelLight GetLight() const;
+    [[nodiscard]] std::vector<ModelMaterial> GetMaterials() const;
+    std::unordered_map<std::string, Mesh> GetMeshes();
 
 private:
     void ReadSceneFromFile();
@@ -52,8 +59,11 @@ private:
     void ReadTransforms(std::stringstream &reader);
     void ReadModels(std::stringstream &reader);
 
+    Mesh ReadMesh(std::wstring path);
+
 private:
     std::filesystem::path mScenePath;
+    std::filesystem::path mRootPath;
     std::filesystem::path mMetaPath;
     ModelProps mModel;
 };

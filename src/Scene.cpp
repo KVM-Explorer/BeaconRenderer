@@ -2,8 +2,9 @@
 #include "Tools/DataLoader.h"
 #include "Tools/FrameworkHelper.h"
 
-Scene::Scene(const std::wstring &path)
-    :mRootPath(path)
+Scene::Scene(const std::wstring &root, const std::wstring &scenename) :
+    mRootPath(root),
+    mSceneName(scenename)
 {
 }
 
@@ -15,15 +16,14 @@ void Scene::Init(SceneAdapter &adapter)
     CreateRootSignature(adapter.Device);
     CreatePipelineStateObject(adapter.Device);
     CreateTriangleVertex(adapter.Device, adapter.CommandList);
-    mDataLoader = std::make_unique<DataLoader>(mRootPath);
-    
+    mDataLoader = std::make_unique<DataLoader>(mRootPath, mSceneName);
+    LoadAssets(adapter.Device, adapter.CommandList);
 }
 
 void Scene::RenderScene(ID3D12GraphicsCommandList *commandList, uint frameIndex)
 {
     commandList->SetGraphicsRootSignature(mSignature["default"].Get());
     commandList->SetPipelineState(mPSO["default"].Get());
-
 
     // State Convert Befor Render Barrier
     auto beginBarrier = CD3DX12_RESOURCE_BARRIER::Transition(RTVBuffer.at(frameIndex).Get(),
@@ -35,7 +35,7 @@ void Scene::RenderScene(ID3D12GraphicsCommandList *commandList, uint frameIndex)
     auto rtvHandle = RTVDescriptorHeap->CPUHandle(frameIndex);
 
     commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
-    commandList->ClearRenderTargetView(rtvHandle,DirectX::Colors::SteelBlue, 0, nullptr);
+    commandList->ClearRenderTargetView(rtvHandle, DirectX::Colors::SteelBlue, 0, nullptr);
     commandList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
     commandList->IASetVertexBuffers(0, 1, &mVertexBufferView);
     commandList->DrawInstanced(3, 1, 0, 0);
@@ -151,4 +151,45 @@ void Scene::CreateTriangleVertex(ID3D12Device *device, ID3D12GraphicsCommandList
     mVertexBufferView.BufferLocation = mVertexBuffer->Resource()->GetGPUVirtualAddress();
     mVertexBufferView.SizeInBytes = vertexByteSize;
     mVertexBufferView.StrideInBytes = sizeof(Vertex);
+}
+
+void Scene::LoadAssets(ID3D12Device *device, ID3D12GraphicsCommandList *commandList)
+{
+    // DataLoader light, materials, obj model(vertex index normal)
+    mTransforms = mDataLoader->GetTransforms();
+    // CreateSceneInfo(mDataLoader->GetLight()); // TODO CreateSceneInfo
+    CreateMaterials(mDataLoader->GetMaterials(), device, commandList);
+    mMeshesData = mDataLoader->GetMeshes();
+    CreateMeshes(device, commandList);
+    CreateModels(device, commandList);
+}
+
+void Scene::CreateMaterials(const std::vector<ModelMaterial> &info,
+                            ID3D12Device *device,
+                            ID3D12GraphicsCommandList *commandList)
+{
+    int index = 0;
+    for (const auto &item : info) {
+        Material material = {};
+        material.BaseColor = item.basecolor;
+        material.Index = index;
+        material.Shineness = item.shiniess;
+        if (item.diffuse_map != "null") {
+            std::wstring path = mRootPath + L"\\" + string2wstring(item.diffuse_map);
+            std::replace(path.begin(), path.end(), '/', '\\');
+            material.Texture = std::make_unique<Texture>(device, commandList, path);
+        }
+        mMaterials.push_back(std::move(material));
+        index++;
+    }
+}
+
+void Scene::CreateMeshes(ID3D12Device *device, ID3D12GraphicsCommandList *commandList)
+{
+    // TODO CretaMeshes
+}
+
+void Scene::CreateModels(ID3D12Device *device, ID3D12GraphicsCommandList *commandList)
+{
+    // TODO CreateModels
 }
