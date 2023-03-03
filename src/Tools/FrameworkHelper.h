@@ -15,7 +15,7 @@ public:
         std::runtime_error(HrToString(handle)),
         mHandle(handle)
     {
-    }   
+    }
 
 private:
     const HRESULT mHandle;
@@ -27,3 +27,6 @@ inline void ThrowIfFailed(HRESULT handler)
         throw HandleException(handler);
     }
 }
+
+std::wstring string2wstring(std::string str);
+std::string wstring2string(std::wstring wstr);
