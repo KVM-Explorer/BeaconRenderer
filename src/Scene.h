@@ -6,6 +6,9 @@
 #include "D3DHelpler/DefaultBuffer.h"
 #include "DataStruct.h"
 #include "Tools/DataLoader.h"
+#include "D3DHelpler/Entity.h"
+#include "D3DHelpler/UploadBuffer.h"
+#include "D3DHelpler/RenderItem.h"
 
 class Scene {
 public:
@@ -28,14 +31,20 @@ private:
     void CreateInputLayout();
     void CreateTriangleVertex(ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
     void CompileShaders();
+    std::array<CD3DX12_STATIC_SAMPLER_DESC, 7> GetStaticSamplers();
+    void CreateCommonConstant();
 
     void LoadAssets(ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
     void CreateSceneInfo(const ModelLight &info);
     void CreateMaterials(const std::vector<ModelMaterial> &info, ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
-    void CreateMeshes(ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
-    void CreateModels(ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
+    MeshInfo CreateMeshes(Mesh &mesh, ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
+    void CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
+
+    void RenderTriangleScene(ID3D12GraphicsCommandList *commandList, uint frameIndex);
+    void RenderModelScene(ID3D12GraphicsCommandList *commandList, uint frameIndex);
 
 private:
+    uint mEntityCount = 0;
     std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> mPSO;
     std::unordered_map<std::string, ComPtr<ID3D12RootSignature>> mSignature;
     std::unordered_map<std::string, ComPtr<ID3DBlob>> mShaders;
@@ -55,5 +64,15 @@ private:
     std::vector<DirectX::XMFLOAT4X4> mTransforms; // object constant
     SceneInfo mSceneInfo;                         // common constant
     std::vector<Material> mMaterials;
-    std::unordered_map<std::string,Mesh> mMeshesData;
+    std::unordered_map<std::string, Mesh> mMeshesData;
+
+    std::unique_ptr<UploadBuffer<EntityInfo>> mObjectConstant;
+
+    std::vector<Entity> mEntities;
+    std::unordered_map<EntityType, std::vector<RenderItem>> mRenderItems;
+
+    std::vector<ModelVertex> mAllVertices;
+    std::vector<uint16> mAllIndices;
+    std::unique_ptr<UploadBuffer<ModelVertex>> VerticesBuffer;
+    std::unique_ptr<UploadBuffer<uint16>> IndicesBuffer;
 };

@@ -16,35 +16,14 @@ void Scene::Init(SceneAdapter &adapter)
     CreateRootSignature(adapter.Device);
     CreatePipelineStateObject(adapter.Device);
     CreateTriangleVertex(adapter.Device, adapter.CommandList);
+    CreateCommonConstant();
     mDataLoader = std::make_unique<DataLoader>(mRootPath, mSceneName);
     LoadAssets(adapter.Device, adapter.CommandList);
 }
 
 void Scene::RenderScene(ID3D12GraphicsCommandList *commandList, uint frameIndex)
 {
-    commandList->SetGraphicsRootSignature(mSignature["default"].Get());
-    commandList->SetPipelineState(mPSO["default"].Get());
-
-    // State Convert Befor Render Barrier
-    auto beginBarrier = CD3DX12_RESOURCE_BARRIER::Transition(RTVBuffer.at(frameIndex).Get(),
-                                                             D3D12_RESOURCE_STATE_PRESENT,
-                                                             D3D12_RESOURCE_STATE_RENDER_TARGET);
-    commandList->ResourceBarrier(1, &beginBarrier);
-
-    // Rendering
-    auto rtvHandle = RTVDescriptorHeap->CPUHandle(frameIndex);
-
-    commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
-    commandList->ClearRenderTargetView(rtvHandle, DirectX::Colors::SteelBlue, 0, nullptr);
-    commandList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-    commandList->IASetVertexBuffers(0, 1, &mVertexBufferView);
-    commandList->DrawInstanced(3, 1, 0, 0);
-
-    // State Convert After Render Barrier
-    auto endBarrier = CD3DX12_RESOURCE_BARRIER::Transition(RTVBuffer.at(frameIndex).Get(),
-                                                           D3D12_RESOURCE_STATE_RENDER_TARGET,
-                                                           D3D12_RESOURCE_STATE_PRESENT);
-    commandList->ResourceBarrier(1, &endBarrier);
+    RenderTriangleScene(commandList, frameIndex);
 }
 
 void Scene::RenderUI()
@@ -91,6 +70,8 @@ void Scene::CompileShaders()
     ThrowIfFailed(D3DCompileFromFile(L"Shaders/default.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PSMain", "ps_5_1", compileFlags, 0, &mShaders["defaultPS"], nullptr));
 }
 
+
+
 void Scene::CreateRootSignature(ID3D12Device *device)
 {
     CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc(0,
@@ -107,6 +88,19 @@ void Scene::CreateRootSignature(ID3D12Device *device)
                                               signature->GetBufferPointer(),
                                               signature->GetBufferSize(),
                                               IID_PPV_ARGS(&mSignature["default"])));
+
+    std::array<CD3DX12_ROOT_PARAMETER, 4> rootParameters;
+    rootParameters.at(0).InitAsConstantBufferView(0);
+    rootParameters.at(1).InitAsConstantBufferView(1);
+    rootParameters.at(2).InitAsShaderResourceView(0, 1);
+
+    auto samplers = CreateStaticSampler();
+
+    CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc(rootParameters.size(),
+                                                  rootParameters.data(),
+                                                  samplers.size(),
+                                                  samplers.data(),
+                                                  D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 }
 
 void Scene::CreatePipelineStateObject(ID3D12Device *device)
@@ -153,6 +147,10 @@ void Scene::CreateTriangleVertex(ID3D12Device *device, ID3D12GraphicsCommandList
     mVertexBufferView.StrideInBytes = sizeof(Vertex);
 }
 
+void Scene::CreateCommonConstant()
+{
+}
+
 void Scene::LoadAssets(ID3D12Device *device, ID3D12GraphicsCommandList *commandList)
 {
     // DataLoader light, materials, obj model(vertex index normal)
@@ -160,8 +158,7 @@ void Scene::LoadAssets(ID3D12Device *device, ID3D12GraphicsCommandList *commandL
     // CreateSceneInfo(mDataLoader->GetLight()); // TODO CreateSceneInfo
     CreateMaterials(mDataLoader->GetMaterials(), device, commandList);
     mMeshesData = mDataLoader->GetMeshes();
-    CreateMeshes(device, commandList);
-    CreateModels(device, commandList);
+    CreateModels(mDataLoader->GetModels(), device, commandList);
 }
 
 void Scene::CreateMaterials(const std::vector<ModelMaterial> &info,
@@ -184,12 +181,122 @@ void Scene::CreateMaterials(const std::vector<ModelMaterial> &info,
     }
 }
 
-void Scene::CreateMeshes(ID3D12Device *device, ID3D12GraphicsCommandList *commandList)
+MeshInfo Scene::CreateMeshes(Mesh &mesh, ID3D12Device *device, ID3D12GraphicsCommandList *commandList)
 {
-    // TODO CretaMeshes
+    uint vertexOffset = mAllVertices.size();
+    uint indexOffset = mAllIndices.size();
+    uint vertexCount = mesh.Vertices.size();
+    uint indexCount = mesh.Indices.size();
+
+    for (const auto &Vertice : mesh.Vertices) {
+        mAllVertices.push_back(Vertice);
+    }
+    for (const auto &Indice : mesh.Indices) {
+        mAllIndices.push_back(Indice);
+    }
+
+    return {vertexOffset, vertexCount, indexOffset, indexCount};
 }
 
-void Scene::CreateModels(ID3D12Device *device, ID3D12GraphicsCommandList *commandList)
+void Scene::CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12GraphicsCommandList *commandList)
 {
-    // TODO CreateModels
+    for (const auto &item : info) {
+        Entity entity(EntityType::Opaque);
+        entity.Transform = mTransforms[item.transform];
+        entity.MaterialIndex = item.material;
+        entity.EntityIndex = mEntityCount;
+        auto meshInfo = CreateMeshes(mMeshesData[item.mesh], device, commandList);
+        entity.MeshInfo = meshInfo;
+        mEntityCount++;
+        mEntities.push_back(entity);
+    }
+
+    // Upload Data
+    VerticesBuffer = std::make_unique<UploadBuffer<ModelVertex>>(device, mAllVertices.size(), false);
+    IndicesBuffer = std::make_unique<UploadBuffer<UINT16>>(device, mAllIndices.size(), false);
+    VerticesBuffer->copyAllData(mAllVertices.data(), mAllVertices.size());
+    IndicesBuffer->copyAllData(mAllIndices.data(), mAllIndices.size());
+
+    // ConstantData
+    mObjectConstant = std::make_unique<UploadBuffer<EntityInfo>>(device, mEntities.size(), true);
+    for (const auto &item : mEntities) {
+        EntityInfo entityInfo = {};
+        entityInfo.MaterialIndex = item.MaterialIndex;
+        entityInfo.Transform = item.Transform;
+        mObjectConstant->copyData(item.EntityIndex, entityInfo);
+    }
+
+    // Create Render Item
+    for (const auto &item : mEntities) {
+        RenderItem target;
+        target
+            .SetVertexInfo(item.MeshInfo.VertexOffset,
+                           VerticesBuffer->resource()->GetGPUVirtualAddress(),
+                           sizeof(ModelVertex),
+                           item.MeshInfo.VertexCount)
+            .SetIndexInfo(item.MeshInfo.IndexOffset,
+                          IndicesBuffer->resource()->GetGPUVirtualAddress(),
+                          sizeof(uint16),
+                          item.MeshInfo.IndexCount)
+            .SetConstantInfo(item.EntityIndex,
+                             mObjectConstant->resource()->GetGPUVirtualAddress(),
+                             sizeof(DirectX::XMFLOAT4X4),
+                             3); // TODO Update Root Parameter Index
+    }
+}
+
+void Scene::RenderTriangleScene(ID3D12GraphicsCommandList *commandList, uint frameIndex)
+{
+    commandList->SetGraphicsRootSignature(mSignature["default"].Get());
+    commandList->SetPipelineState(mPSO["default"].Get());
+
+    // State Convert Befor Render Barrier
+    auto beginBarrier = CD3DX12_RESOURCE_BARRIER::Transition(RTVBuffer.at(frameIndex).Get(),
+                                                             D3D12_RESOURCE_STATE_PRESENT,
+                                                             D3D12_RESOURCE_STATE_RENDER_TARGET);
+    commandList->ResourceBarrier(1, &beginBarrier);
+
+    // Rendering
+    auto rtvHandle = RTVDescriptorHeap->CPUHandle(frameIndex);
+
+    commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
+    commandList->ClearRenderTargetView(rtvHandle, DirectX::Colors::SteelBlue, 0, nullptr);
+    commandList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+    commandList->IASetVertexBuffers(0, 1, &mVertexBufferView);
+    commandList->DrawInstanced(3, 1, 0, 0);
+
+    // State Convert After Render Barrier
+    auto endBarrier = CD3DX12_RESOURCE_BARRIER::Transition(RTVBuffer.at(frameIndex).Get(),
+                                                           D3D12_RESOURCE_STATE_RENDER_TARGET,
+                                                           D3D12_RESOURCE_STATE_PRESENT);
+    commandList->ResourceBarrier(1, &endBarrier);
+}
+
+void Scene::RenderModelScene(ID3D12GraphicsCommandList *commandList, uint frameIndex)
+{
+    // TODO Update Model Scene Parameters
+    commandList->SetGraphicsRootSignature(mSignature["default"].Get());
+    commandList->SetPipelineState(mPSO["default"].Get());
+
+    // State Convert Befor Render Barrier
+    auto beginBarrier = CD3DX12_RESOURCE_BARRIER::Transition(RTVBuffer.at(frameIndex).Get(),
+                                                             D3D12_RESOURCE_STATE_PRESENT,
+                                                             D3D12_RESOURCE_STATE_RENDER_TARGET);
+    commandList->ResourceBarrier(1, &beginBarrier);
+
+    // Rendering
+    auto rtvHandle = RTVDescriptorHeap->CPUHandle(frameIndex);
+
+    commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
+    commandList->ClearRenderTargetView(rtvHandle, DirectX::Colors::SteelBlue, 0, nullptr);
+
+    for (auto &item : mRenderItems[EntityType::Opaque]) {
+        item.DrawItem(commandList);
+    }
+
+    // State Convert After Render Barrier
+    auto endBarrier = CD3DX12_RESOURCE_BARRIER::Transition(RTVBuffer.at(frameIndex).Get(),
+                                                           D3D12_RESOURCE_STATE_RENDER_TARGET,
+                                                           D3D12_RESOURCE_STATE_PRESENT);
+    commandList->ResourceBarrier(1, &endBarrier);
 }

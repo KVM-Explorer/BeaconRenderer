@@ -9,6 +9,7 @@ public:
     Beacon(Beacon &&) = default;
     Beacon &operator=(const Beacon &) = delete;
     Beacon &operator=(Beacon &&) = default;
+    ~Beacon();
 
     void OnUpdate() override;
     void OnRender() override;

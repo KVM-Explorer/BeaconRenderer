@@ -47,6 +47,7 @@ public:
     [[nodiscard]] ModelLight GetLight() const;
     [[nodiscard]] std::vector<ModelMaterial> GetMaterials() const;
     std::unordered_map<std::string, Mesh> GetMeshes();
+    [[nodiscard]] std::vector<Model> GetModels() const;
 
 private:
     void ReadSceneFromFile();

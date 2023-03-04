@@ -29,6 +29,12 @@ enum class EntityType {
     Opaque, // 不透明
 };
 
+struct MeshInfo {
+    uint VertexOffset;
+    uint VertexCount;
+    uint IndexOffset;
+    uint IndexCount;
+};
 
 struct Material {
     uint Index;
@@ -39,10 +45,16 @@ struct Material {
     std::unique_ptr<Texture> Texture;
 };
 struct SceneInfo {
-
 };
 
 struct Mesh {
     std::vector<ModelVertex> Vertices;
     std::vector<uint16> Indices;
+};
+struct EntityInfo {
+    DirectX::XMFLOAT4X4 Transform;
+    uint MaterialIndex;
+    uint Padding0;
+    uint Padding1;
+    uint Padding2;
 };

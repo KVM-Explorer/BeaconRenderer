@@ -51,7 +51,9 @@ void Beacon::OnDestory()
 {
     mScene.reset();
 }
-
+Beacon::~Beacon()
+{
+}
 void Beacon::OnMouseDown()
 {
 }

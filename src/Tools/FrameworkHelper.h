@@ -30,3 +30,8 @@ inline void ThrowIfFailed(HRESULT handler)
 
 std::wstring string2wstring(std::string str);
 std::string wstring2string(std::wstring wstr);
+
+inline UINT CalculateConstantBufferByteSize(UINT byteSize)
+{
+    return (byteSize + 255) & ~255;
+}

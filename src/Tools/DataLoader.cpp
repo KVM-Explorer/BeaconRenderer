@@ -204,3 +204,9 @@ std::unordered_map<std::string, Mesh> DataLoader::GetMeshes()
 
     return ret;
 }
+
+std::vector<Model> DataLoader::GetModels() const
+
+{
+    return mModel.Models;
+}
