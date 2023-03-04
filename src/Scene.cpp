@@ -32,19 +32,19 @@ void Scene::RenderUI()
 
 void Scene::CreateRTV(ID3D12Device *device, IDXGISwapChain *swapChain, uint frameCount)
 {
-    RTVDescriptorHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, frameCount);
+    mRTVDescriptorHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, frameCount);
     for (UINT i = 0; i < frameCount; i++) {
         ComPtr<ID3D12Resource> buffer;
-        auto handle = RTVDescriptorHeap->CPUHandle(i);
+        auto handle = mRTVDescriptorHeap->CPUHandle(i);
         ThrowIfFailed(swapChain->GetBuffer(i, IID_PPV_ARGS(&buffer)));
         device->CreateRenderTargetView(buffer.Get(), nullptr, handle);
-        RTVBuffer.push_back(std::move(buffer));
+        mRTVBuffer.push_back(std::move(buffer));
     }
 }
 
 void Scene::CreateInputLayout()
 {
-    mInputLayout = {{
+    mInputLayout["Test"] = {{
         {"POSITION",
          0,
          DXGI_FORMAT_R32G32B32_FLOAT,
@@ -60,17 +60,106 @@ void Scene::CreateInputLayout()
          D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
          0},
     }};
+
+    mInputLayout["Model"] = {{{"POSITION",
+                               0,
+                               DXGI_FORMAT_R32G32B32_FLOAT,
+                               0,
+                               0,
+                               D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+                               0},
+                              {"TEXCOORD",
+                               0,
+                               DXGI_FORMAT_R32G32_FLOAT,
+                               0,
+                               12,
+                               D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+                               0},
+                              {"NORMAL",
+                               0,
+                               DXGI_FORMAT_R32G32_FLOAT,
+                               0,
+                               0,
+                               D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+                               20}}};
 }
 
 void Scene::CompileShaders()
 {
     UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
 
-    ThrowIfFailed(D3DCompileFromFile(L"Shaders/default.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VSMain", "vs_5_1", compileFlags, 0, &mShaders["defaultVS"], nullptr));
-    ThrowIfFailed(D3DCompileFromFile(L"Shaders/default.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PSMain", "ps_5_1", compileFlags, 0, &mShaders["defaultPS"], nullptr));
+    ThrowIfFailed(D3DCompileFromFile(L"Shaders/Test.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VSMain", "vs_5_1", compileFlags, 0, &mShaders["TestVS"], nullptr));
+    ThrowIfFailed(D3DCompileFromFile(L"Shaders/Test.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PSMain", "ps_5_1", compileFlags, 0, &mShaders["TestPS"], nullptr));
+
+    ThrowIfFailed(D3DCompileFromFile(L"Shaders/Model.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VSMain", "vs_5_1", compileFlags, 0, &mShaders["ModelVS"], nullptr));
+    ThrowIfFailed(D3DCompileFromFile(L"Shaders/Model.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PSMain", "ps_5_1", compileFlags, 0, &mShaders["ModelPS"], nullptr));
 }
 
+std::array<CD3DX12_STATIC_SAMPLER_DESC, 7> Scene::GetStaticSamplers()
+{
+    const CD3DX12_STATIC_SAMPLER_DESC pointWrap(
+        0,                                // shaderRegister
+        D3D12_FILTER_MIN_MAG_MIP_POINT,   // filter
+        D3D12_TEXTURE_ADDRESS_MODE_WRAP,  // addressU
+        D3D12_TEXTURE_ADDRESS_MODE_WRAP,  // addressV
+        D3D12_TEXTURE_ADDRESS_MODE_WRAP); // addressW
 
+    const CD3DX12_STATIC_SAMPLER_DESC pointClamp(
+        1,                                 // shaderRegister
+        D3D12_FILTER_MIN_MAG_MIP_POINT,    // filter
+        D3D12_TEXTURE_ADDRESS_MODE_CLAMP,  // addressU
+        D3D12_TEXTURE_ADDRESS_MODE_CLAMP,  // addressV
+        D3D12_TEXTURE_ADDRESS_MODE_CLAMP); // addressW
+
+    const CD3DX12_STATIC_SAMPLER_DESC linearWrap(
+        2,                                // shaderRegister
+        D3D12_FILTER_MIN_MAG_MIP_LINEAR,  // filter
+        D3D12_TEXTURE_ADDRESS_MODE_WRAP,  // addressU
+        D3D12_TEXTURE_ADDRESS_MODE_WRAP,  // addressV
+        D3D12_TEXTURE_ADDRESS_MODE_WRAP); // addressW
+
+    const CD3DX12_STATIC_SAMPLER_DESC linearClamp(
+        3,                                 // shaderRegister
+        D3D12_FILTER_MIN_MAG_MIP_LINEAR,   // filter
+        D3D12_TEXTURE_ADDRESS_MODE_CLAMP,  // addressU
+        D3D12_TEXTURE_ADDRESS_MODE_CLAMP,  // addressV
+        D3D12_TEXTURE_ADDRESS_MODE_CLAMP); // addressW
+
+    const CD3DX12_STATIC_SAMPLER_DESC anisotropicWrap(
+        4,                               // shaderRegister
+        D3D12_FILTER_ANISOTROPIC,        // filter
+        D3D12_TEXTURE_ADDRESS_MODE_WRAP, // addressU
+        D3D12_TEXTURE_ADDRESS_MODE_WRAP, // addressV
+        D3D12_TEXTURE_ADDRESS_MODE_WRAP, // addressW
+        0.0f,                            // mipLODBias
+        8);                              // maxAnisotropy
+
+    const CD3DX12_STATIC_SAMPLER_DESC anisotropicClamp(
+        5,                                // shaderRegister
+        D3D12_FILTER_ANISOTROPIC,         // filter
+        D3D12_TEXTURE_ADDRESS_MODE_CLAMP, // addressU
+        D3D12_TEXTURE_ADDRESS_MODE_CLAMP, // addressV
+        D3D12_TEXTURE_ADDRESS_MODE_CLAMP, // addressW
+        0.0f,                             // mipLODBias
+        8);                               // maxAnisotropy
+
+    const CD3DX12_STATIC_SAMPLER_DESC shadow(
+        6,                                                // shaderRegister
+        D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT, // filter
+        D3D12_TEXTURE_ADDRESS_MODE_BORDER,                // addressU
+        D3D12_TEXTURE_ADDRESS_MODE_BORDER,                // addressV
+        D3D12_TEXTURE_ADDRESS_MODE_BORDER,                // addressW
+        0.0f,                                             // mipLODBias
+        16,                                               // maxAnisotropy
+        D3D12_COMPARISON_FUNC_LESS_EQUAL,
+        D3D12_STATIC_BORDER_COLOR_OPAQUE_BLACK);
+
+    return {
+        pointWrap, pointClamp,
+        linearWrap, linearClamp,
+        anisotropicWrap, anisotropicClamp,
+        shadow};
+}
 
 void Scene::CreateRootSignature(ID3D12Device *device)
 {
@@ -87,30 +176,39 @@ void Scene::CreateRootSignature(ID3D12Device *device)
     ThrowIfFailed(device->CreateRootSignature(0,
                                               signature->GetBufferPointer(),
                                               signature->GetBufferSize(),
-                                              IID_PPV_ARGS(&mSignature["default"])));
+                                              IID_PPV_ARGS(&mSignature["Test"])));
 
     std::array<CD3DX12_ROOT_PARAMETER, 4> rootParameters;
     rootParameters.at(0).InitAsConstantBufferView(0);
     rootParameters.at(1).InitAsConstantBufferView(1);
     rootParameters.at(2).InitAsShaderResourceView(0, 1);
+    rootParameters.at(3).InitAsConstantBufferView(0, 0);
 
-    auto samplers = CreateStaticSampler();
+    auto samplers = GetStaticSamplers();
 
-    CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc(rootParameters.size(),
-                                                  rootParameters.data(),
-                                                  samplers.size(),
-                                                  samplers.data(),
-                                                  D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+    CD3DX12_ROOT_SIGNATURE_DESC commonRootSignatureDesc(rootParameters.size(),
+                                                        rootParameters.data(),
+                                                        samplers.size(),
+                                                        samplers.data(),
+                                                        D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+    ThrowIfFailed(D3D12SerializeRootSignature(&commonRootSignatureDesc,
+                                              D3D_ROOT_SIGNATURE_VERSION_1_0,
+                                              &signature, &error));
+    ThrowIfFailed(device->CreateRootSignature(0,
+                                              signature->GetBufferPointer(),
+                                              signature->GetBufferSize(),
+                                              IID_PPV_ARGS(&mSignature["Model"])));
 }
 
 void Scene::CreatePipelineStateObject(ID3D12Device *device)
 {
     D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
 
-    psoDesc.InputLayout = {mInputLayout.data(), static_cast<UINT>(mInputLayout.size())};
-    psoDesc.pRootSignature = mSignature["default"].Get();
-    psoDesc.VS = CD3DX12_SHADER_BYTECODE(mShaders["defaultVS"].Get());
-    psoDesc.PS = CD3DX12_SHADER_BYTECODE(mShaders["defaultPS"].Get());
+    psoDesc.InputLayout = {mInputLayout["Test"].data(),
+                           static_cast<UINT>(mInputLayout["Test"].size())};
+    psoDesc.pRootSignature = mSignature["Test"].Get();
+    psoDesc.VS = CD3DX12_SHADER_BYTECODE(mShaders["TestVS"].Get());
+    psoDesc.PS = CD3DX12_SHADER_BYTECODE(mShaders["TestPS"].Get());
     psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
     psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
@@ -128,7 +226,24 @@ void Scene::CreatePipelineStateObject(ID3D12Device *device)
     psoDesc.SampleMask = UINT_MAX;
     psoDesc.SampleDesc.Count = 1;
 
-    ThrowIfFailed(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPSO["default"])));
+    ThrowIfFailed(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPSO["Test"])));
+
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC opaqueDesc = {};
+    opaqueDesc.VS = CD3DX12_SHADER_BYTECODE(mShaders["ModelVS"].Get());
+    opaqueDesc.PS = CD3DX12_SHADER_BYTECODE(mShaders["ModelPS"].Get());
+    opaqueDesc.InputLayout = {mInputLayout["Model"].data(),
+                              static_cast<UINT>(mInputLayout["Model"].size())};
+    opaqueDesc.pRootSignature = mSignature["Model"].Get();
+    opaqueDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+    opaqueDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+    opaqueDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+    opaqueDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+    opaqueDesc.NumRenderTargets = 1;
+    opaqueDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+    opaqueDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    opaqueDesc.SampleDesc.Count = 1;
+    opaqueDesc.SampleMask = UINT_MAX;
+    ThrowIfFailed(device->CreateGraphicsPipelineState(&opaqueDesc, IID_PPV_ARGS(&mPSO["Model"])));
 }
 
 void Scene::CreateTriangleVertex(ID3D12Device *device, ID3D12GraphicsCommandList *commandList)
@@ -212,10 +327,10 @@ void Scene::CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12Gr
     }
 
     // Upload Data
-    VerticesBuffer = std::make_unique<UploadBuffer<ModelVertex>>(device, mAllVertices.size(), false);
-    IndicesBuffer = std::make_unique<UploadBuffer<UINT16>>(device, mAllIndices.size(), false);
-    VerticesBuffer->copyAllData(mAllVertices.data(), mAllVertices.size());
-    IndicesBuffer->copyAllData(mAllIndices.data(), mAllIndices.size());
+    mVerticesBuffer = std::make_unique<UploadBuffer<ModelVertex>>(device, mAllVertices.size(), false);
+    mIndicesBuffer = std::make_unique<UploadBuffer<UINT16>>(device, mAllIndices.size(), false);
+    mVerticesBuffer->copyAllData(mAllVertices.data(), mAllVertices.size());
+    mIndicesBuffer->copyAllData(mAllIndices.data(), mAllIndices.size());
 
     // ConstantData
     mObjectConstant = std::make_unique<UploadBuffer<EntityInfo>>(device, mEntities.size(), true);
@@ -231,33 +346,33 @@ void Scene::CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12Gr
         RenderItem target;
         target
             .SetVertexInfo(item.MeshInfo.VertexOffset,
-                           VerticesBuffer->resource()->GetGPUVirtualAddress(),
+                           mVerticesBuffer->resource()->GetGPUVirtualAddress(),
                            sizeof(ModelVertex),
                            item.MeshInfo.VertexCount)
             .SetIndexInfo(item.MeshInfo.IndexOffset,
-                          IndicesBuffer->resource()->GetGPUVirtualAddress(),
+                          mIndicesBuffer->resource()->GetGPUVirtualAddress(),
                           sizeof(uint16),
                           item.MeshInfo.IndexCount)
             .SetConstantInfo(item.EntityIndex,
                              mObjectConstant->resource()->GetGPUVirtualAddress(),
                              sizeof(DirectX::XMFLOAT4X4),
-                             3); // TODO Update Root Parameter Index
+                             0); // TODO Update Root Parameter Index
     }
 }
 
 void Scene::RenderTriangleScene(ID3D12GraphicsCommandList *commandList, uint frameIndex)
 {
-    commandList->SetGraphicsRootSignature(mSignature["default"].Get());
-    commandList->SetPipelineState(mPSO["default"].Get());
+    commandList->SetGraphicsRootSignature(mSignature["Test"].Get());
+    commandList->SetPipelineState(mPSO["Test"].Get());
 
     // State Convert Befor Render Barrier
-    auto beginBarrier = CD3DX12_RESOURCE_BARRIER::Transition(RTVBuffer.at(frameIndex).Get(),
+    auto beginBarrier = CD3DX12_RESOURCE_BARRIER::Transition(mRTVBuffer.at(frameIndex).Get(),
                                                              D3D12_RESOURCE_STATE_PRESENT,
                                                              D3D12_RESOURCE_STATE_RENDER_TARGET);
     commandList->ResourceBarrier(1, &beginBarrier);
 
     // Rendering
-    auto rtvHandle = RTVDescriptorHeap->CPUHandle(frameIndex);
+    auto rtvHandle = mRTVDescriptorHeap->CPUHandle(frameIndex);
 
     commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
     commandList->ClearRenderTargetView(rtvHandle, DirectX::Colors::SteelBlue, 0, nullptr);
@@ -266,7 +381,7 @@ void Scene::RenderTriangleScene(ID3D12GraphicsCommandList *commandList, uint fra
     commandList->DrawInstanced(3, 1, 0, 0);
 
     // State Convert After Render Barrier
-    auto endBarrier = CD3DX12_RESOURCE_BARRIER::Transition(RTVBuffer.at(frameIndex).Get(),
+    auto endBarrier = CD3DX12_RESOURCE_BARRIER::Transition(mRTVBuffer.at(frameIndex).Get(),
                                                            D3D12_RESOURCE_STATE_RENDER_TARGET,
                                                            D3D12_RESOURCE_STATE_PRESENT);
     commandList->ResourceBarrier(1, &endBarrier);
@@ -275,17 +390,17 @@ void Scene::RenderTriangleScene(ID3D12GraphicsCommandList *commandList, uint fra
 void Scene::RenderModelScene(ID3D12GraphicsCommandList *commandList, uint frameIndex)
 {
     // TODO Update Model Scene Parameters
-    commandList->SetGraphicsRootSignature(mSignature["default"].Get());
-    commandList->SetPipelineState(mPSO["default"].Get());
+    commandList->SetGraphicsRootSignature(mSignature["Model"].Get());
+    commandList->SetPipelineState(mPSO["Model"].Get());
 
     // State Convert Befor Render Barrier
-    auto beginBarrier = CD3DX12_RESOURCE_BARRIER::Transition(RTVBuffer.at(frameIndex).Get(),
+    auto beginBarrier = CD3DX12_RESOURCE_BARRIER::Transition(mRTVBuffer.at(frameIndex).Get(),
                                                              D3D12_RESOURCE_STATE_PRESENT,
                                                              D3D12_RESOURCE_STATE_RENDER_TARGET);
     commandList->ResourceBarrier(1, &beginBarrier);
 
     // Rendering
-    auto rtvHandle = RTVDescriptorHeap->CPUHandle(frameIndex);
+    auto rtvHandle = mRTVDescriptorHeap->CPUHandle(frameIndex);
 
     commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
     commandList->ClearRenderTargetView(rtvHandle, DirectX::Colors::SteelBlue, 0, nullptr);
@@ -295,7 +410,7 @@ void Scene::RenderModelScene(ID3D12GraphicsCommandList *commandList, uint frameI
     }
 
     // State Convert After Render Barrier
-    auto endBarrier = CD3DX12_RESOURCE_BARRIER::Transition(RTVBuffer.at(frameIndex).Get(),
+    auto endBarrier = CD3DX12_RESOURCE_BARRIER::Transition(mRTVBuffer.at(frameIndex).Get(),
                                                            D3D12_RESOURCE_STATE_RENDER_TARGET,
                                                            D3D12_RESOURCE_STATE_PRESENT);
     commandList->ResourceBarrier(1, &endBarrier);

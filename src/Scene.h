@@ -54,9 +54,9 @@ private:
 
     std::unique_ptr<DataLoader> mDataLoader;
 
-    std::unique_ptr<DescriptorHeap> RTVDescriptorHeap;
-    std::vector<ComPtr<ID3D12Resource>> RTVBuffer;
-    std::vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
+    std::unique_ptr<DescriptorHeap> mRTVDescriptorHeap;
+    std::vector<ComPtr<ID3D12Resource>> mRTVBuffer;
+    std::unordered_map<std::string, std::vector<D3D12_INPUT_ELEMENT_DESC>> mInputLayout;
 
     std::unique_ptr<DefaultBuffer> mVertexBuffer;
     D3D12_VERTEX_BUFFER_VIEW mVertexBufferView;
@@ -73,6 +73,6 @@ private:
 
     std::vector<ModelVertex> mAllVertices;
     std::vector<uint16> mAllIndices;
-    std::unique_ptr<UploadBuffer<ModelVertex>> VerticesBuffer;
-    std::unique_ptr<UploadBuffer<uint16>> IndicesBuffer;
+    std::unique_ptr<UploadBuffer<ModelVertex>> mVerticesBuffer;
+    std::unique_ptr<UploadBuffer<uint16>> mIndicesBuffer;
 };
