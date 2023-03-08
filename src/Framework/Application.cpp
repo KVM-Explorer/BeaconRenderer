@@ -86,7 +86,11 @@ LRESULT CALLBACK Application::WindowProc(HWND hWnd, uint32_t message, WPARAM wPa
             renderer->OnKeyDown(static_cast<UINT8>(wParam));
         }
         return 0;
-
+    case WM_MOUSEMOVE:
+        if (renderer) {
+            renderer->OnMouseDown(wParam,GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+        }
+        return 0;
     case WM_PAINT:
         if (renderer) {
             renderer->OnUpdate();

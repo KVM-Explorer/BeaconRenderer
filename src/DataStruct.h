@@ -45,6 +45,13 @@ struct Material {
     std::unique_ptr<Texture> Texture;
 };
 struct SceneInfo {
+    DirectX::XMFLOAT4X4 View;
+    DirectX::XMFLOAT4X4 InvView;
+    DirectX::XMFLOAT4X4 Project;
+    DirectX::XMFLOAT4X4 InvProject;
+    DirectX::XMFLOAT4X4 ViewProject;
+    DirectX::XMFLOAT4X4 InvViewProject;
+    DirectX::XMFLOAT3 EyePosition;
 };
 
 struct Mesh {

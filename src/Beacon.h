@@ -16,7 +16,7 @@ public:
 
     void OnInit() override;
     void OnKeyDown(byte key) override;
-    void OnMouseDown() override;
+    void OnMouseDown(WPARAM btnState, int x, int y) override;
     void OnDestory() override;
 
 private:

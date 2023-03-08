@@ -3,7 +3,8 @@
 RendererBase::RendererBase(uint width, uint height, std::wstring title) :
     mWidth(width),
     mHeight(height),
-    mTitle(title)
+    mTitle(title),
+    MouseLastPosition({static_cast<LONG>(width/2),static_cast<LONG>(height/2)})
 {
 }
 

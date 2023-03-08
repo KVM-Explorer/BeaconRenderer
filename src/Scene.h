@@ -23,6 +23,7 @@ public:
     void RenderUI();
     void RenderScene(ID3D12GraphicsCommandList *commandList, uint frameIndex);
     void UpdateScene();
+    void UpdateMouse(float dx, float dy);
 
 private:
     void CreateRTV(ID3D12Device *device, IDXGISwapChain *swapChain, uint frameCount);
@@ -32,7 +33,8 @@ private:
     void CreateTriangleVertex(ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
     void CompileShaders();
     std::array<CD3DX12_STATIC_SAMPLER_DESC, 7> GetStaticSamplers();
-    void CreateCommonConstant();
+    void CreateCommonConstant(ID3D12Device *device);
+    void CreateDescriptorHeaps2Descriptors(ID3D12Device *device, uint width, uint height);
 
     void LoadAssets(ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
     void CreateSceneInfo(const ModelLight &info);
@@ -42,6 +44,10 @@ private:
 
     void RenderTriangleScene(ID3D12GraphicsCommandList *commandList, uint frameIndex);
     void RenderModelScene(ID3D12GraphicsCommandList *commandList, uint frameIndex);
+
+    void UpdateSceneConstant();
+    void UpdateEntityConstant();
+    void UpdateCamera();
 
 private:
     uint mEntityCount = 0;
@@ -54,20 +60,18 @@ private:
 
     std::unique_ptr<DataLoader> mDataLoader;
 
-    std::unique_ptr<DescriptorHeap> mRTVDescriptorHeap;
     std::vector<ComPtr<ID3D12Resource>> mRTVBuffer;
     std::unordered_map<std::string, std::vector<D3D12_INPUT_ELEMENT_DESC>> mInputLayout;
 
     std::unique_ptr<DefaultBuffer> mVertexBuffer;
     D3D12_VERTEX_BUFFER_VIEW mVertexBufferView;
 
-    std::vector<DirectX::XMFLOAT4X4> mTransforms; // object constant
-    SceneInfo mSceneInfo;                         // common constant
+    std::vector<DirectX::XMFLOAT4X4> mTransforms;
     std::vector<Material> mMaterials;
     std::unordered_map<std::string, Mesh> mMeshesData;
 
     std::unique_ptr<UploadBuffer<EntityInfo>> mObjectConstant;
-
+    std::unique_ptr<UploadBuffer<SceneInfo>> mSceneConstant;
     std::vector<Entity> mEntities;
     std::unordered_map<EntityType, std::vector<RenderItem>> mRenderItems;
 
@@ -75,4 +79,10 @@ private:
     std::vector<uint16> mAllIndices;
     std::unique_ptr<UploadBuffer<ModelVertex>> mVerticesBuffer;
     std::unique_ptr<UploadBuffer<uint16>> mIndicesBuffer;
+
+    ComPtr<ID3D12Resource> mDepthStencilBuffer;
+
+    std::unique_ptr<DescriptorHeap> mRTVDescriptorHeap;
+    std::unique_ptr<DescriptorHeap> mSRVDescriptorHeap;
+    std::unique_ptr<DescriptorHeap> mDSVDescriptorHeap;
 };

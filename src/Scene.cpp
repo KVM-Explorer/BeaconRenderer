@@ -16,20 +16,32 @@ void Scene::Init(SceneAdapter &adapter)
     CreateRootSignature(adapter.Device);
     CreatePipelineStateObject(adapter.Device);
     CreateTriangleVertex(adapter.Device, adapter.CommandList);
-    CreateCommonConstant();
+    CreateCommonConstant(adapter.Device);
+
     mDataLoader = std::make_unique<DataLoader>(mRootPath, mSceneName);
     LoadAssets(adapter.Device, adapter.CommandList);
+    CreateDescriptorHeaps2Descriptors(adapter.Device, adapter.FrameWidth, adapter.FrameHeight);
+
+    mCamera["default"].SetPosition(0, 0, -1.5F);
+    mCamera["default"].SetLens(0.25f * MathHelper::Pi, adapter.FrameWidth / adapter.FrameHeight, 1, 1000);
 }
 
 void Scene::RenderScene(ID3D12GraphicsCommandList *commandList, uint frameIndex)
 {
-    RenderTriangleScene(commandList, frameIndex);
+    // RenderTriangleScene(commandList, frameIndex);
+    RenderModelScene(commandList, frameIndex);
 }
 
 void Scene::RenderUI()
 {
 }
 
+void Scene::UpdateScene()
+{
+    UpdateCamera();
+    UpdateSceneConstant();
+    UpdateEntityConstant();
+}
 void Scene::CreateRTV(ID3D12Device *device, IDXGISwapChain *swapChain, uint frameCount)
 {
     mRTVDescriptorHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, frameCount);
@@ -79,9 +91,9 @@ void Scene::CreateInputLayout()
                                0,
                                DXGI_FORMAT_R32G32_FLOAT,
                                0,
-                               0,
+                               20,
                                D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-                               20}}};
+                               0}}};
 }
 
 void Scene::CompileShaders()
@@ -178,11 +190,14 @@ void Scene::CreateRootSignature(ID3D12Device *device)
                                               signature->GetBufferSize(),
                                               IID_PPV_ARGS(&mSignature["Test"])));
 
-    std::array<CD3DX12_ROOT_PARAMETER, 4> rootParameters;
-    rootParameters.at(0).InitAsConstantBufferView(0);
-    rootParameters.at(1).InitAsConstantBufferView(1);
-    rootParameters.at(2).InitAsShaderResourceView(0, 1);
-    rootParameters.at(3).InitAsConstantBufferView(0, 0);
+    CD3DX12_DESCRIPTOR_RANGE textureRange;
+    textureRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 28, 0, 1);
+
+    std::array<CD3DX12_ROOT_PARAMETER, 3> rootParameters;
+    rootParameters.at(0).InitAsConstantBufferView(0);             // Object
+    rootParameters.at(1).InitAsConstantBufferView(1);             // Common
+    rootParameters.at(2).InitAsDescriptorTable(1, &textureRange); // Material/Texture
+    // rootParameters.at(3).InitAsConstantBufferView(0, 0); //
 
     auto samplers = GetStaticSamplers();
 
@@ -191,6 +206,7 @@ void Scene::CreateRootSignature(ID3D12Device *device)
                                                         samplers.size(),
                                                         samplers.data(),
                                                         D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+
     ThrowIfFailed(D3D12SerializeRootSignature(&commonRootSignatureDesc,
                                               D3D_ROOT_SIGNATURE_VERSION_1_0,
                                               &signature, &error));
@@ -262,8 +278,75 @@ void Scene::CreateTriangleVertex(ID3D12Device *device, ID3D12GraphicsCommandList
     mVertexBufferView.StrideInBytes = sizeof(Vertex);
 }
 
-void Scene::CreateCommonConstant()
+void Scene::CreateCommonConstant(ID3D12Device *device)
 {
+    mSceneConstant = std::make_unique<UploadBuffer<SceneInfo>>(device, 1, true);
+}
+
+void Scene::CreateDescriptorHeaps2Descriptors(ID3D12Device *device, uint width, uint height)
+{
+    // DSV
+    mDSVDescriptorHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, false);
+    D3D12_DEPTH_STENCIL_VIEW_DESC depthStencilDesc = {};
+    depthStencilDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    depthStencilDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+    depthStencilDesc.Flags = D3D12_DSV_FLAG_NONE;
+
+    D3D12_CLEAR_VALUE depthOptimizedClearValue = {};
+    depthOptimizedClearValue.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    depthOptimizedClearValue.DepthStencil.Depth = 1.0F;
+    depthOptimizedClearValue.DepthStencil.Stencil = 0.0F;
+
+    CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_DEFAULT);
+    CD3DX12_RESOURCE_DESC texture2D = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_D24_UNORM_S8_UINT,
+                                                                   width,
+                                                                   height,
+                                                                   1,
+                                                                   1,
+                                                                   1,
+                                                                   0,
+                                                                   D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL);
+
+    ThrowIfFailed(device->CreateCommittedResource(&heapProperties,
+                                                  D3D12_HEAP_FLAG_NONE,
+                                                  &texture2D,
+                                                  D3D12_RESOURCE_STATE_DEPTH_WRITE,
+                                                  &depthOptimizedClearValue,
+                                                  IID_PPV_ARGS(&mDepthStencilBuffer)));
+    device->CreateDepthStencilView(mDepthStencilBuffer.Get(),
+                                   &depthStencilDesc,
+                                   mDSVDescriptorHeap->CPUHandle(0));
+
+    // SRV
+    mSRVDescriptorHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, mMaterials.size(), true);
+    int index = 0;
+    for (const auto &item : mMaterials) {
+        // TODO 更定Material 和 Texture ID的问题因为存在Null Texture
+        if (item.Texture == nullptr) continue;
+        auto resourceDesc = item.Texture->GetDesc();
+        D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+        srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+
+        srvDesc.Format = resourceDesc.Format;
+        if (resourceDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE2D) {
+            srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+            srvDesc.Texture2D.MipLevels = resourceDesc.MipLevels;
+            srvDesc.Texture2D.MostDetailedMip = 0;
+            srvDesc.Texture2D.ResourceMinLODClamp = 0.0F;
+        }
+        if (resourceDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D) {
+            srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+            srvDesc.TextureCube.MipLevels = resourceDesc.MipLevels;
+            srvDesc.TextureCube.ResourceMinLODClamp = 0.0F;
+            srvDesc.TextureCube.MostDetailedMip = 0;
+        }
+
+        auto handle = mSRVDescriptorHeap->CPUHandle(index);
+        device->CreateShaderResourceView(item.Texture->Resource(),
+                                         &srvDesc,
+                                         handle);
+        index++;
+    }
 }
 
 void Scene::LoadAssets(ID3D12Device *device, ID3D12GraphicsCommandList *commandList)
@@ -357,6 +440,7 @@ void Scene::CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12Gr
                              mObjectConstant->resource()->GetGPUVirtualAddress(),
                              sizeof(DirectX::XMFLOAT4X4),
                              0); // TODO Update Root Parameter Index
+        mRenderItems[EntityType::Opaque].push_back(target);
     }
 }
 
@@ -399,11 +483,20 @@ void Scene::RenderModelScene(ID3D12GraphicsCommandList *commandList, uint frameI
                                                              D3D12_RESOURCE_STATE_RENDER_TARGET);
     commandList->ResourceBarrier(1, &beginBarrier);
 
+    // Binding Heap
+    std::array<ID3D12DescriptorHeap *, 1> textureHeap = {mSRVDescriptorHeap->Resource()};
+    commandList->SetDescriptorHeaps(textureHeap.size(), textureHeap.data());
+    commandList->SetGraphicsRootDescriptorTable(2, mSRVDescriptorHeap->GPUHandle(0));
+
     // Rendering
     auto rtvHandle = mRTVDescriptorHeap->CPUHandle(frameIndex);
+    auto dsvHandle = mDSVDescriptorHeap->CPUHandle(0);
 
-    commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
+    commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
     commandList->ClearRenderTargetView(rtvHandle, DirectX::Colors::SteelBlue, 0, nullptr);
+    commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0F, 0, 0, nullptr);
+
+    commandList->SetGraphicsRootConstantBufferView(1, mSceneConstant->resource()->GetGPUVirtualAddress());
 
     for (auto &item : mRenderItems[EntityType::Opaque]) {
         item.DrawItem(commandList);
@@ -414,4 +507,73 @@ void Scene::RenderModelScene(ID3D12GraphicsCommandList *commandList, uint frameI
                                                            D3D12_RESOURCE_STATE_RENDER_TARGET,
                                                            D3D12_RESOURCE_STATE_PRESENT);
     commandList->ResourceBarrier(1, &endBarrier);
+}
+
+void Scene::UpdateSceneConstant()
+{
+    using DirectX::XMMATRIX;
+    mCamera.at("default").UpdateViewMatrix();
+    SceneInfo sceneInfo = {};
+    XMMATRIX view = mCamera["default"].GetView();
+    XMMATRIX project = mCamera["default"].GetProj();
+    XMMATRIX viewProject = DirectX::XMMatrixMultiply(view, project);
+
+    auto viewDet = XMMatrixDeterminant(view);
+    auto projectDet = XMMatrixDeterminant(project);
+    auto viewProjectDet = DirectX::XMMatrixDeterminant(viewProject);
+
+    auto invView = XMMatrixInverse(&viewDet, view);
+    auto invProject = XMMatrixInverse(&projectDet, project);
+    auto invViewProject = XMMatrixInverse(&viewProjectDet, viewProject);
+
+    XMStoreFloat4x4(&sceneInfo.View, XMMatrixTranspose(view));
+    XMStoreFloat4x4(&sceneInfo.InvView, XMMatrixTranspose(invView));
+    XMStoreFloat4x4(&sceneInfo.Project, XMMatrixTranspose(invView));
+    XMStoreFloat4x4(&sceneInfo.InvProject, XMMatrixTranspose(invView));
+    XMStoreFloat4x4(&sceneInfo.ViewProject, XMMatrixTranspose(viewProject));
+    XMStoreFloat4x4(&sceneInfo.InvViewProject, XMMatrixTranspose(invViewProject));
+
+    sceneInfo.EyePosition = mCamera["default"].GetPosition3f();
+
+    mSceneConstant->copyData(0, sceneInfo);
+}
+
+void Scene::UpdateEntityConstant()
+{
+    using namespace DirectX;
+    for (auto &entity : mEntities) {
+        EntityInfo info;
+        auto transform = DirectX::XMLoadFloat4x4(&entity.Transform);
+        XMStoreFloat4x4(&info.Transform, DirectX::XMMatrixTranspose(transform));
+        info.MaterialIndex = entity.MaterialIndex;
+        mObjectConstant->copyData(entity.EntityIndex, info);
+    }
+}
+
+void Scene::UpdateCamera()
+{
+    const float deltaTime = 0.01F;
+    if (GetAsyncKeyState('W') & 0x8000) {
+        mCamera["default"].Walk(10.0F * deltaTime);
+    }
+
+    if (GetAsyncKeyState('S') & 0x8000) {
+        mCamera["default"].Walk(-10.0F * deltaTime);
+    }
+
+    if (GetAsyncKeyState('A') & 0x8000) {
+        mCamera["default"].Strafe(-10.0F * deltaTime);
+    }
+
+    if (GetAsyncKeyState('D') & 0x8000) {
+        mCamera["default"].Strafe(10.0F * deltaTime);
+    }
+
+    mCamera["default"].UpdateViewMatrix();
+}
+
+void Scene::UpdateMouse(float dx, float dy)
+{
+    mCamera["default"].Pitch(dy);
+    mCamera["default"].RotateY(dx);
 }

@@ -1,5 +1,5 @@
 #include "RenderItem.h"
-
+#include "Tools/FrameworkHelper.h"
 RenderItem &RenderItem::SetVertexInfo(uint index, D3D12_GPU_VIRTUAL_ADDRESS base, uint elementSize, uint elementNum)
 {
     mVertexBufferView.BufferLocation = base + index * elementSize;
@@ -22,6 +22,7 @@ RenderItem &RenderItem::SetConstantInfo(uint index,
                                         uint elementSize,
                                         uint rootParameterIndex)
 {
+    elementSize = CalculateConstantBufferByteSize(elementSize);
     mConstantAddress = base + index * elementSize;
     mRootParameterIndex = rootParameterIndex;
     return *this;

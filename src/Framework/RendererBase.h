@@ -13,7 +13,7 @@ public:
 
     virtual void OnInit() = 0;
     virtual void OnKeyDown(byte key){};
-    virtual void OnMouseDown(){};
+    virtual void OnMouseDown(WPARAM btnState, int x, int y){};
     virtual void OnDestory() = 0;
 
     virtual void OnUpdate() = 0;
@@ -26,6 +26,8 @@ public:
 protected:
     uint mWidth;
     uint mHeight;
+
+    POINT MouseLastPosition;
 
 private:
     std::wstring mTitle;

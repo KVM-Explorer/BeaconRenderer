@@ -12,11 +12,15 @@ public:
     Texture &operator=(Texture &&) = default;
 
     Texture(ID3D12Device *device, ID3D12GraphicsCommandList *commandList,
-                        std::wstring path, bool isCube = false);
+            std::wstring path, bool isCube = false);
 
     [[nodiscard]] ID3D12Resource *Resource() const
     {
         return mBuffer.Get();
+    }
+    [[nodiscard]] D3D12_RESOURCE_DESC GetDesc()
+    {
+        return mBuffer->GetDesc();
     }
 
 private:

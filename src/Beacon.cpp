@@ -39,12 +39,13 @@ void Beacon::OnRender()
     mCommandList->Close();
     std::array<ID3D12CommandList *, 1> taskList = {mCommandList.Get()};
     mCommandQueue->ExecuteCommandLists(taskList.size(), taskList.data());
-    mSwapChain->Present(1,0);
+    mSwapChain->Present(1, 0);
     SyncTask();
 }
 
 void Beacon::OnUpdate()
 {
+    mScene->UpdateScene();
 }
 
 void Beacon::OnDestory()
@@ -54,8 +55,17 @@ void Beacon::OnDestory()
 Beacon::~Beacon()
 {
 }
-void Beacon::OnMouseDown()
+void Beacon::OnMouseDown(WPARAM btnState, int x, int y)
 {
+    using DirectX::XMConvertToRadians;
+    if ((btnState & MK_LBUTTON) != 0) {
+        // Make each pixel correspond to a quarter of a degree.
+        float dx = XMConvertToRadians(0.25f * static_cast<float>(x - MouseLastPosition.x));
+        float dy = XMConvertToRadians(0.25f * static_cast<float>(y - MouseLastPosition.y));
+        mScene->UpdateMouse(dx, dy);
+    }
+    MouseLastPosition.x = x;
+    MouseLastPosition.y = y;
 }
 
 void Beacon::OnKeyDown(byte key)
@@ -127,7 +137,7 @@ void Beacon::LoadScene()
 {
     // TODO add read config file
     std::wstring Path = L"C:\\Users\\Geek\\Desktop\\dst";
-    auto scene = std::make_unique<Scene>(Path,L"lighthouse");
+    auto scene = std::make_unique<Scene>(Path, L"witch");
 
     SceneAdapter adapater{
         .Device = mDevice.Get(),

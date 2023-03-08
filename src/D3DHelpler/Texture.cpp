@@ -15,6 +15,9 @@ Texture::Texture(ID3D12Device *device, ID3D12GraphicsCommandList *commandList,
                                                   SIZE_MAX,
                                                   &alphaMode,
                                                   &isCube));
+    mBuffer->GetDesc();
+
+    
     UINT64 uploadBufferSize = GetRequiredIntermediateSize(mBuffer.Get(),
                                                           0,
                                                           static_cast<UINT>(subresources.size()));
