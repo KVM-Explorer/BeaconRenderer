@@ -24,12 +24,19 @@ void Scene::Init(SceneAdapter &adapter)
 
     mCamera["default"].SetPosition(0, 0, -1.5F);
     mCamera["default"].SetLens(0.25f * MathHelper::Pi, adapter.FrameWidth / adapter.FrameHeight, 1, 1000);
+
+    mDeferredRendering = std::make_unique<DeferredRendering>(adapter.FrameWidth, adapter.FrameHeight);
+    mDeferredRendering->Init(adapter.Device);
+    mDeferredRendering->CreatePSOs(adapter.Device,
+                                   mInputLayout["GBuffer"], mShaders["GBufferVS"], mShaders["GBufferPS"],
+                                   mInputLayout["LightPass"], mShaders["LightPassVS"], mShaders["LightPassPS"]);
 }
 
 void Scene::RenderScene(ID3D12GraphicsCommandList *commandList, uint frameIndex)
 {
     // RenderTriangleScene(commandList, frameIndex);
-    RenderModelScene(commandList, frameIndex);
+    // RenderModelScene(commandList, frameIndex);
+    DeferredRenderScene(commandList, frameIndex);
 }
 
 void Scene::RenderUI()
@@ -73,27 +80,64 @@ void Scene::CreateInputLayout()
          0},
     }};
 
-    mInputLayout["Model"] = {{{"POSITION",
-                               0,
-                               DXGI_FORMAT_R32G32B32_FLOAT,
-                               0,
-                               0,
-                               D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-                               0},
-                              {"TEXCOORD",
-                               0,
-                               DXGI_FORMAT_R32G32_FLOAT,
-                               0,
-                               12,
-                               D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-                               0},
-                              {"NORMAL",
-                               0,
-                               DXGI_FORMAT_R32G32_FLOAT,
-                               0,
-                               20,
-                               D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-                               0}}};
+    mInputLayout["Model"] = {{
+        {"POSITION",
+         0,
+         DXGI_FORMAT_R32G32B32_FLOAT,
+         0,
+         0,
+         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+         0},
+        {"TEXCOORD",
+         0,
+         DXGI_FORMAT_R32G32_FLOAT,
+         0,
+         12,
+         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+         0},
+        {"NORMAL",
+         0,
+         DXGI_FORMAT_R32G32_FLOAT,
+         0,
+         20,
+         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+         0},
+    }};
+
+    mInputLayout["GBuffer"] = {{
+        // TODO Fill Layout
+        {"POSITION",
+         0,
+         DXGI_FORMAT_R32G32B32_FLOAT,
+         0,
+         0,
+         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+         0},
+        {"NORMAL",
+         0,
+         DXGI_FORMAT_R32G32B32_FLOAT,
+         0,
+         12,
+         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+         0},
+    }};
+    mInputLayout["LightPass"] = {{
+        {"POSITION",
+         0,
+         DXGI_FORMAT_R32G32B32_FLOAT,
+         0,
+         0,
+         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+         0},
+
+        {"TEXCOORD",
+         0,
+         DXGI_FORMAT_R32G32_FLOAT,
+         0,
+         12,
+         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+         0},
+    }};
 }
 
 void Scene::CompileShaders()
@@ -105,6 +149,12 @@ void Scene::CompileShaders()
 
     ThrowIfFailed(D3DCompileFromFile(L"Shaders/Model.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VSMain", "vs_5_1", compileFlags, 0, &mShaders["ModelVS"], nullptr));
     ThrowIfFailed(D3DCompileFromFile(L"Shaders/Model.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PSMain", "ps_5_1", compileFlags, 0, &mShaders["ModelPS"], nullptr));
+
+    ThrowIfFailed(D3DCompileFromFile(L"Shaders/GBuffer.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VSMain", "vs_5_1", compileFlags, 0, &mShaders["GBufferVS"], nullptr));
+    ThrowIfFailed(D3DCompileFromFile(L"Shaders/GBuffer.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PSMain", "ps_5_1", compileFlags, 0, &mShaders["GBufferPS"], nullptr));
+
+    ThrowIfFailed(D3DCompileFromFile(L"Shaders/LightingPass.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VSMain", "vs_5_1", compileFlags, 0, &mShaders["LightPassVS"], nullptr));
+    ThrowIfFailed(D3DCompileFromFile(L"Shaders/LightingPass.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PSMain", "ps_5_1", compileFlags, 0, &mShaders["LightPassPS"], nullptr));
 }
 
 std::array<CD3DX12_STATIC_SAMPLER_DESC, 7> Scene::GetStaticSamplers()
@@ -175,8 +225,11 @@ std::array<CD3DX12_STATIC_SAMPLER_DESC, 7> Scene::GetStaticSamplers()
 
 void Scene::CreateRootSignature(ID3D12Device *device)
 {
-    CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc(0,
-                                                  nullptr,
+    std::array<CD3DX12_ROOT_PARAMETER, 2> testRootParameters;
+    testRootParameters.at(0).InitAsConstantBufferView(0);
+    testRootParameters.at(1).InitAsConstantBufferView(1);
+    CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc(testRootParameters.size(),
+                                                  testRootParameters.data(),
                                                   0,
                                                   nullptr,
                                                   D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
@@ -507,6 +560,29 @@ void Scene::RenderModelScene(ID3D12GraphicsCommandList *commandList, uint frameI
                                                            D3D12_RESOURCE_STATE_RENDER_TARGET,
                                                            D3D12_RESOURCE_STATE_PRESENT);
     commandList->ResourceBarrier(1, &endBarrier);
+}
+
+void Scene::DeferredRenderScene(ID3D12GraphicsCommandList *cmdList, uint frameIndex)
+{
+    auto rtvHandle = mRTVDescriptorHeap->CPUHandle(frameIndex);
+    auto present2rtvBarrier = CD3DX12_RESOURCE_BARRIER::Transition(mRTVBuffer.at(frameIndex).Get(),
+                                                                   D3D12_RESOURCE_STATE_PRESENT,
+                                                                   D3D12_RESOURCE_STATE_RENDER_TARGET);
+    cmdList->ResourceBarrier(1, &present2rtvBarrier);
+    cmdList->ClearRenderTargetView(rtvHandle, DirectX::Colors::SteelBlue, 0, nullptr);
+
+    // TODO achieve Deferred Render Scene
+    // ...
+    //
+
+    mDeferredRendering->GBufferPass(cmdList);
+
+    cmdList->OMSetRenderTargets(1, &rtvHandle, true, nullptr);
+    mDeferredRendering->LightingPass(cmdList);
+    auto rtv2presentBarrier = CD3DX12_RESOURCE_BARRIER::Transition(mRTVBuffer.at(frameIndex).Get(),
+                                                                   D3D12_RESOURCE_STATE_RENDER_TARGET,
+                                                                   D3D12_RESOURCE_STATE_PRESENT);
+    cmdList->ResourceBarrier(1, &rtv2presentBarrier);
 }
 
 void Scene::UpdateSceneConstant()

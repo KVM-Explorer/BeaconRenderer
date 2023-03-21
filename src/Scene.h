@@ -9,7 +9,7 @@
 #include "D3DHelpler/Entity.h"
 #include "D3DHelpler/UploadBuffer.h"
 #include "D3DHelpler/RenderItem.h"
-
+#include "D3DHelpler/DeferredRendering.h"
 class Scene {
 public:
     explicit Scene(const std::wstring &root, const std::wstring &modelname);
@@ -44,6 +44,7 @@ private:
 
     void RenderTriangleScene(ID3D12GraphicsCommandList *commandList, uint frameIndex);
     void RenderModelScene(ID3D12GraphicsCommandList *commandList, uint frameIndex);
+    void DeferredRenderScene(ID3D12GraphicsCommandList* cmdList,uint frameIndex);
 
     void UpdateSceneConstant();
     void UpdateEntityConstant();
@@ -85,4 +86,6 @@ private:
     std::unique_ptr<DescriptorHeap> mRTVDescriptorHeap;
     std::unique_ptr<DescriptorHeap> mSRVDescriptorHeap;
     std::unique_ptr<DescriptorHeap> mDSVDescriptorHeap;
+
+    std::unique_ptr<DeferredRendering> mDeferredRendering;
 };
