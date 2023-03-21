@@ -1,4 +1,5 @@
 
+add_requires("assimp")
 target("BeaconRenderer")
     add_files("**.cpp")
     add_syslinks("User32", "kernel32", "Gdi32", "Shell32", "DXGI", "D3D12", "D3DCompiler","dxguid")
@@ -6,3 +7,4 @@ target("BeaconRenderer")
     set_pcxxheader("./stdafx.h")
     add_defines("UNICODE")
     add_deps("3rdparty")
+    add_packages("assimp")
