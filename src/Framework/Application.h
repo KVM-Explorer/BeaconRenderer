@@ -13,7 +13,9 @@ public:
 
 protected:
     static LRESULT CALLBACK WindowProc(HWND hWnd, uint32_t message, WPARAM wParam, LPARAM lParam);
+    
 
 private:
     static HWND mHandle;
+    
 };

@@ -1,6 +1,7 @@
 #include "Scene.h"
 #include "Tools/DataLoader.h"
 #include "Tools/FrameworkHelper.h"
+#include "Framework/Application.h"
 
 Scene::Scene(const std::wstring &root, const std::wstring &scenename) :
     mRootPath(root),
@@ -18,6 +19,8 @@ void Scene::Init(SceneAdapter &adapter)
     CreateTriangleVertex(adapter.Device, adapter.CommandList);
     CreateDeferredRenderTriangle(adapter.Device, adapter.CommandList);
     CreateCommonConstant(adapter.Device);
+
+    InitUI(adapter.Device);
 
     mDataLoader = std::make_unique<DataLoader>(mRootPath, mSceneName);
     LoadAssets(adapter.Device, adapter.CommandList);
@@ -40,8 +43,34 @@ void Scene::RenderScene(ID3D12GraphicsCommandList *commandList, uint frameIndex)
     DeferredRenderScene(commandList, frameIndex);
 }
 
-void Scene::RenderUI()
+void Scene::RenderUI(ID3D12GraphicsCommandList *cmdList, uint frameIndex)
 {
+    // Define GUI
+    ImGui_ImplDX12_NewFrame();
+    ImGui_ImplWin32_NewFrame();
+    ImGui::NewFrame();
+
+    bool show_window = true;
+    ImGui::Begin("Another Window", &show_window); // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+    ImGui::Text("Hello from another window!");
+
+    ImGui::End();
+
+    bool showDemo = true;
+    ImGui::ShowDemoWindow(&showDemo);
+
+    // Generate GUI
+    ImGui::Render();
+
+    // Render GUI To Screen
+    std::array<ID3D12DescriptorHeap *, 1> ppHeaps{mUiSrvHeap->Resource()};
+    cmdList->SetDescriptorHeaps(ppHeaps.size(), ppHeaps.data());
+    ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), cmdList);
+    // State Convert After Render Barrier
+    auto endBarrier = CD3DX12_RESOURCE_BARRIER::Transition(mRTVBuffer.at(frameIndex).Get(),
+                                                           D3D12_RESOURCE_STATE_RENDER_TARGET,
+                                                           D3D12_RESOURCE_STATE_PRESENT);
+    cmdList->ResourceBarrier(1, &endBarrier);
 }
 
 void Scene::UpdateScene()
@@ -547,12 +576,6 @@ void Scene::RenderTriangleScene(ID3D12GraphicsCommandList *commandList, uint fra
     commandList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
     commandList->IASetVertexBuffers(0, 1, &mVertexBufferView);
     commandList->DrawInstanced(3, 1, 0, 0);
-
-    // State Convert After Render Barrier
-    auto endBarrier = CD3DX12_RESOURCE_BARRIER::Transition(mRTVBuffer.at(frameIndex).Get(),
-                                                           D3D12_RESOURCE_STATE_RENDER_TARGET,
-                                                           D3D12_RESOURCE_STATE_PRESENT);
-    commandList->ResourceBarrier(1, &endBarrier);
 }
 
 void Scene::RenderModelScene(ID3D12GraphicsCommandList *commandList, uint frameIndex)
@@ -585,12 +608,6 @@ void Scene::RenderModelScene(ID3D12GraphicsCommandList *commandList, uint frameI
     for (auto &item : mRenderItems[EntityType::Opaque]) {
         item.DrawItem(commandList);
     }
-
-    // State Convert After Render Barrier
-    auto endBarrier = CD3DX12_RESOURCE_BARRIER::Transition(mRTVBuffer.at(frameIndex).Get(),
-                                                           D3D12_RESOURCE_STATE_RENDER_TARGET,
-                                                           D3D12_RESOURCE_STATE_PRESENT);
-    commandList->ResourceBarrier(1, &endBarrier);
 }
 
 void Scene::DeferredRenderScene(ID3D12GraphicsCommandList *cmdList, uint frameIndex)
@@ -619,11 +636,6 @@ void Scene::DeferredRenderScene(ID3D12GraphicsCommandList *cmdList, uint frameIn
     cmdList->IASetVertexBuffers(0, 1, &mQuadVertexView);
     cmdList->DrawInstanced(4, 1, 0, 0);
     //
-
-    auto rtv2presentBarrier = CD3DX12_RESOURCE_BARRIER::Transition(mRTVBuffer.at(frameIndex).Get(),
-                                                                   D3D12_RESOURCE_STATE_RENDER_TARGET,
-                                                                   D3D12_RESOURCE_STATE_PRESENT);
-    cmdList->ResourceBarrier(1, &rtv2presentBarrier);
 }
 
 void Scene::UpdateSceneConstant()
@@ -671,19 +683,19 @@ void Scene::UpdateCamera()
 {
     const float deltaTime = 0.01F;
     if (GetAsyncKeyState('W') & 0x8000) {
-        mCamera["default"].Walk(10.0F * deltaTime);
+        mCamera["default"].Walk(1.0F * deltaTime);
     }
 
     if (GetAsyncKeyState('S') & 0x8000) {
-        mCamera["default"].Walk(-10.0F * deltaTime);
+        mCamera["default"].Walk(-1.0F * deltaTime);
     }
 
     if (GetAsyncKeyState('A') & 0x8000) {
-        mCamera["default"].Strafe(-10.0F * deltaTime);
+        mCamera["default"].Strafe(-1.0F * deltaTime);
     }
 
     if (GetAsyncKeyState('D') & 0x8000) {
-        mCamera["default"].Strafe(10.0F * deltaTime);
+        mCamera["default"].Strafe(1.0F * deltaTime);
     }
 
     mCamera["default"].UpdateViewMatrix();
@@ -693,4 +705,23 @@ void Scene::UpdateMouse(float dx, float dy)
 {
     mCamera["default"].Pitch(dy);
     mCamera["default"].RotateY(dx);
+}
+
+void Scene::InitUI(ID3D12Device *device)
+{
+
+    ImGui::StyleColorsDark();
+    ImGui_ImplWin32_Init(Application::GetHandle());
+
+    // TODO 128 Relevate with UI count
+    mUiSrvHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 128, true);
+
+    ImGui_ImplDX12_Init(
+        device,
+        3,
+        DXGI_FORMAT_R8G8B8A8_UNORM,
+        mUiSrvHeap->Resource(),
+        mUiSrvHeap->CPUHandle(0),
+        mUiSrvHeap->GPUHandle(0));
+    ImGui_ImplDX12_CreateDeviceObjects();
 }

@@ -2,6 +2,7 @@
 #include "Framework/RendererBase.h"
 #include <stdafx.h>
 #include "Scene.h"
+#include "Framework/ImguiManager.h"
 class Beacon : public RendererBase {
 public:
     Beacon(uint width, uint height, std::wstring title);
@@ -14,7 +15,7 @@ public:
     void OnUpdate() override;
     void OnRender() override;
 
-    void OnInit() override;
+    void OnInit(std::unique_ptr<ImguiManager> &guiContext) override;
     void OnKeyDown(byte key) override;
     void OnMouseDown(WPARAM btnState, int x, int y) override;
     void OnDestory() override;
@@ -42,4 +43,5 @@ private:
     ComPtr<IDXGISwapChain4> mSwapChain;
     ComPtr<ID3D12Fence> mFence;
     std::unique_ptr<Scene> mScene;
+    std::unique_ptr<ImguiManager> mGUI;
 };

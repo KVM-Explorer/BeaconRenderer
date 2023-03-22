@@ -10,9 +10,10 @@ Beacon::Beacon(uint width, uint height, std::wstring title) :
 {
 }
 
-void Beacon::OnInit()
+void Beacon::OnInit(std::unique_ptr<ImguiManager> &guiContext)
 {
     HWND handle = Application::GetHandle();
+    mGUI = std::move(guiContext);
     CreateDevice(handle);
     CreateCommandResource();
     CreateSwapChain(handle);
@@ -34,12 +35,12 @@ void Beacon::OnRender()
     mCommandList->RSSetScissorRects(1, &mScissor);
 
     mScene->RenderScene(mCommandList.Get(), frameIndex);
-    mScene->RenderUI();
+    mScene->RenderUI(mCommandList.Get(), frameIndex);
 
     mCommandList->Close();
     std::array<ID3D12CommandList *, 1> taskList = {mCommandList.Get()};
     mCommandQueue->ExecuteCommandLists(taskList.size(), taskList.data());
-    
+
     mSwapChain->Present(0, 0);
     SyncTask();
 }

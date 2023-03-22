@@ -20,8 +20,8 @@ public:
 
 public:
     void Init(SceneAdapter &adapter);
-    void RenderUI();
-    void RenderScene(ID3D12GraphicsCommandList *commandList, uint frameIndex);
+    void RenderUI(ID3D12GraphicsCommandList *commandList, uint frameIndex);
+    void RenderScene(ID3D12GraphicsCommandList *cmdList, uint frameIndex);
     void UpdateScene();
     void UpdateMouse(float dx, float dy);
 
@@ -36,6 +36,7 @@ private:
     std::array<CD3DX12_STATIC_SAMPLER_DESC, 7> GetStaticSamplers();
     void CreateCommonConstant(ID3D12Device *device);
     void CreateDescriptorHeaps2Descriptors(ID3D12Device *device, uint width, uint height);
+    void InitUI(ID3D12Device *device);
 
     void LoadAssets(ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
     void CreateSceneInfo(const ModelLight &info);
@@ -97,4 +98,7 @@ private:
     std::unique_ptr<DescriptorHeap> mDSVDescriptorHeap;
 
     std::unique_ptr<DeferredRendering> mDeferredRendering;
+
+    // UI
+    std::unique_ptr<DescriptorHeap> mUiSrvHeap;
 };

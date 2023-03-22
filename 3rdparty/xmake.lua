@@ -1,5 +1,5 @@
 target("3rdparty")  
     set_kind("static")
-    add_files("*.cpp")
+    add_files("**.cpp")
     add_includedirs("./",{public=true})
     add_syslinks("User32", "kernel32", "Gdi32", "Shell32", "DXGI", "D3D11","D3D12","dxguid")
