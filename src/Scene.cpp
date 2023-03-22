@@ -16,6 +16,7 @@ void Scene::Init(SceneAdapter &adapter)
     CreateRootSignature(adapter.Device);
     CreatePipelineStateObject(adapter.Device);
     CreateTriangleVertex(adapter.Device, adapter.CommandList);
+    CreateDeferredRenderTriangle(adapter.Device, adapter.CommandList);
     CreateCommonConstant(adapter.Device);
 
     mDataLoader = std::make_unique<DataLoader>(mRootPath, mSceneName);
@@ -331,6 +332,36 @@ void Scene::CreateTriangleVertex(ID3D12Device *device, ID3D12GraphicsCommandList
     mVertexBufferView.StrideInBytes = sizeof(Vertex);
 }
 
+void Scene::CreateDeferredRenderTriangle(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList)
+{
+    const float triangleSize = 2.0F;
+    const std::array<GBufferVertex, 3> vertexData = {{
+        {{-0.25F * triangleSize, -0.25F * triangleSize, 0.F}, {0.F, 0.F, -1.0F}},
+        {{0.0F, 0.25F * triangleSize, 0.0F}, {0.F, 0.F, -1.0F}},
+        {{0.25F * triangleSize, -0.25F * triangleSize, 0.F}, {0.F, 0.F, -1.0F}},
+    }};
+    const uint gBuffervertexByteSize = vertexData.size() * sizeof(GBufferVertex);
+    mGBufferVertexBuffer = std::make_unique<DefaultBuffer>(device, cmdList, vertexData.data(), gBuffervertexByteSize);
+
+    mGBufferVertexView.BufferLocation = mGBufferVertexBuffer->Resource()->GetGPUVirtualAddress();
+    mGBufferVertexView.SizeInBytes = gBuffervertexByteSize;
+    mGBufferVertexView.StrideInBytes = sizeof(GBufferVertex);
+
+    const std::array<LightPassVertex, 4> quadData{{
+        {{-1.0F, 1.0F, 0.0F}, {0.0F, 0.0F}},
+        {{1.0F, 1.0F, 0.0F}, {1.0F, 0.0F}},
+        {{-1.0F, -1.0F, 0.0F}, {0.0F, 1.0F}},
+        {{1.0F, -1.0F, 0.0F}, {1.0F, 1.0F}},
+    }};
+
+    const uint lightPassVertexByteSize = quadData.size() * sizeof(LightPassVertex);
+    mQuadVertexBuffer = std::make_unique<DefaultBuffer>(device, cmdList, quadData.data(), lightPassVertexByteSize);
+
+    mQuadVertexView.BufferLocation = mQuadVertexBuffer->Resource()->GetGPUVirtualAddress();
+    mQuadVertexView.SizeInBytes = lightPassVertexByteSize;
+    mQuadVertexView.StrideInBytes = sizeof(LightPassVertex);
+}
+
 void Scene::CreateCommonConstant(ID3D12Device *device)
 {
     mSceneConstant = std::make_unique<UploadBuffer<SceneInfo>>(device, 1, true);
@@ -568,17 +599,27 @@ void Scene::DeferredRenderScene(ID3D12GraphicsCommandList *cmdList, uint frameIn
     auto present2rtvBarrier = CD3DX12_RESOURCE_BARRIER::Transition(mRTVBuffer.at(frameIndex).Get(),
                                                                    D3D12_RESOURCE_STATE_PRESENT,
                                                                    D3D12_RESOURCE_STATE_RENDER_TARGET);
-    cmdList->ResourceBarrier(1, &present2rtvBarrier);
-    cmdList->ClearRenderTargetView(rtvHandle, DirectX::Colors::SteelBlue, 0, nullptr);
-
-    // TODO achieve Deferred Render Scene
-    // ...
-    //
 
     mDeferredRendering->GBufferPass(cmdList);
+    cmdList->SetGraphicsRootConstantBufferView(1, mSceneConstant->resource()->GetGPUVirtualAddress());
 
+    // TODO achieve Deferred Render Scene
+    cmdList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+    cmdList->IASetVertexBuffers(0, 1, &mGBufferVertexView);
+    cmdList->DrawInstanced(3, 1, 0, 0);
+    //
+
+    cmdList->ResourceBarrier(1, &present2rtvBarrier);
     cmdList->OMSetRenderTargets(1, &rtvHandle, true, nullptr);
+    cmdList->ClearRenderTargetView(rtvHandle, DirectX::Colors::SteelBlue, 0, nullptr);
     mDeferredRendering->LightingPass(cmdList);
+
+    // TODO achieve Render On Quad
+    cmdList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+    cmdList->IASetVertexBuffers(0, 1, &mQuadVertexView);
+    cmdList->DrawInstanced(4, 1, 0, 0);
+    //
+
     auto rtv2presentBarrier = CD3DX12_RESOURCE_BARRIER::Transition(mRTVBuffer.at(frameIndex).Get(),
                                                                    D3D12_RESOURCE_STATE_RENDER_TARGET,
                                                                    D3D12_RESOURCE_STATE_PRESENT);

@@ -1,6 +1,6 @@
 #pragma once
 #ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN// Exclude rarely-used stuff from Windows headers.
+#define WIN32_LEAN_AND_MEAN // Exclude rarely-used stuff from Windows headers.
 #endif
 #include <Windows.h>
 #include <windowsx.h>
@@ -18,14 +18,10 @@
 #include <array>
 #include <memory>
 
-
 using Microsoft::WRL::ComPtr;
-
 
 using byte = uint8_t;
 using uint16 = uint16_t;
 using uint = uint32_t;
 using uint64 = uint64_t;
 using int32 = int32_t;
-
-

@@ -28,9 +28,14 @@ void DeferredRendering::CreateRTV(ID3D12Device *device)
                                                               0,
                                                               D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
 
+    D3D12_CLEAR_VALUE clearValue;
+    clearValue.Color[0] = mClearColor[0];
+    clearValue.Color[1] = mClearColor[1];
+    clearValue.Color[2] = mClearColor[2];
+    clearValue.Color[3] = mClearColor[3];
     for (uint i = 0; i < mRTNum; i++) {
         rtDesc.Format = mRTVFormat.at(i);
-        D3D12_CLEAR_VALUE clearValue{mRTVFormat.at(i)};
+        clearValue.Format = mRTVFormat.at(i);
         ThrowIfFailed(device->CreateCommittedResource(&heapProps,
                                                       D3D12_HEAP_FLAG_NONE,
                                                       &rtDesc,
@@ -190,7 +195,7 @@ void DeferredRendering::GBufferPass(ID3D12GraphicsCommandList *cmdList)
                                                             D3D12_RESOURCE_STATE_GENERIC_READ,
                                                             D3D12_RESOURCE_STATE_RENDER_TARGET);
         cmdList->ResourceBarrier(1, &srv2rtv);
-        cmdList->ClearRenderTargetView(mRTVDescriptorHeap->CPUHandle(i), DirectX::Colors::SteelBlue, 0, nullptr);
+        cmdList->ClearRenderTargetView(mRTVDescriptorHeap->CPUHandle(i), mClearColor, 0, nullptr);
     }
     auto srv2depthBarrier = CD3DX12_RESOURCE_BARRIER::Transition(mDepthTexture.Get(),
                                                                  D3D12_RESOURCE_STATE_GENERIC_READ,

@@ -39,6 +39,7 @@ void Beacon::OnRender()
     mCommandList->Close();
     std::array<ID3D12CommandList *, 1> taskList = {mCommandList.Get()};
     mCommandQueue->ExecuteCommandLists(taskList.size(), taskList.data());
+    
     mSwapChain->Present(0, 0);
     SyncTask();
 }

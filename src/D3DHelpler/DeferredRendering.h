@@ -38,6 +38,7 @@ private:
 
     DXGI_FORMAT mDSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
     const static int mRTNum = 3;
+    float mClearColor[4] = {0.0, 0.0F, 0.0F, 1.0F};
     std::array<DXGI_FORMAT, mRTNum> mRTVFormat =
         {DXGI_FORMAT_R11G11B10_FLOAT,
          DXGI_FORMAT_R8G8B8A8_SNORM,

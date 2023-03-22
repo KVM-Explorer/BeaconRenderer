@@ -23,6 +23,16 @@ struct ModelVertex {
     DirectX::XMFLOAT3 Normal;
 };
 
+struct GBufferVertex {
+    DirectX::XMFLOAT3 Position;
+    DirectX::XMFLOAT3 Normal;
+};
+
+struct LightPassVertex {
+    DirectX::XMFLOAT3 Position;
+    DirectX::XMFLOAT2 Texcoord;
+};
+
 enum class EntityType {
     Sky,
     Debug,

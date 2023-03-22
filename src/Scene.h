@@ -31,6 +31,7 @@ private:
     void CreateRootSignature(ID3D12Device *device);
     void CreateInputLayout();
     void CreateTriangleVertex(ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
+    void CreateDeferredRenderTriangle(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList);
     void CompileShaders();
     std::array<CD3DX12_STATIC_SAMPLER_DESC, 7> GetStaticSamplers();
     void CreateCommonConstant(ID3D12Device *device);
@@ -44,7 +45,7 @@ private:
 
     void RenderTriangleScene(ID3D12GraphicsCommandList *commandList, uint frameIndex);
     void RenderModelScene(ID3D12GraphicsCommandList *commandList, uint frameIndex);
-    void DeferredRenderScene(ID3D12GraphicsCommandList* cmdList,uint frameIndex);
+    void DeferredRenderScene(ID3D12GraphicsCommandList *cmdList, uint frameIndex);
 
     void UpdateSceneConstant();
     void UpdateEntityConstant();
@@ -64,8 +65,16 @@ private:
     std::vector<ComPtr<ID3D12Resource>> mRTVBuffer;
     std::unordered_map<std::string, std::vector<D3D12_INPUT_ELEMENT_DESC>> mInputLayout;
 
+    // Test Triagle
     std::unique_ptr<DefaultBuffer> mVertexBuffer;
     D3D12_VERTEX_BUFFER_VIEW mVertexBufferView;
+
+    // Test GBuffer
+    std::unique_ptr<DefaultBuffer> mGBufferVertexBuffer;
+    D3D12_VERTEX_BUFFER_VIEW mGBufferVertexView;
+    // Test  Light Pass Quad Buffer
+    std::unique_ptr<DefaultBuffer> mQuadVertexBuffer;
+    D3D12_VERTEX_BUFFER_VIEW mQuadVertexView;
 
     std::vector<DirectX::XMFLOAT4X4> mTransforms;
     std::vector<Material> mMaterials;
