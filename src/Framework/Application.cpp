@@ -1,6 +1,7 @@
 #include "Application.h"
 #include <stdafx.h>
 #include <tchar.h>
+#include "GlobalResource.h"
 
 HWND Application::mHandle = nullptr;
 // Forward declare message handler from imgui_impl_win32.cpp
@@ -33,7 +34,7 @@ int Application::Run(RendererBase *renderer, HINSTANCE hInstance, int hCmdShow)
     INT posX = (GetSystemMetrics(SM_CXSCREEN) - rtWnd.right - rtWnd.left) / 2;
     INT posY = (GetSystemMetrics(SM_CYSCREEN) - rtWnd.bottom - rtWnd.top) / 2;
 
-    auto guiContext = std::make_unique<ImguiManager>();
+    GResource::GUIManager =  std::make_unique<ImguiManager>(); // CreateWindows会调用一次IMGUI::IO 必须被初始化
 
     auto WindowsHandle = CreateWindow(WindowsClass.lpszClassName,
                                       renderer->GetTitle(),
@@ -48,7 +49,7 @@ int Application::Run(RendererBase *renderer, HINSTANCE hInstance, int hCmdShow)
 
     mHandle = WindowsHandle;
 
-    renderer->OnInit(guiContext);
+    renderer->OnInit();
 
     ShowWindow(WindowsHandle, hCmdShow);
     UpdateWindow(WindowsHandle);
@@ -63,6 +64,7 @@ int Application::Run(RendererBase *renderer, HINSTANCE hInstance, int hCmdShow)
     }
 
     renderer->OnDestory();
+    renderer = nullptr;
 
     ComPtr<IDXGIDebug1> dxgiDebug;
     if (SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&dxgiDebug)))) {

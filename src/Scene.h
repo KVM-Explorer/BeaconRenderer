@@ -9,7 +9,7 @@
 #include "D3DHelpler/Entity.h"
 #include "D3DHelpler/UploadBuffer.h"
 #include "D3DHelpler/RenderItem.h"
-#include "D3DHelpler/DeferredRendering.h"
+#include "DeferredRendering.h"
 class Scene {
 public:
     explicit Scene(const std::wstring &root, const std::wstring &modelname);
@@ -20,10 +20,13 @@ public:
 
 public:
     void Init(SceneAdapter &adapter);
-    void RenderUI(ID3D12GraphicsCommandList *commandList, uint frameIndex);
     void RenderScene(ID3D12GraphicsCommandList *cmdList, uint frameIndex);
     void UpdateScene();
     void UpdateMouse(float dx, float dy);
+    ID3D12Resource *GetRenderTarget(uint frameIndex)
+    {
+        return mRTVBuffer.at(frameIndex).Get();
+    };
 
 private:
     void CreateRTV(ID3D12Device *device, IDXGISwapChain *swapChain, uint frameCount);
@@ -36,7 +39,6 @@ private:
     std::array<CD3DX12_STATIC_SAMPLER_DESC, 7> GetStaticSamplers();
     void CreateCommonConstant(ID3D12Device *device);
     void CreateDescriptorHeaps2Descriptors(ID3D12Device *device, uint width, uint height);
-    void InitUI(ID3D12Device *device);
 
     void LoadAssets(ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
     void CreateSceneInfo(const ModelLight &info);
@@ -98,7 +100,4 @@ private:
     std::unique_ptr<DescriptorHeap> mDSVDescriptorHeap;
 
     std::unique_ptr<DeferredRendering> mDeferredRendering;
-
-    // UI
-    std::unique_ptr<DescriptorHeap> mUiSrvHeap;
 };

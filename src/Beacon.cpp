@@ -10,16 +10,16 @@ Beacon::Beacon(uint width, uint height, std::wstring title) :
 {
 }
 
-void Beacon::OnInit(std::unique_ptr<ImguiManager> &guiContext)
+void Beacon::OnInit()
 {
     HWND handle = Application::GetHandle();
-    mGUI = std::move(guiContext);
     CreateDevice(handle);
     CreateCommandResource();
     CreateSwapChain(handle);
     CreateFence();
     GResource::TextureManager = std::make_unique<TextureManager>(mDevice.Get(), 1000);
-    
+    GResource::GUIManager->Init(mDevice.Get());
+
     LoadScene();
     // Upload Committed Resource 0 - > 1
     mCommandList->Close();
@@ -37,7 +37,8 @@ void Beacon::OnRender()
     mCommandList->RSSetScissorRects(1, &mScissor);
 
     mScene->RenderScene(mCommandList.Get(), frameIndex);
-    mScene->RenderUI(mCommandList.Get(), frameIndex);
+
+    GResource::GUIManager->DrawUI(mCommandList.Get(), mScene->GetRenderTarget(frameIndex));
 
     mCommandList->Close();
     std::array<ID3D12CommandList *, 1> taskList = {mCommandList.Get()};

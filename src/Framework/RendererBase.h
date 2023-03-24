@@ -11,7 +11,7 @@ public:
     RendererBase &operator=(const RendererBase &) = delete;
     RendererBase &operator=(RendererBase &&) = default;
 
-    virtual void OnInit(std::unique_ptr<ImguiManager> &guiContext) = 0;
+    virtual void OnInit() = 0;
     virtual void OnKeyDown(byte key){};
     virtual void OnMouseDown(WPARAM btnState, int x, int y){};
     virtual void OnDestory() = 0;

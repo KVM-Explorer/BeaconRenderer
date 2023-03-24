@@ -20,8 +20,6 @@ void Scene::Init(SceneAdapter &adapter)
     CreateDeferredRenderTriangle(adapter.Device, adapter.CommandList);
     CreateCommonConstant(adapter.Device);
 
-    InitUI(adapter.Device);
-
     mDataLoader = std::make_unique<DataLoader>(mRootPath, mSceneName);
     LoadAssets(adapter.Device, adapter.CommandList);
     CreateDescriptorHeaps2Descriptors(adapter.Device, adapter.FrameWidth, adapter.FrameHeight);
@@ -41,37 +39,10 @@ void Scene::RenderScene(ID3D12GraphicsCommandList *commandList, uint frameIndex)
     // RenderTriangleScene(commandList, frameIndex);
     // RenderModelScene(commandList, frameIndex);
     DeferredRenderScene(commandList, frameIndex);
+
 }
 
-void Scene::RenderUI(ID3D12GraphicsCommandList *cmdList, uint frameIndex)
-{
-    // Define GUI
-    ImGui_ImplDX12_NewFrame();
-    ImGui_ImplWin32_NewFrame();
-    ImGui::NewFrame();
 
-    bool show_window = true;
-    ImGui::Begin("Another Window", &show_window); // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-    ImGui::Text("Hello from another window!");
-
-    ImGui::End();
-
-    bool showDemo = true;
-    ImGui::ShowDemoWindow(&showDemo);
-
-    // Generate GUI
-    ImGui::Render();
-
-    // Render GUI To Screen
-    std::array<ID3D12DescriptorHeap *, 1> ppHeaps{mUiSrvHeap->Resource()};
-    cmdList->SetDescriptorHeaps(ppHeaps.size(), ppHeaps.data());
-    ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), cmdList);
-    // State Convert After Render Barrier
-    auto endBarrier = CD3DX12_RESOURCE_BARRIER::Transition(mRTVBuffer.at(frameIndex).Get(),
-                                                           D3D12_RESOURCE_STATE_RENDER_TARGET,
-                                                           D3D12_RESOURCE_STATE_PRESENT);
-    cmdList->ResourceBarrier(1, &endBarrier);
-}
 
 void Scene::UpdateScene()
 {
@@ -635,6 +606,7 @@ void Scene::DeferredRenderScene(ID3D12GraphicsCommandList *cmdList, uint frameIn
     cmdList->IASetVertexBuffers(0, 1, &mQuadVertexView);
     cmdList->DrawInstanced(4, 1, 0, 0);
     //
+
 }
 
 void Scene::UpdateSceneConstant()
@@ -706,21 +678,3 @@ void Scene::UpdateMouse(float dx, float dy)
     mCamera["default"].RotateY(dx);
 }
 
-void Scene::InitUI(ID3D12Device *device)
-{
-
-    ImGui::StyleColorsDark();
-    ImGui_ImplWin32_Init(Application::GetHandle());
-
-    // TODO 128 Relevate with UI count
-    mUiSrvHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 128, true);
-
-    ImGui_ImplDX12_Init(
-        device,
-        3,
-        DXGI_FORMAT_R8G8B8A8_UNORM,
-        mUiSrvHeap->Resource(),
-        mUiSrvHeap->CPUHandle(0),
-        mUiSrvHeap->GPUHandle(0));
-    ImGui_ImplDX12_CreateDeviceObjects();
-}
