@@ -34,11 +34,12 @@ private:
     void CreateRootSignature(ID3D12Device *device);
     void CreateInputLayout();
     void CreateTriangleVertex(ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
-    void CreateDeferredRenderTriangle(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList);
+
     void CompileShaders();
     std::array<CD3DX12_STATIC_SAMPLER_DESC, 7> GetStaticSamplers();
     void CreateCommonConstant(ID3D12Device *device);
     void CreateDescriptorHeaps2Descriptors(ID3D12Device *device, uint width, uint height);
+    void CreateSphereTest(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList);
 
     void LoadAssets(ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
     void CreateSceneInfo(const ModelLight &info);
@@ -74,7 +75,10 @@ private:
 
     // Test GBuffer
     std::unique_ptr<DefaultBuffer> mGBufferVertexBuffer;
+    std::unique_ptr<DefaultBuffer> mGBufferIndexBuffer;
     D3D12_VERTEX_BUFFER_VIEW mGBufferVertexView;
+    D3D12_INDEX_BUFFER_VIEW mGBufferIndexView;
+
     // Test  Light Pass Quad Buffer
     std::unique_ptr<DefaultBuffer> mQuadVertexBuffer;
     D3D12_VERTEX_BUFFER_VIEW mQuadVertexView;
@@ -100,4 +104,5 @@ private:
     std::unique_ptr<DescriptorHeap> mDSVDescriptorHeap;
 
     std::unique_ptr<DeferredRendering> mDeferredRendering;
+    std::unordered_map<std::string,RenderItem> mDeferredItems;
 };

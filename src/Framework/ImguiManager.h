@@ -2,7 +2,11 @@
 #pragma once
 #include <stdafx.h>
 #include "D3DHelpler/DescroptorHeap.h"
+
 class ImguiManager {
+    struct GUIState {
+    };
+
 public:
     ImguiManager();
     ~ImguiManager();
@@ -14,6 +18,9 @@ public:
     void Init(ID3D12Device *device);
     void DrawUI(ID3D12GraphicsCommandList *cmdList, ID3D12Resource *target);
 
+    GUIState State;
+
 private:
-    std::unique_ptr<DescriptorHeap> mUiSrvHeap;
+    std::unique_ptr<DescriptorHeap>
+        mUiSrvHeap;
 };

@@ -2,6 +2,7 @@
 #include "Tools/DataLoader.h"
 #include "Tools/FrameworkHelper.h"
 #include "Framework/Application.h"
+#include <GeometryGenerator.h>
 
 Scene::Scene(const std::wstring &root, const std::wstring &scenename) :
     mRootPath(root),
@@ -17,14 +18,15 @@ void Scene::Init(SceneAdapter &adapter)
     CreateRootSignature(adapter.Device);
     CreatePipelineStateObject(adapter.Device);
     CreateTriangleVertex(adapter.Device, adapter.CommandList);
-    CreateDeferredRenderTriangle(adapter.Device, adapter.CommandList);
+
     CreateCommonConstant(adapter.Device);
+    CreateSphereTest(adapter.Device, adapter.CommandList);
 
     mDataLoader = std::make_unique<DataLoader>(mRootPath, mSceneName);
     LoadAssets(adapter.Device, adapter.CommandList);
     CreateDescriptorHeaps2Descriptors(adapter.Device, adapter.FrameWidth, adapter.FrameHeight);
 
-    mCamera["default"].SetPosition(0, 0, -1.5F);
+    mCamera["default"].SetPosition(0, 0, -10.5F);
     mCamera["default"].SetLens(0.25f * MathHelper::Pi, adapter.FrameWidth / adapter.FrameHeight, 1, 1000);
 
     mDeferredRendering = std::make_unique<DeferredRendering>(adapter.FrameWidth, adapter.FrameHeight);
@@ -39,10 +41,7 @@ void Scene::RenderScene(ID3D12GraphicsCommandList *commandList, uint frameIndex)
     // RenderTriangleScene(commandList, frameIndex);
     // RenderModelScene(commandList, frameIndex);
     DeferredRenderScene(commandList, frameIndex);
-
 }
-
-
 
 void Scene::UpdateScene()
 {
@@ -331,20 +330,32 @@ void Scene::CreateTriangleVertex(ID3D12Device *device, ID3D12GraphicsCommandList
     mVertexBufferView.StrideInBytes = sizeof(Vertex);
 }
 
-void Scene::CreateDeferredRenderTriangle(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList)
+void Scene::CreateSphereTest(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList)
 {
-    const float triangleSize = 2.0F;
-    const std::array<GBufferVertex, 3> vertexData = {{
-        {{-0.25F * triangleSize, -0.25F * triangleSize, 0.F}, {0.F, 0.F, -1.0F}},
-        {{0.0F, 0.25F * triangleSize, 0.0F}, {0.F, 0.F, -1.0F}},
-        {{0.25F * triangleSize, -0.25F * triangleSize, 0.F}, {0.F, 0.F, -1.0F}},
-    }};
-    const uint gBuffervertexByteSize = vertexData.size() * sizeof(GBufferVertex);
-    mGBufferVertexBuffer = std::make_unique<DefaultBuffer>(device, cmdList, vertexData.data(), gBuffervertexByteSize);
+    auto gen = GeometryGenerator();
+    auto mesh = gen.CreateSphere(2, 30, 30);
+    std::vector<GBufferVertex> vertices(mesh.Vertices.size());
+    std::vector<uint16> indices;
+
+    for (uint i = 0; i < mesh.Vertices.size(); i++) {
+        vertices[i].Position = mesh.Vertices[i].Position;
+        vertices[i].Normal = mesh.Vertices[i].Normal;
+    }
+    indices.insert(indices.end(), mesh.GetIndices16().begin(), mesh.GetIndices16().end());
+
+    const uint gbufferVertexByteSize = vertices.size() * sizeof(GBufferVertex);
+    const uint gbufferIndexByteSize = indices.size() * sizeof(uint16);
+
+    mGBufferVertexBuffer = std::make_unique<DefaultBuffer>(device, cmdList, vertices.data(), gbufferVertexByteSize);
+    mGBufferIndexBuffer = std::make_unique<DefaultBuffer>(device, cmdList, indices.data(), gbufferIndexByteSize);
 
     mGBufferVertexView.BufferLocation = mGBufferVertexBuffer->Resource()->GetGPUVirtualAddress();
-    mGBufferVertexView.SizeInBytes = gBuffervertexByteSize;
+    mGBufferVertexView.SizeInBytes = gbufferVertexByteSize;
     mGBufferVertexView.StrideInBytes = sizeof(GBufferVertex);
+
+    mGBufferIndexView.BufferLocation = mGBufferIndexBuffer->Resource()->GetGPUVirtualAddress();
+    mGBufferIndexView.Format = DXGI_FORMAT_R16_UINT;
+    mGBufferIndexView.SizeInBytes = sizeof(uint16);
 
     const std::array<LightPassVertex, 4> quadData{{
         {{-1.0F, 1.0F, 0.0F}, {0.0F, 0.0F}},
@@ -359,6 +370,19 @@ void Scene::CreateDeferredRenderTriangle(ID3D12Device *device, ID3D12GraphicsCom
     mQuadVertexView.BufferLocation = mQuadVertexBuffer->Resource()->GetGPUVirtualAddress();
     mQuadVertexView.SizeInBytes = lightPassVertexByteSize;
     mQuadVertexView.StrideInBytes = sizeof(LightPassVertex);
+
+    mDeferredItems["sphere"].SetVertexInfo(0,
+                                           mGBufferVertexBuffer->Resource()->GetGPUVirtualAddress(),
+                                           sizeof(GBufferVertex),
+                                           vertices.size());
+    mDeferredItems["sphere"].SetIndexInfo(0,
+                                          mGBufferIndexBuffer->Resource()->GetGPUVirtualAddress(),
+                                          sizeof(uint16),
+                                          indices.size());
+    mDeferredItems["sphere"].SetConstantInfo(0,
+                                             mSceneConstant->resource()->GetGPUVirtualAddress(),
+                                             sizeof(SceneInfo),
+                                             1);
 }
 
 void Scene::CreateCommonConstant(ID3D12Device *device)
@@ -591,9 +615,11 @@ void Scene::DeferredRenderScene(ID3D12GraphicsCommandList *cmdList, uint frameIn
     cmdList->SetGraphicsRootConstantBufferView(1, mSceneConstant->resource()->GetGPUVirtualAddress());
 
     // TODO achieve Deferred Render Scene
-    cmdList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-    cmdList->IASetVertexBuffers(0, 1, &mGBufferVertexView);
-    cmdList->DrawInstanced(3, 1, 0, 0);
+    // cmdList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+    // cmdList->IASetVertexBuffers(0, 1, &mGBufferVertexView);
+    // cmdList->DrawInstanced(3, 1, 0, 0);
+
+    mDeferredItems["sphere"].DrawItem(cmdList);
     //
 
     cmdList->ResourceBarrier(1, &present2rtvBarrier);
@@ -606,7 +632,6 @@ void Scene::DeferredRenderScene(ID3D12GraphicsCommandList *cmdList, uint frameIn
     cmdList->IASetVertexBuffers(0, 1, &mQuadVertexView);
     cmdList->DrawInstanced(4, 1, 0, 0);
     //
-
 }
 
 void Scene::UpdateSceneConstant()
@@ -677,4 +702,3 @@ void Scene::UpdateMouse(float dx, float dy)
     mCamera["default"].Pitch(dy);
     mCamera["default"].RotateY(dx);
 }
-
