@@ -16,32 +16,16 @@ void DeferredRendering::Init(ID3D12Device *device)
 
 void DeferredRendering::CreateRTV(ID3D12Device *device)
 {
-    mRTVDescriptorHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 3);
-
-    CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_DEFAULT);
-    D3D12_RESOURCE_DESC rtDesc = CD3DX12_RESOURCE_DESC::Tex2D(mRTVFormat[0],
-                                                              mScreenWidth,
-                                                              mScreenHeight,
-                                                              1,
-                                                              1,
-                                                              1,
-                                                              0,
-                                                              D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
-
-    D3D12_CLEAR_VALUE clearValue;
-    clearValue.Color[0] = mClearColor[0];
-    clearValue.Color[1] = mClearColor[1];
-    clearValue.Color[2] = mClearColor[2];
-    clearValue.Color[3] = mClearColor[3];
+    mRTVDescriptorHeap = std::make_unique<DescriptorHeap>(device,
+                                                          D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
+                                                          3);
+    std::vector<Texture> targets;
     for (uint i = 0; i < mRTNum; i++) {
-        rtDesc.Format = mRTVFormat.at(i);
-        clearValue.Format = mRTVFormat.at(i);
-        ThrowIfFailed(device->CreateCommittedResource(&heapProps,
-                                                      D3D12_HEAP_FLAG_NONE,
-                                                      &rtDesc,
-                                                      D3D12_RESOURCE_STATE_GENERIC_READ,
-                                                      &clearValue,
-                                                      IID_PPV_ARGS(&mGBuffer.at(i))));
+        Texture texture(device,
+                        mRTVFormat[i],
+                        mScreenWidth, mScreenHeight,
+                        D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
+        targets.push_back(std::move(texture));
     }
 
     D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
@@ -51,63 +35,34 @@ void DeferredRendering::CreateRTV(ID3D12Device *device)
 
     for (uint i = 0; i < mRTNum; i++) {
         rtvDesc.Format = mRTVFormat.at(i);
-        device->CreateRenderTargetView(mGBuffer.at(i).Get(),
+        device->CreateRenderTargetView(targets[i].Resource(),
                                        &rtvDesc,
                                        mRTVDescriptorHeap->CPUHandle(i));
     }
 
-    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-    srvDesc.Texture2D.MipLevels = rtDesc.MipLevels;
-    srvDesc.Texture2D.MostDetailedMip = 0;
-
-    mSRVDescriptorHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 4, true);
     for (uint i = 0; i < mRTNum; i++) {
-        srvDesc.Format = mRTVFormat.at(i);
-        device->CreateShaderResourceView(mGBuffer.at(i).Get(), &srvDesc, mSRVDescriptorHeap->CPUHandle(i));
+        uint index = GResource::TextureManager->StoreTexture(targets[i], targets[i].GetDesc().Format);
+        mGbufferTextureIndex.at(i) = static_cast<int>(index);
     }
 }
-
 void DeferredRendering::CreateDSV(ID3D12Device *device)
 {
     mDSVDescriptorHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1);
 
-    CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_DEFAULT);
-    D3D12_RESOURCE_DESC resourceDesc = CD3DX12_RESOURCE_DESC::Tex2D(mDSVFormat,
-                                                                    mScreenWidth,
-                                                                    mScreenHeight,
-                                                                    1,
-                                                                    1,
-                                                                    1,
-                                                                    0,
-                                                                    D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL);
-    D3D12_CLEAR_VALUE depthOptimizedClearValue = {};
-    depthOptimizedClearValue.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-    depthOptimizedClearValue.DepthStencil.Depth = 1.0F;
-    depthOptimizedClearValue.DepthStencil.Stencil = 0.0F;
-
-    ThrowIfFailed(device->CreateCommittedResource(&heapProps,
-                                                  D3D12_HEAP_FLAG_NONE,
-                                                  &resourceDesc,
-                                                  D3D12_RESOURCE_STATE_GENERIC_READ,
-                                                  &depthOptimizedClearValue,
-                                                  IID_PPV_ARGS(&mDepthTexture)));
+    Texture texture(device, mDSVFormat,
+                    mScreenWidth, mScreenHeight,
+                    D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL,
+                    true);
 
     D3D12_DEPTH_STENCIL_VIEW_DESC dsvDescriptor = {};
     dsvDescriptor.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
     dsvDescriptor.Flags = D3D12_DSV_FLAG_NONE;
     dsvDescriptor.Format = mDSVFormat;
     dsvDescriptor.Texture2D.MipSlice = 0;
-    device->CreateDepthStencilView(mDepthTexture.Get(), &dsvDescriptor, mDSVDescriptorHeap->CPUHandle(0));
+    device->CreateDepthStencilView(texture.Resource(), &dsvDescriptor, mDSVDescriptorHeap->CPUHandle(0));
 
-    D3D12_SHADER_RESOURCE_VIEW_DESC srvDescriptor = {};
-    srvDescriptor.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-    srvDescriptor.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-    srvDescriptor.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS; // TODO other format ?
-    srvDescriptor.Texture2D.MipLevels = resourceDesc.MipLevels;
-    srvDescriptor.Texture2D.MostDetailedMip = 0;
-    device->CreateShaderResourceView(mDepthTexture.Get(), &srvDescriptor, mSRVDescriptorHeap->CPUHandle(3));
+    uint index = GResource::TextureManager->StoreTexture(texture, DXGI_FORMAT_R24_UNORM_X8_TYPELESS);
+    mDepthTextureIndex = static_cast<int>(index);
 }
 
 void DeferredRendering::CreateRootSignature(ID3D12Device *device)
@@ -184,20 +139,21 @@ void DeferredRendering::CreatePSOs(ID3D12Device *device,
 
 void DeferredRendering::GBufferPass(ID3D12GraphicsCommandList *cmdList)
 {
-    std::array<ID3D12DescriptorHeap *, 1> srvHeaps{mSRVDescriptorHeap->Resource()};
+    std::array<ID3D12DescriptorHeap *, 1> srvHeaps{GResource::TextureManager->GetTexture2DDescriptoHeap()->Resource()};
 
     cmdList->SetPipelineState(mGBufferPSO.Get());
-    // TODO 重新设计Clear Value使其匹配其对应格式
-    /*D3D12 WARNING: ID3D12CommandList::ClearRenderTargetView: The clear values do not match those passed to resource creation. The clear operation is typically slower as a result; but will still clear to the desired value. [ EXECUTION WARNING #820: CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE]*/
 
+    float clearColor[4] = {0, 0.0F, 0.0F, 1.0F};
     for (uint i = 0; i < mRTNum; i++) {
-        auto srv2rtv = CD3DX12_RESOURCE_BARRIER::Transition(mGBuffer.at(i).Get(),
+        auto rtvTexture = GResource::TextureManager->GetTexture(mGbufferTextureIndex.at(i));
+        auto srv2rtv = CD3DX12_RESOURCE_BARRIER::Transition(rtvTexture->Resource(),
                                                             D3D12_RESOURCE_STATE_GENERIC_READ,
                                                             D3D12_RESOURCE_STATE_RENDER_TARGET);
         cmdList->ResourceBarrier(1, &srv2rtv);
-        cmdList->ClearRenderTargetView(mRTVDescriptorHeap->CPUHandle(i), mClearColor, 0, nullptr);
+        cmdList->ClearRenderTargetView(mRTVDescriptorHeap->CPUHandle(i), clearColor, 0, nullptr);
     }
-    auto srv2depthBarrier = CD3DX12_RESOURCE_BARRIER::Transition(mDepthTexture.Get(),
+    auto depthTexture = GResource::TextureManager->GetTexture(mDepthTextureIndex);
+    auto srv2depthBarrier = CD3DX12_RESOURCE_BARRIER::Transition(depthTexture->Resource(),
                                                                  D3D12_RESOURCE_STATE_GENERIC_READ,
                                                                  D3D12_RESOURCE_STATE_DEPTH_WRITE);
     cmdList->ResourceBarrier(1, &srv2depthBarrier);
@@ -207,18 +163,20 @@ void DeferredRendering::GBufferPass(ID3D12GraphicsCommandList *cmdList)
     cmdList->OMSetRenderTargets(mRTNum, &rtvHandle, true, &dsvHandle);
     cmdList->SetDescriptorHeaps(srvHeaps.size(), srvHeaps.data());
     cmdList->SetGraphicsRootSignature(mRootSignature.Get());
-    cmdList->SetGraphicsRootDescriptorTable(2, mSRVDescriptorHeap->GPUHandle(0));
+    cmdList->SetGraphicsRootDescriptorTable(2, GResource::TextureManager->GetTexture2DDescriptoHeap()->GPUHandle(0));
 }
 
 void DeferredRendering::LightingPass(ID3D12GraphicsCommandList *cmdList)
 {
     for (uint i = 0; i < mRTNum; i++) {
-        auto rtv2srvBarrier = CD3DX12_RESOURCE_BARRIER::Transition(mGBuffer.at(i).Get(),
+        auto rtvTexture = GResource::TextureManager->GetTexture(mGbufferTextureIndex.at(i));
+        auto rtv2srvBarrier = CD3DX12_RESOURCE_BARRIER::Transition(rtvTexture->Resource(),
                                                                    D3D12_RESOURCE_STATE_RENDER_TARGET,
                                                                    D3D12_RESOURCE_STATE_GENERIC_READ);
         cmdList->ResourceBarrier(1, &rtv2srvBarrier);
     }
-    auto depth2srvBarrier = CD3DX12_RESOURCE_BARRIER::Transition(mDepthTexture.Get(),
+    auto depthTexture = GResource::TextureManager->GetTexture(mDepthTextureIndex);
+    auto depth2srvBarrier = CD3DX12_RESOURCE_BARRIER::Transition(depthTexture->Resource(),
                                                                  D3D12_RESOURCE_STATE_DEPTH_WRITE,
                                                                  D3D12_RESOURCE_STATE_GENERIC_READ);
     cmdList->ResourceBarrier(1, &depth2srvBarrier);

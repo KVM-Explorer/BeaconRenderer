@@ -18,6 +18,8 @@ void Beacon::OnInit(std::unique_ptr<ImguiManager> &guiContext)
     CreateCommandResource();
     CreateSwapChain(handle);
     CreateFence();
+    GResource::TextureManager = std::make_unique<TextureManager>(mDevice.Get(), 1000);
+    
     LoadScene();
     // Upload Committed Resource 0 - > 1
     mCommandList->Close();

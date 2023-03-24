@@ -1,7 +1,7 @@
 #include "Texture.h"
 
 Texture::Texture(ID3D12Device *device, ID3D12GraphicsCommandList *commandList,
-                             std::wstring path, bool isCube)
+                 std::wstring path, bool isCube)
 {
     std::vector<D3D12_SUBRESOURCE_DATA> subresources;
     std::unique_ptr<uint8_t[]> ddsData;
@@ -9,16 +9,15 @@ Texture::Texture(ID3D12Device *device, ID3D12GraphicsCommandList *commandList,
 
     ThrowIfFailed(DirectX::LoadDDSTextureFromFile(device,
                                                   path.c_str(),
-                                                  &mBuffer,
+                                                  &mTexture,
                                                   ddsData,
                                                   subresources,
                                                   SIZE_MAX,
                                                   &alphaMode,
                                                   &isCube));
-    mBuffer->GetDesc();
+    mTexture->GetDesc();
 
-    
-    UINT64 uploadBufferSize = GetRequiredIntermediateSize(mBuffer.Get(),
+    UINT64 uploadBufferSize = GetRequiredIntermediateSize(mTexture.Get(),
                                                           0,
                                                           static_cast<UINT>(subresources.size()));
     CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
@@ -26,15 +25,52 @@ Texture::Texture(ID3D12Device *device, ID3D12GraphicsCommandList *commandList,
 
     ThrowIfFailed(device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&mUploader)));
 
-    UpdateSubresources(commandList, mBuffer.Get(),
+    UpdateSubresources(commandList, mTexture.Get(),
                        mUploader.Get(),
                        0,
                        0,
                        static_cast<UINT>(subresources.size()),
                        subresources.data());
 
-    auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(mBuffer.Get(),
+    auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(mTexture.Get(),
                                                         D3D12_RESOURCE_STATE_COPY_DEST,
                                                         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
     commandList->ResourceBarrier(1, &barrier);
+}
+
+Texture::Texture(ID3D12Device *device,
+                 DXGI_FORMAT format,
+                 uint width, uint height,
+                 D3D12_RESOURCE_FLAGS flags,
+                 bool isDepthTexture)
+{
+    CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_DEFAULT);
+    CD3DX12_RESOURCE_DESC resourceDesc = CD3DX12_RESOURCE_DESC::Tex2D(format,
+                                                                      width,
+                                                                      height,
+                                                                      1,
+                                                                      1,
+                                                                      1,
+                                                                      0,
+                                                                      flags);
+
+    float clearColor[4] = {0, 0, 0, 1.0F};
+    D3D12_CLEAR_VALUE clearValue;
+    clearValue.Format = format;
+    if (!isDepthTexture) {
+        clearValue.Color[0] = clearColor[0];
+        clearValue.Color[1] = clearColor[1];
+        clearValue.Color[2] = clearColor[2];
+        clearValue.Color[3] = clearColor[3];
+    } else {
+        clearValue.DepthStencil.Depth = 1.0F;
+        clearValue.DepthStencil.Stencil = 0.0F;
+    }
+
+    ThrowIfFailed(device->CreateCommittedResource(&heapProps,
+                                                  D3D12_HEAP_FLAG_NONE,
+                                                  &resourceDesc,
+                                                  D3D12_RESOURCE_STATE_GENERIC_READ,
+                                                  &clearValue,
+                                                  IID_PPV_ARGS(&mTexture)));
 }

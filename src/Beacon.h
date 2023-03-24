@@ -3,6 +3,8 @@
 #include <stdafx.h>
 #include "Scene.h"
 #include "Framework/ImguiManager.h"
+#include "Framework/GlobalResource.h"
+
 class Beacon : public RendererBase {
 public:
     Beacon(uint width, uint height, std::wstring title);
