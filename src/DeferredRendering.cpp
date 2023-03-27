@@ -18,7 +18,7 @@ void DeferredRendering::CreateRTV(ID3D12Device *device)
 {
     mRTVDescriptorHeap = std::make_unique<DescriptorHeap>(device,
                                                           D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
-                                                          3);
+                                                          mRTNum);
     std::vector<Texture> targets;
     for (uint i = 0; i < mRTNum; i++) {
         Texture texture(device,
@@ -67,15 +67,16 @@ void DeferredRendering::CreateDSV(ID3D12Device *device)
 
 void DeferredRendering::CreateRootSignature(ID3D12Device *device)
 {
-    std::array<CD3DX12_DESCRIPTOR_RANGE, 1> srvRange;
-    srvRange.at(0).Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, 0);
+    std::array<CD3DX12_DESCRIPTOR_RANGE, 1> srvRange = {};
+    srvRange.at(0).Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, mRTNum + 1, 0); // Gbuffer 3 output + Depth
 
-    std::array<CD3DX12_ROOT_PARAMETER, 3> rootParameters;
-    rootParameters.at(0).InitAsConstantBufferView(0); // Object Constant
-    rootParameters.at(1).InitAsConstantBufferView(1); // Scene Constant
-    rootParameters.at(2).InitAsDescriptorTable(srvRange.size(), srvRange.data());
+    std::array<CD3DX12_ROOT_PARAMETER, 4> rootParameters = {};
+    rootParameters.at(0).InitAsConstantBufferView(0);                             // Object Constant
+    rootParameters.at(1).InitAsConstantBufferView(1);                             // Scene Constant
+    rootParameters.at(2).InitAsShaderResourceView(0, 1);                          // PointLight
+    rootParameters.at(3).InitAsDescriptorTable(srvRange.size(), srvRange.data()); // Gbuffer 3 output + Depth
 
-    std::array<CD3DX12_STATIC_SAMPLER_DESC, 1> staticSamplers;
+    std::array<CD3DX12_STATIC_SAMPLER_DESC, 1> staticSamplers = {};
     staticSamplers[0].Init(0, D3D12_FILTER_MIN_MAG_MIP_LINEAR);
 
     CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
@@ -85,7 +86,8 @@ void DeferredRendering::CreateRootSignature(ID3D12Device *device)
                            staticSamplers.data(),
                            D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
-    ComPtr<ID3DBlob> rootBlob, errorBlob;
+    ComPtr<ID3DBlob> rootBlob;
+    ComPtr<ID3DBlob> errorBlob;
     ThrowIfFailed(D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &rootBlob, &errorBlob));
     ThrowIfFailed(device->CreateRootSignature(0, rootBlob->GetBufferPointer(), rootBlob->GetBufferSize(),
                                               IID_PPV_ARGS(&mRootSignature)));
@@ -110,11 +112,9 @@ void DeferredRendering::CreatePSOs(ID3D12Device *device,
     gBufferDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
     gBufferDesc.SampleMask = UINT_MAX;
     gBufferDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-    gBufferDesc.NumRenderTargets = 3;
     gBufferDesc.NumRenderTargets = mRTNum;
-    gBufferDesc.RTVFormats[0] = mRTVFormat[0];
-    gBufferDesc.RTVFormats[1] = mRTVFormat[1];
-    gBufferDesc.RTVFormats[2] = mRTVFormat[2];
+    for (uint i = 0; i < mRTNum; i++)
+        gBufferDesc.RTVFormats[i] = mRTVFormat[i];
     gBufferDesc.DSVFormat = mDSVFormat;
     gBufferDesc.SampleDesc.Count = 1;
     ThrowIfFailed(device->CreateGraphicsPipelineState(&gBufferDesc, IID_PPV_ARGS(&mGBufferPSO)));
@@ -163,7 +163,7 @@ void DeferredRendering::GBufferPass(ID3D12GraphicsCommandList *cmdList)
     cmdList->OMSetRenderTargets(mRTNum, &rtvHandle, true, &dsvHandle);
     cmdList->SetDescriptorHeaps(srvHeaps.size(), srvHeaps.data());
     cmdList->SetGraphicsRootSignature(mRootSignature.Get());
-    cmdList->SetGraphicsRootDescriptorTable(2, GResource::TextureManager->GetTexture2DDescriptoHeap()->GPUHandle(0));
+    cmdList->SetGraphicsRootDescriptorTable(3, GResource::TextureManager->GetTexture2DDescriptoHeap()->GPUHandle(0));
 }
 
 void DeferredRendering::LightingPass(ID3D12GraphicsCommandList *cmdList)
@@ -181,6 +181,7 @@ void DeferredRendering::LightingPass(ID3D12GraphicsCommandList *cmdList)
                                                                  D3D12_RESOURCE_STATE_GENERIC_READ);
     cmdList->ResourceBarrier(1, &depth2srvBarrier);
     cmdList->SetPipelineState(mLightingPSO.Get());
+    cmdList->SetGraphicsRootSignature(mRootSignature.Get());
 
     // TODO  Render Quad
 }

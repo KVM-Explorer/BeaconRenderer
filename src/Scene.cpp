@@ -48,6 +48,7 @@ void Scene::UpdateScene()
     UpdateCamera();
     UpdateSceneConstant();
     UpdateEntityConstant();
+    UpdateLight();
 }
 void Scene::CreateRTV(ID3D12Device *device, IDXGISwapChain *swapChain, uint frameCount)
 {
@@ -388,6 +389,7 @@ void Scene::CreateSphereTest(ID3D12Device *device, ID3D12GraphicsCommandList *cm
 void Scene::CreateCommonConstant(ID3D12Device *device)
 {
     mSceneConstant = std::make_unique<UploadBuffer<SceneInfo>>(device, 1, true);
+    mLightConstant = std::make_unique<UploadBuffer<Light>>(device, 1, false);
 }
 
 void Scene::CreateDescriptorHeaps2Descriptors(ID3D12Device *device, uint width, uint height)
@@ -623,9 +625,12 @@ void Scene::DeferredRenderScene(ID3D12GraphicsCommandList *cmdList, uint frameIn
     //
 
     cmdList->ResourceBarrier(1, &present2rtvBarrier);
+
+    mDeferredRendering->LightingPass(cmdList);
     cmdList->OMSetRenderTargets(1, &rtvHandle, true, nullptr);
     cmdList->ClearRenderTargetView(rtvHandle, DirectX::Colors::SteelBlue, 0, nullptr);
-    mDeferredRendering->LightingPass(cmdList);
+    cmdList->SetGraphicsRootConstantBufferView(1, mSceneConstant->resource()->GetGPUVirtualAddress());
+    cmdList->SetGraphicsRootShaderResourceView(2, mLightConstant->resource()->GetGPUVirtualAddress());
 
     // TODO achieve Render On Quad
     cmdList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
@@ -637,11 +642,19 @@ void Scene::DeferredRenderScene(ID3D12GraphicsCommandList *cmdList, uint frameIn
 void Scene::UpdateSceneConstant()
 {
     using DirectX::XMMATRIX;
+    using DirectX::XMFLOAT4X4;
     mCamera.at("default").UpdateViewMatrix();
     SceneInfo sceneInfo = {};
     XMMATRIX view = mCamera["default"].GetView();
     XMMATRIX project = mCamera["default"].GetProj();
     XMMATRIX viewProject = DirectX::XMMatrixMultiply(view, project);
+
+    XMFLOAT4X4 screenModel = {
+        2 / static_cast<float>(GResource::Width), 0, 0, 0,
+        0, -2 / static_cast<float>(GResource::Height), 0, 0,
+        0, 0, 1, 0,
+        -1, 1, 0, 1};
+    XMMATRIX screenModelMat = DirectX::XMLoadFloat4x4(&screenModel);
 
     auto viewDet = XMMatrixDeterminant(view);
     auto projectDet = XMMatrixDeterminant(project);
@@ -653,14 +666,25 @@ void Scene::UpdateSceneConstant()
 
     XMStoreFloat4x4(&sceneInfo.View, XMMatrixTranspose(view));
     XMStoreFloat4x4(&sceneInfo.InvView, XMMatrixTranspose(invView));
-    XMStoreFloat4x4(&sceneInfo.Project, XMMatrixTranspose(invView));
-    XMStoreFloat4x4(&sceneInfo.InvProject, XMMatrixTranspose(invView));
+    XMStoreFloat4x4(&sceneInfo.Project, XMMatrixTranspose(project));
+    XMStoreFloat4x4(&sceneInfo.InvProject, XMMatrixTranspose(invProject));
     XMStoreFloat4x4(&sceneInfo.ViewProject, XMMatrixTranspose(viewProject));
     XMStoreFloat4x4(&sceneInfo.InvViewProject, XMMatrixTranspose(invViewProject));
+    XMStoreFloat4x4(&sceneInfo.InvScreenModel, XMMatrixTranspose(screenModelMat));
 
     sceneInfo.EyePosition = mCamera["default"].GetPosition3f();
 
     mSceneConstant->copyData(0, sceneInfo);
+}
+
+void Scene::UpdateLight()
+{
+    Light pointLight;
+    pointLight.LightBegin = 0.0F;
+    pointLight.LightEnd = 100.0F;
+    pointLight.Position = DirectX::XMFLOAT3(3, 3, -5);
+    pointLight.LightStrengh = DirectX::XMFLOAT3(1.0, 1.0, 1.0);
+    mLightConstant->copyData(0, pointLight);
 }
 
 void Scene::UpdateEntityConstant()

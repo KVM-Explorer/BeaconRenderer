@@ -54,6 +54,7 @@ private:
     void UpdateSceneConstant();
     void UpdateEntityConstant();
     void UpdateCamera();
+    void UpdateLight();
 
 private:
     uint mEntityCount = 0;
@@ -89,6 +90,7 @@ private:
 
     std::unique_ptr<UploadBuffer<EntityInfo>> mObjectConstant;
     std::unique_ptr<UploadBuffer<SceneInfo>> mSceneConstant;
+    std::unique_ptr<UploadBuffer<Light>> mLightConstant;
     std::vector<Entity> mEntities;
     std::unordered_map<EntityType, std::vector<RenderItem>> mRenderItems;
 
@@ -104,5 +106,5 @@ private:
     std::unique_ptr<DescriptorHeap> mDSVDescriptorHeap;
 
     std::unique_ptr<DeferredRendering> mDeferredRendering;
-    std::unordered_map<std::string,RenderItem> mDeferredItems;
+    std::unordered_map<std::string, RenderItem> mDeferredItems;
 };

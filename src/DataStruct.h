@@ -54,6 +54,13 @@ struct Material {
     DirectX::XMFLOAT4 BaseColor;
     std::unique_ptr<Texture> Texture;
 };
+
+struct Light {
+    DirectX::XMFLOAT3 Position;
+    float LightBegin;
+    DirectX::XMFLOAT3 LightStrengh;
+    float LightEnd;
+};
 struct SceneInfo {
     DirectX::XMFLOAT4X4 View;
     DirectX::XMFLOAT4X4 InvView;
@@ -61,6 +68,7 @@ struct SceneInfo {
     DirectX::XMFLOAT4X4 InvProject;
     DirectX::XMFLOAT4X4 ViewProject;
     DirectX::XMFLOAT4X4 InvViewProject;
+    DirectX::XMFLOAT4X4 InvScreenModel;
     DirectX::XMFLOAT3 EyePosition;
 };
 
