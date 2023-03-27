@@ -4,6 +4,7 @@
 #include <Framework/ImguiManager.h>
 #include "MaterialManager.h"
 #include "Tools/CPUTimer.h"
+#include "Tools/D3D12GpuTimer.h"
 
 class GResource {
 public:
@@ -11,6 +12,7 @@ public:
     inline static std::unique_ptr<ImguiManager> GUIManager = nullptr;
     inline static std::unique_ptr<MaterialManager> MaterialManager = nullptr;
     inline static std::unique_ptr<CPUTimer> CPUTimerManager = nullptr;
+    inline static std::unique_ptr<D3D12GpuTimer> GPUTimer = nullptr;
     inline static uint Width = 0;
     inline static uint Height = 0;
 };

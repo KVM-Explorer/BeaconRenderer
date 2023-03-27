@@ -2,6 +2,7 @@
 #include "Framework/Application.h"
 #include "Tools/FrameworkHelper.h"
 #include "DataStruct.h"
+
 Beacon::Beacon(uint width, uint height, std::wstring title) :
     RendererBase(width, height, title),
     mViewPort(0.0F, 0.0F, static_cast<float>(width), static_cast<float>(height)),
@@ -19,6 +20,8 @@ void Beacon::OnInit()
     CreateFence();
     GResource::TextureManager = std::make_unique<TextureManager>(mDevice.Get(), 1000);
     GResource::GUIManager->Init(mDevice.Get());
+    GResource::GPUTimer = std::make_unique<D3D12GpuTimer>(mDevice.Get(), mCommandQueue.Get(), static_cast<UINT>(GpuTimers::NumTimers));
+    GResource::GPUTimer->SetTimerName(static_cast<UINT>(GpuTimers::FPS), "render ms");
 
     LoadScene();
     // Upload Committed Resource 0 - > 1
@@ -31,15 +34,21 @@ void Beacon::OnInit()
 void Beacon::OnRender()
 {
     GResource::CPUTimerManager->UpdateTimer("RenderTime");
+
     int frameIndex = mSwapChain->GetCurrentBackBufferIndex();
     mCommandAllocator->Reset();
     mCommandList->Reset(mCommandAllocator.Get(), nullptr);
+
+    GResource::GPUTimer->BeginTimer(mCommandList.Get(), static_cast<std::uint32_t>(GpuTimers::FPS));
     mCommandList->RSSetViewports(1, &mViewPort);
     mCommandList->RSSetScissorRects(1, &mScissor);
 
     mScene->RenderScene(mCommandList.Get(), frameIndex);
 
     GResource::GUIManager->DrawUI(mCommandList.Get(), mScene->GetRenderTarget(frameIndex));
+
+    GResource::GPUTimer->EndTimer(mCommandList.Get(), static_cast<std::uint32_t>(GpuTimers::FPS));
+    GResource::GPUTimer->ResolveAllTimers(mCommandList.Get());
 
     mCommandList->Close();
     std::array<ID3D12CommandList *, 1> taskList = {mCommandList.Get()};

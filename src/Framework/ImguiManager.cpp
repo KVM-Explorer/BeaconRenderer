@@ -38,6 +38,9 @@ void ImguiManager::Init(ID3D12Device *device)
 
 void ImguiManager::DrawUI(ID3D12GraphicsCommandList *cmdList, ID3D12Resource *target)
 {
+    // Update State
+    State.RenderTime = GResource::CPUTimerManager->QueryDuration("RenderTime") / 1000.0F;
+
     // Define GUI
     ImGui_ImplDX12_NewFrame();
     ImGui_ImplWin32_NewFrame();
@@ -46,12 +49,13 @@ void ImguiManager::DrawUI(ID3D12GraphicsCommandList *cmdList, ID3D12Resource *ta
     bool show_window = true;
     ImGui::Begin("Another Window", &show_window); // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
     ImGui::Text("Hello from another window!");
-    ImGui::Text("Rendering Time ms: %f", GResource::CPUTimerManager->QueryDuration("RenderTime")/1000.0F);
+    ImGui::Text("Rendering Time: %.3f ms", State.RenderTime);
+
+    for (auto &timer : GResource::GPUTimer->GetTimes()) {
+        ImGui::Text("%s %f", timer.second.c_str(), timer.first * 1000.0F);
+    }
 
     ImGui::End();
-
-    bool showDemo = true;
-    ImGui::ShowDemoWindow(&showDemo);
 
     // Generate GUI
     ImGui::Render();

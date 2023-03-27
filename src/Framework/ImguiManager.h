@@ -5,6 +5,8 @@
 
 class ImguiManager {
     struct GUIState {
+        float RenderTime;
+        float RenderGPUTime;
     };
 
 public:

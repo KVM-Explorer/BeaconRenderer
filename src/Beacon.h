@@ -4,6 +4,7 @@
 #include "Scene.h"
 #include "Framework/ImguiManager.h"
 #include "Framework/GlobalResource.h"
+#include "Tools/D3D12GpuTimer.h"
 
 class Beacon : public RendererBase {
 public:
