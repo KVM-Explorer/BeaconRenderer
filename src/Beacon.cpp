@@ -30,6 +30,7 @@ void Beacon::OnInit()
 
 void Beacon::OnRender()
 {
+    GResource::CPUTimerManager->UpdateTimer("RenderTime");
     int frameIndex = mSwapChain->GetCurrentBackBufferIndex();
     mCommandAllocator->Reset();
     mCommandList->Reset(mCommandAllocator.Get(), nullptr);

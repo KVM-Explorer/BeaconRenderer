@@ -1,5 +1,6 @@
 #include "ImguiManager.h"
 #include "Framework/Application.h"
+#include "GlobalResource.h"
 
 ImguiManager::ImguiManager()
 {
@@ -35,7 +36,7 @@ void ImguiManager::Init(ID3D12Device *device)
     ImGui_ImplDX12_CreateDeviceObjects();
 }
 
-void ImguiManager::DrawUI(ID3D12GraphicsCommandList *cmdList,ID3D12Resource *target)
+void ImguiManager::DrawUI(ID3D12GraphicsCommandList *cmdList, ID3D12Resource *target)
 {
     // Define GUI
     ImGui_ImplDX12_NewFrame();
@@ -45,6 +46,7 @@ void ImguiManager::DrawUI(ID3D12GraphicsCommandList *cmdList,ID3D12Resource *tar
     bool show_window = true;
     ImGui::Begin("Another Window", &show_window); // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
     ImGui::Text("Hello from another window!");
+    ImGui::Text("Rendering Time ms: %f", GResource::CPUTimerManager->QueryDuration("RenderTime")/1000.0F);
 
     ImGui::End();
 
