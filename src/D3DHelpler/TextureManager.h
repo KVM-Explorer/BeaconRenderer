@@ -11,20 +11,22 @@ public:
 
     TextureManager(ID3D12Device *device, uint textureMaxNum);
 
-    uint StoreTexture(Texture &texture, DXGI_FORMAT format);
+    uint StoreTexture(Texture &texture);
+    uint AddSrvDescriptor(uint resourceIndex, DXGI_FORMAT format);
+    uint AddUvaDescriptor(uint resourceIndex, DXGI_FORMAT format); // TODO 修改StoreTexture
     Texture *GetTexture(uint index);
     DescriptorHeap *GetTexture2DDescriptoHeap()
     {
         return mDescriptorHeap.get();
     }
 
-private:
-    void CreateDescriptor(Texture &texture, uint index, DXGI_FORMAT format);
+    void Destory();
 
 private:
     uint mMaxNum;
     ID3D12Device *mDevice;
-    uint mTotalIndex = 0;
+    uint mResourceIndex = 0;
     std::unique_ptr<DescriptorHeap> mDescriptorHeap;
-    std::vector<Texture> mTexture2Ds;
+    std::vector<Texture> mTexture2D;
+    uint mDescriptorIndex = 0;
 };

@@ -41,8 +41,9 @@ void DeferredRendering::CreateRTV(ID3D12Device *device)
     }
 
     for (uint i = 0; i < mRTNum; i++) {
-        uint index = GResource::TextureManager->StoreTexture(targets[i], targets[i].GetDesc().Format);
+        uint index = GResource::TextureManager->StoreTexture(targets[i]);
         mGbufferTextureIndex.at(i) = static_cast<int>(index);
+        GResource::TextureManager->AddSrvDescriptor(index, mRTVFormat[i]);
     }
 }
 void DeferredRendering::CreateDSV(ID3D12Device *device)
@@ -61,7 +62,8 @@ void DeferredRendering::CreateDSV(ID3D12Device *device)
     dsvDescriptor.Texture2D.MipSlice = 0;
     device->CreateDepthStencilView(texture.Resource(), &dsvDescriptor, mDSVDescriptorHeap->CPUHandle(0));
 
-    uint index = GResource::TextureManager->StoreTexture(texture, DXGI_FORMAT_R24_UNORM_X8_TYPELESS);
+    uint index = GResource::TextureManager->StoreTexture(texture);
+    GResource::TextureManager->AddSrvDescriptor(index, DXGI_FORMAT_R24_UNORM_X8_TYPELESS);
     mDepthTextureIndex = static_cast<int>(index);
 }
 

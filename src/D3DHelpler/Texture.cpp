@@ -66,11 +66,19 @@ Texture::Texture(ID3D12Device *device,
         clearValue.DepthStencil.Depth = 1.0F;
         clearValue.DepthStencil.Stencil = 0.0F;
     }
-
-    ThrowIfFailed(device->CreateCommittedResource(&heapProps,
-                                                  D3D12_HEAP_FLAG_NONE,
-                                                  &resourceDesc,
-                                                  D3D12_RESOURCE_STATE_GENERIC_READ,
-                                                  &clearValue,
-                                                  IID_PPV_ARGS(&mTexture)));
+    if ((flags & D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET) || (flags & D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL)) {
+        ThrowIfFailed(device->CreateCommittedResource(&heapProps,
+                                                      D3D12_HEAP_FLAG_NONE,
+                                                      &resourceDesc,
+                                                      D3D12_RESOURCE_STATE_GENERIC_READ,
+                                                      &clearValue,
+                                                      IID_PPV_ARGS(&mTexture)));
+    } else {
+        ThrowIfFailed(device->CreateCommittedResource(&heapProps,
+                                                      D3D12_HEAP_FLAG_NONE,
+                                                      &resourceDesc,
+                                                      D3D12_RESOURCE_STATE_GENERIC_READ,
+                                                      nullptr,
+                                                      IID_PPV_ARGS(&mTexture)));
+    }
 }
