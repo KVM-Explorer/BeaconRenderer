@@ -671,6 +671,7 @@ void Scene::UpdateSceneConstant()
     XMStoreFloat4x4(&sceneInfo.ViewProject, XMMatrixTranspose(viewProject));
     XMStoreFloat4x4(&sceneInfo.InvViewProject, XMMatrixTranspose(invViewProject));
     XMStoreFloat4x4(&sceneInfo.InvScreenModel, XMMatrixTranspose(screenModelMat));
+    XMStoreFloat4(&sceneInfo.Ambient,DirectX::Colors::DarkGray);
 
     sceneInfo.EyePosition = mCamera["default"].GetPosition3f();
 

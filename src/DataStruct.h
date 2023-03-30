@@ -70,6 +70,8 @@ struct SceneInfo {
     DirectX::XMFLOAT4X4 InvViewProject;
     DirectX::XMFLOAT4X4 InvScreenModel;
     DirectX::XMFLOAT3 EyePosition;
+    float Padding0;
+    DirectX::XMFLOAT4 Ambient;
 };
 
 struct Mesh {

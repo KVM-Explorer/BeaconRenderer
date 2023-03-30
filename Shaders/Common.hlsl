@@ -7,5 +7,6 @@ cbuffer SceneInfo : register(b1) {
   float4x4 gInvViewProject;
   float4x4 gInvScreenModel;
   float3 gEyePosition;
-
+  float gPadding0;
+  float4 gAmbient; // 环境光
 }
