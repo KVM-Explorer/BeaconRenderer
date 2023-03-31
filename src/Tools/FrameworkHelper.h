@@ -1,4 +1,6 @@
 #pragma once
+#include <d3dcommon.h>
+#include <dxgi1_6.h>
 #include <stdexcept>
 #include <Windows.h>
 
@@ -34,4 +36,9 @@ std::string wstring2string(std::wstring wstr);
 inline UINT CalculateConstantBufferByteSize(UINT byteSize)
 {
     return (byteSize + 255) & ~255;
+}
+
+inline void SetDXGIDebug(IDXGIObject *object, std::string name)
+{
+    object->SetPrivateData(WKPDID_D3DDebugObjectName, name.size(), name.data());
 }

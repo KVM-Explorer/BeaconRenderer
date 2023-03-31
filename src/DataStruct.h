@@ -28,7 +28,7 @@ struct GBufferVertex {
     DirectX::XMFLOAT3 Normal;
 };
 
-struct LightPassVertex {
+struct ScreenQuadVertex {
     DirectX::XMFLOAT3 Position;
     DirectX::XMFLOAT2 Texcoord;
 };
@@ -84,4 +84,10 @@ struct EntityInfo {
     uint Padding0;
     uint Padding1;
     uint Padding2;
+};
+
+enum class QuadShader {
+    SimpleColor,
+    SimpleQuad,
+    MixQuad
 };

@@ -13,11 +13,7 @@ void SobelFilter::Init(ID3D12Device *device)
 void SobelFilter::CompileShader()
 {
     UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-
-    ComPtr<ID3DBlob> shader;
     ComPtr<ID3DBlob> error;
-
-    // ThrowIfFailed(D3DCompileFromFile(L"Shaders/06BlurFilter.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "HorzBlurCS", "cs_6_0", compileFlags, 0, &mShaders["BlurCS"], nullptr));
 
     ThrowIfFailed(D3DCompileFromFile(L"Shaders/PostProcess.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "SobelMain", "cs_5_1", compileFlags, 0, &mShaders["SobelCS"], &error));
     if (error != nullptr) {
@@ -78,13 +74,21 @@ void SobelFilter::CreatePSO(ID3D12Device *device)
     ThrowIfFailed(device->CreateComputePipelineState(&desc, IID_PPV_ARGS(&mPSO)));
 }
 
-void SobelFilter::Draw(ID3D12GraphicsCommandList *cmdList, ID3D12Resource *input, ID3D12Resource *output)
+void SobelFilter::Draw(ID3D12GraphicsCommandList *cmdList, D3D12_GPU_DESCRIPTOR_HANDLE srvHandle)
 {
-    cmdList->SetPipelineState(mPSO.Get());
+    auto *srvUavCbvHeap = GResource::TextureManager->GetTexture2DDescriptoHeap();
     cmdList->SetComputeRootSignature(mRS.Get());
-    cmdList->SetComputeRootShaderResourceView(0, input->GetGPUVirtualAddress());
-    cmdList->SetComputeRootUnorderedAccessView(1, GResource::TextureManager->GetTexture(mTextureResourceIndex)->Resource()->GetGPUVirtualAddress());
+    cmdList->SetPipelineState(mPSO.Get());
+    cmdList->SetComputeRootDescriptorTable(0, srvHandle);
+    cmdList->SetComputeRootDescriptorTable(1, srvUavCbvHeap->GPUHandle(mTextureUvaIndex));
 
     // TODO update group allocation
-    cmdList->Dispatch(1, 1, 1);
+    uint numGroupX = GResource::Width / 16;
+    uint numGroupY = GResource::Height / 16;
+    cmdList->Dispatch(numGroupX, numGroupY, 1);
+}
+
+ID3D12Resource *SobelFilter::OuptputResource()
+{
+    return GResource::TextureManager->GetTexture(mTextureResourceIndex)->Resource();
 }

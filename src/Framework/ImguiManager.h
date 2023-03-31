@@ -7,6 +7,7 @@ class ImguiManager {
     struct GUIState {
         float RenderTime;
         float RenderGPUTime;
+        float DrawCallTime;
     };
 
 public:
@@ -21,6 +22,7 @@ public:
     void DrawUI(ID3D12GraphicsCommandList *cmdList, ID3D12Resource *target);
 
     GUIState State;
+    
 
 private:
     std::unique_ptr<DescriptorHeap>

@@ -18,12 +18,24 @@ void Beacon::OnInit()
     CreateCommandResource();
     CreateSwapChain(handle);
     CreateFence();
+
     GResource::TextureManager = std::make_unique<TextureManager>(mDevice.Get(), 1000);
+    CreateRTV(mDevice.Get(), mSwapChain.Get(), mFrameCount);
     GResource::GUIManager->Init(mDevice.Get());
     GResource::GPUTimer = std::make_unique<D3D12GpuTimer>(mDevice.Get(), mCommandQueue.Get(), static_cast<UINT>(GpuTimers::NumTimers));
     GResource::GPUTimer->SetTimerName(static_cast<UINT>(GpuTimers::FPS), "render ms");
 
     LoadScene();
+
+    mDeferredRendering = std::make_unique<DeferredRendering>(mWidth, mHeight);
+    mDeferredRendering->Init(mDevice.Get());
+
+    mQuadPass = std::make_unique<ScreenQuad>();
+    mQuadPass->Init(mDevice.Get(), mCommandList.Get());
+
+    mPostProcesser = std::make_unique<SobelFilter>();
+    mPostProcesser->Init(mDevice.Get());
+
     // Upload Committed Resource 0 - > 1
     mCommandList->Close();
     std::array<ID3D12CommandList *, 1> taskList = {mCommandList.Get()};
@@ -39,14 +51,68 @@ void Beacon::OnRender()
     mCommandAllocator->Reset();
     mCommandList->Reset(mCommandAllocator.Get(), nullptr);
 
+    // ============================= Init Stage =================================
     GResource::GPUTimer->BeginTimer(mCommandList.Get(), static_cast<std::uint32_t>(GpuTimers::FPS));
+    GResource::CPUTimerManager->BeginTimer("DrawCall");
     mCommandList->RSSetViewports(1, &mViewPort);
     mCommandList->RSSetScissorRects(1, &mScissor);
 
-    mScene->RenderScene(mCommandList.Get(), frameIndex);
+    // ===============================G-Buffer Pass===============================
+    mDeferredRendering->GBufferPass(mCommandList.Get());
+    mScene->RenderScene(mCommandList.Get());
 
-    GResource::GUIManager->DrawUI(mCommandList.Get(), mScene->GetRenderTarget(frameIndex));
+    // ===============================Light Pass =================================
+    auto rtvHandle = mRTVDescriptorHeap->CPUHandle(mFrameCount);
+    // auto rtvHandle = mRTVDescriptorHeap->CPUHandle(frameIndex);
+    mDeferredRendering->LightPass(mCommandList.Get());
+    auto *mediaTexture1 = GResource::TextureManager->GetTexture(mMediaRTVBuffer.at(0))->Resource();
+    auto *srvHeap = GResource::TextureManager->GetTexture2DDescriptoHeap();
+    auto srv2rtv = CD3DX12_RESOURCE_BARRIER::Transition(mediaTexture1,
+                                                        D3D12_RESOURCE_STATE_GENERIC_READ,
+                                                        D3D12_RESOURCE_STATE_RENDER_TARGET);
+    // auto present2rtv0 = CD3DX12_RESOURCE_BARRIER::Transition(mRTVBuffer.at(frameIndex).Get(),
+    //                                                          D3D12_RESOURCE_STATE_PRESENT,
+    //                                                          D3D12_RESOURCE_STATE_RENDER_TARGET);
+    mCommandList->ResourceBarrier(1, &srv2rtv);
+    // mCommandList->ResourceBarrier(1,&present2rtv0);
+    mCommandList->OMSetRenderTargets(1, &rtvHandle, true, nullptr);
+    float clearValue[] = {0, 0, 0, 1.0F};
+    mCommandList->ClearRenderTargetView(rtvHandle, clearValue, 0, nullptr);
 
+    mQuadPass->Draw(mCommandList.Get());
+    auto rtv2srv = CD3DX12_RESOURCE_BARRIER::Transition(mediaTexture1,
+                                                        D3D12_RESOURCE_STATE_RENDER_TARGET,
+                                                        D3D12_RESOURCE_STATE_GENERIC_READ);
+    mCommandList->ResourceBarrier(1, &rtv2srv);
+    // =============================== Sobel Pass ================================
+    mPostProcesser->Draw(mCommandList.Get(), srvHeap->GPUHandle(mDeferredRendering->GetDepthTexture()));
+    auto *sobelTexture = mPostProcesser->OuptputResource();
+    // ============================= Screen Quad Pass ===========================
+    auto present2rtv = CD3DX12_RESOURCE_BARRIER::Transition(mRTVBuffer.at(frameIndex).Get(),
+                                                            D3D12_RESOURCE_STATE_PRESENT,
+                                                            D3D12_RESOURCE_STATE_RENDER_TARGET);
+    mCommandList->ResourceBarrier(1, &present2rtv);
+    rtvHandle = mRTVDescriptorHeap->CPUHandle(frameIndex);
+    mCommandList->OMSetRenderTargets(1, &rtvHandle, true, nullptr);
+    mCommandList->ClearRenderTargetView(rtvHandle, DirectX::Colors::SteelBlue, 0, nullptr);
+    bool isEnablePostProcess = false;
+    if (!isEnablePostProcess) {
+        mQuadPass->SetState(mCommandList.Get(), QuadShader::MixQuad);
+        auto srv1Handle = srvHeap->GPUHandle(mMediaSrvIndex.at(0));
+        auto srv2Handle = srvHeap->GPUHandle(mPostProcesser->OutputSrvIndex());
+        mCommandList->SetGraphicsRootDescriptorTable(1, srv1Handle);
+        mCommandList->SetGraphicsRootDescriptorTable(2, srv2Handle);
+        mQuadPass->Draw(mCommandList.Get());
+    } else {
+        mQuadPass->Draw(mCommandList.Get());
+    }
+
+    // ===============================UI Pass ====================================
+
+    GResource::GUIManager->DrawUI(mCommandList.Get(), mRTVBuffer.at(frameIndex).Get());
+
+    // ===============================End Stage ==================================
+    GResource::CPUTimerManager->EndTimer("DrawCall");
     GResource::GPUTimer->EndTimer(mCommandList.Get(), static_cast<std::uint32_t>(GpuTimers::FPS));
     GResource::GPUTimer->ResolveAllTimers(mCommandList.Get());
 
@@ -108,9 +174,10 @@ void Beacon::CreateDevice(HWND handle)
         if (adapterDesc.Flags & DXGI_ADAPTER_FLAG3_SOFTWARE) continue;
         std::wstring str = adapterDesc.Description;
         OutputDebugStringW(str.c_str());
-        if (i == 2 && SUCCEEDED(D3D12CreateDevice(mDeviceAdapter.Get(), D3D_FEATURE_LEVEL_12_1, _uuidof(ID3D12Device), nullptr))) break;
+        if (i == 1 && SUCCEEDED(D3D12CreateDevice(mDeviceAdapter.Get(), D3D_FEATURE_LEVEL_12_0, _uuidof(ID3D12Device), nullptr))) break;
     }
-    ThrowIfFailed(D3D12CreateDevice(mDeviceAdapter.Get(), D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(&mDevice)));
+    auto deviceName = adapterDesc.Description;
+    ThrowIfFailed(D3D12CreateDevice(mDeviceAdapter.Get(), D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&mDevice)));
 
     ComPtr<ID3D12InfoQueue> infoQueue;
     if (SUCCEEDED(mDevice->QueryInterface(IID_PPV_ARGS(&infoQueue)))) {
@@ -148,6 +215,32 @@ void Beacon::CreateSwapChain(HWND handle)
     ThrowIfFailed(swapchain1.As(&mSwapChain));
 }
 
+void Beacon::CreateRTV(ID3D12Device *device, IDXGISwapChain4 *swapchain, uint frameCount)
+{
+    uint mediaRTVNum = 1;
+    mRTVDescriptorHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, frameCount + mediaRTVNum);
+    for (UINT i = 0; i < frameCount; i++) {
+        ComPtr<ID3D12Resource> buffer;
+        auto handle = mRTVDescriptorHeap->CPUHandle(i);
+        ThrowIfFailed(swapchain->GetBuffer(i, IID_PPV_ARGS(&buffer)));
+        device->CreateRenderTargetView(buffer.Get(), nullptr, handle);
+        mRTVBuffer.push_back(std::move(buffer));
+    }
+
+    uint rtvIndex = frameCount;
+    // Middle Texture
+    for (uint i = 0; i < mediaRTVNum; i++) {
+        Texture texture(device, DXGI_FORMAT_R8G8B8A8_UNORM, mWidth, mHeight, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
+        texture.Resource()->SetName(L"PassMiddleTexture");
+        auto handle = mRTVDescriptorHeap->CPUHandle(rtvIndex);
+        device->CreateRenderTargetView(texture.Resource(), nullptr, handle);
+        uint resourceIndex = GResource::TextureManager->StoreTexture(texture);
+        uint srvIndex = GResource::TextureManager->AddSrvDescriptor(resourceIndex, DXGI_FORMAT_R8G8B8A8_UNORM);
+        mMediaRTVBuffer.push_back(resourceIndex);
+        mMediaSrvIndex.push_back(srvIndex);
+        rtvIndex++;
+    }
+}
 void Beacon::LoadScene()
 {
     // TODO add read config file

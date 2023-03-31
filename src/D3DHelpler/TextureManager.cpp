@@ -51,5 +51,6 @@ Texture *TextureManager::GetTexture(uint index)
 
 void TextureManager::Destory()
 {
+    mTexture2D.clear();
     mDevice = nullptr;
 }

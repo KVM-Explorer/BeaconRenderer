@@ -19,7 +19,7 @@ void CPUTimer::EndTimer(std::string name)
 {
     if (mTimerPoints.contains(name) && mTimerState[name]) {
         auto timePoint = std::chrono::high_resolution_clock::now();
-        mDuration[name] = std::chrono::duration_cast<std::chrono::milliseconds>(timePoint - mTimerPoints[name]).count();
+        mDuration[name] = std::chrono::duration_cast<std::chrono::microseconds>(timePoint - mTimerPoints[name]).count();
         mTimerState[name]--;
     } else {
         throw std::runtime_error("Timer no exist or not working");

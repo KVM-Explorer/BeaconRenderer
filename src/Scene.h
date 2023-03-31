@@ -10,6 +10,10 @@
 #include "D3DHelpler/UploadBuffer.h"
 #include "D3DHelpler/RenderItem.h"
 #include "DeferredRendering.h"
+
+/**
+    @brief 场景资产管理
+*/
 class Scene {
 public:
     explicit Scene(const std::wstring &root, const std::wstring &modelname);
@@ -20,22 +24,15 @@ public:
 
 public:
     void Init(SceneAdapter &adapter);
-    void RenderScene(ID3D12GraphicsCommandList *cmdList, uint frameIndex);
+    void RenderScene(ID3D12GraphicsCommandList *cmdList);
     void UpdateScene();
     void UpdateMouse(float dx, float dy);
-    ID3D12Resource *GetRenderTarget(uint frameIndex)
-    {
-        return mRTVBuffer.at(frameIndex).Get();
-    };
 
 private:
     void CreateRTV(ID3D12Device *device, IDXGISwapChain *swapChain, uint frameCount);
     void CreatePipelineStateObject(ID3D12Device *device);
     void CreateRootSignature(ID3D12Device *device);
-    void CreateInputLayout();
-    void CreateTriangleVertex(ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
 
-    void CompileShaders();
     std::array<CD3DX12_STATIC_SAMPLER_DESC, 7> GetStaticSamplers();
     void CreateCommonConstant(ID3D12Device *device);
     void CreateDescriptorHeaps2Descriptors(ID3D12Device *device, uint width, uint height);
@@ -46,10 +43,6 @@ private:
     void CreateMaterials(const std::vector<ModelMaterial> &info, ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
     MeshInfo CreateMeshes(Mesh &mesh, ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
     void CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
-
-    void RenderTriangleScene(ID3D12GraphicsCommandList *commandList, uint frameIndex);
-    void RenderModelScene(ID3D12GraphicsCommandList *commandList, uint frameIndex);
-    void DeferredRenderScene(ID3D12GraphicsCommandList *cmdList, uint frameIndex);
 
     void UpdateSceneConstant();
     void UpdateEntityConstant();
@@ -67,7 +60,6 @@ private:
 
     std::unique_ptr<DataLoader> mDataLoader;
 
-    std::vector<ComPtr<ID3D12Resource>> mRTVBuffer;
     std::unordered_map<std::string, std::vector<D3D12_INPUT_ELEMENT_DESC>> mInputLayout;
 
     // Test Triagle
@@ -105,6 +97,5 @@ private:
     std::unique_ptr<DescriptorHeap> mSRVDescriptorHeap;
     std::unique_ptr<DescriptorHeap> mDSVDescriptorHeap;
 
-    std::unique_ptr<DeferredRendering> mDeferredRendering;
     std::unordered_map<std::string, RenderItem> mDeferredItems;
 };

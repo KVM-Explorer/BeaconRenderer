@@ -12,12 +12,8 @@ Scene::Scene(const std::wstring &root, const std::wstring &scenename) :
 
 void Scene::Init(SceneAdapter &adapter)
 {
-    CreateRTV(adapter.Device, adapter.SwapChain, adapter.FrameCount);
-    CreateInputLayout();
-    CompileShaders();
     CreateRootSignature(adapter.Device);
     CreatePipelineStateObject(adapter.Device);
-    CreateTriangleVertex(adapter.Device, adapter.CommandList);
 
     CreateCommonConstant(adapter.Device);
     CreateSphereTest(adapter.Device, adapter.CommandList);
@@ -28,19 +24,14 @@ void Scene::Init(SceneAdapter &adapter)
 
     mCamera["default"].SetPosition(0, 0, -10.5F);
     mCamera["default"].SetLens(0.25f * MathHelper::Pi, adapter.FrameWidth / adapter.FrameHeight, 1, 1000);
-
-    mDeferredRendering = std::make_unique<DeferredRendering>(adapter.FrameWidth, adapter.FrameHeight);
-    mDeferredRendering->Init(adapter.Device);
-    mDeferredRendering->CreatePSOs(adapter.Device,
-                                   mInputLayout["GBuffer"], mShaders["GBufferVS"], mShaders["GBufferPS"],
-                                   mInputLayout["LightPass"], mShaders["LightPassVS"], mShaders["LightPassPS"]);
 }
 
-void Scene::RenderScene(ID3D12GraphicsCommandList *commandList, uint frameIndex)
+void Scene::RenderScene(ID3D12GraphicsCommandList *cmdList)
 {
-    // RenderTriangleScene(commandList, frameIndex);
-    // RenderModelScene(commandList, frameIndex);
-    DeferredRenderScene(commandList, frameIndex);
+    cmdList->SetGraphicsRootConstantBufferView(1, mSceneConstant->resource()->GetGPUVirtualAddress());
+    cmdList->SetGraphicsRootShaderResourceView(2, mLightConstant->resource()->GetGPUVirtualAddress());
+
+    mDeferredItems["sphere"].DrawItem(cmdList);
 }
 
 void Scene::UpdateScene()
@@ -49,112 +40,6 @@ void Scene::UpdateScene()
     UpdateSceneConstant();
     UpdateEntityConstant();
     UpdateLight();
-}
-void Scene::CreateRTV(ID3D12Device *device, IDXGISwapChain *swapChain, uint frameCount)
-{
-    mRTVDescriptorHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, frameCount);
-    for (UINT i = 0; i < frameCount; i++) {
-        ComPtr<ID3D12Resource> buffer;
-        auto handle = mRTVDescriptorHeap->CPUHandle(i);
-        ThrowIfFailed(swapChain->GetBuffer(i, IID_PPV_ARGS(&buffer)));
-        device->CreateRenderTargetView(buffer.Get(), nullptr, handle);
-        mRTVBuffer.push_back(std::move(buffer));
-    }
-}
-
-void Scene::CreateInputLayout()
-{
-    mInputLayout["Test"] = {{
-        {"POSITION",
-         0,
-         DXGI_FORMAT_R32G32B32_FLOAT,
-         0,
-         0,
-         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-         0},
-        {"COLOR",
-         0,
-         DXGI_FORMAT_R32G32B32A32_FLOAT,
-         0,
-         12,
-         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-         0},
-    }};
-
-    mInputLayout["Model"] = {{
-        {"POSITION",
-         0,
-         DXGI_FORMAT_R32G32B32_FLOAT,
-         0,
-         0,
-         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-         0},
-        {"TEXCOORD",
-         0,
-         DXGI_FORMAT_R32G32_FLOAT,
-         0,
-         12,
-         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-         0},
-        {"NORMAL",
-         0,
-         DXGI_FORMAT_R32G32_FLOAT,
-         0,
-         20,
-         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-         0},
-    }};
-
-    mInputLayout["GBuffer"] = {{
-        {"POSITION",
-         0,
-         DXGI_FORMAT_R32G32B32_FLOAT,
-         0,
-         0,
-         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-         0},
-        {"NORMAL",
-         0,
-         DXGI_FORMAT_R32G32B32_FLOAT,
-         0,
-         12,
-         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-         0},
-    }};
-    mInputLayout["LightPass"] = {{
-        {"POSITION",
-         0,
-         DXGI_FORMAT_R32G32B32_FLOAT,
-         0,
-         0,
-         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-         0},
-
-        {"TEXCOORD",
-         0,
-         DXGI_FORMAT_R32G32_FLOAT,
-         0,
-         12,
-         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-         0},
-    }};
-}
-
-void Scene::CompileShaders()
-{
-    UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-
-    ThrowIfFailed(D3DCompileFromFile(L"Shaders/Test.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VSMain", "vs_5_1", compileFlags, 0, &mShaders["TestVS"], nullptr));
-    ThrowIfFailed(D3DCompileFromFile(L"Shaders/Test.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PSMain", "ps_5_1", compileFlags, 0, &mShaders["TestPS"], nullptr));
-
-    ThrowIfFailed(D3DCompileFromFile(L"Shaders/Model.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VSMain", "vs_5_1", compileFlags, 0, &mShaders["ModelVS"], nullptr));
-    ThrowIfFailed(D3DCompileFromFile(L"Shaders/Model.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PSMain", "ps_5_1", compileFlags, 0, &mShaders["ModelPS"], nullptr));
-
-    ThrowIfFailed(D3DCompileFromFile(L"Shaders/GBuffer.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VSMain", "vs_5_1", compileFlags, 0, &mShaders["GBufferVS"], nullptr));
-    ThrowIfFailed(D3DCompileFromFile(L"Shaders/GBuffer.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PSMain", "ps_5_1", compileFlags, 0, &mShaders["GBufferPS"], nullptr));
-
-    ThrowIfFailed(D3DCompileFromFile(L"Shaders/LightingPass.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VSMain", "vs_5_1", compileFlags, 0, &mShaders["LightPassVS"], nullptr));
-    ThrowIfFailed(D3DCompileFromFile(L"Shaders/LightingPass.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PSMain", "ps_5_1", compileFlags, 0, &mShaders["LightPassPS"], nullptr));
 }
 
 std::array<CD3DX12_STATIC_SAMPLER_DESC, 7> Scene::GetStaticSamplers()
@@ -271,64 +156,6 @@ void Scene::CreateRootSignature(ID3D12Device *device)
 
 void Scene::CreatePipelineStateObject(ID3D12Device *device)
 {
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
-
-    psoDesc.InputLayout = {mInputLayout["Test"].data(),
-                           static_cast<UINT>(mInputLayout["Test"].size())};
-    psoDesc.pRootSignature = mSignature["Test"].Get();
-    psoDesc.VS = CD3DX12_SHADER_BYTECODE(mShaders["TestVS"].Get());
-    psoDesc.PS = CD3DX12_SHADER_BYTECODE(mShaders["TestPS"].Get());
-    psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
-    psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
-
-    psoDesc.BlendState.AlphaToCoverageEnable = FALSE;
-    psoDesc.BlendState.IndependentBlendEnable = FALSE;
-    psoDesc.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
-
-    psoDesc.DepthStencilState.DepthEnable = FALSE;
-    psoDesc.DepthStencilState.StencilEnable = FALSE;
-
-    psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-    psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
-    psoDesc.NumRenderTargets = 1;
-
-    psoDesc.SampleMask = UINT_MAX;
-    psoDesc.SampleDesc.Count = 1;
-
-    ThrowIfFailed(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPSO["Test"])));
-
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC opaqueDesc = {};
-    opaqueDesc.VS = CD3DX12_SHADER_BYTECODE(mShaders["ModelVS"].Get());
-    opaqueDesc.PS = CD3DX12_SHADER_BYTECODE(mShaders["ModelPS"].Get());
-    opaqueDesc.InputLayout = {mInputLayout["Model"].data(),
-                              static_cast<UINT>(mInputLayout["Model"].size())};
-    opaqueDesc.pRootSignature = mSignature["Model"].Get();
-    opaqueDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-    opaqueDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-    opaqueDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
-    opaqueDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-    opaqueDesc.NumRenderTargets = 1;
-    opaqueDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
-    opaqueDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
-    opaqueDesc.SampleDesc.Count = 1;
-    opaqueDesc.SampleMask = UINT_MAX;
-    ThrowIfFailed(device->CreateGraphicsPipelineState(&opaqueDesc, IID_PPV_ARGS(&mPSO["Model"])));
-}
-
-void Scene::CreateTriangleVertex(ID3D12Device *device, ID3D12GraphicsCommandList *commandList)
-{
-    const float triangleSize = 2.0F;
-    const std::array<Vertex, 3> vertexData = {{
-        {{-0.25F * triangleSize, -0.25F * triangleSize, 0.F}, {1.F, 0.F, 0.F, 1.F}},
-        {{0.0F, 0.25F * triangleSize, 0.0F}, {0.0F, 1.0F, 0.0F, 0.0F}},
-        {{0.25F * triangleSize, -0.25F * triangleSize, 0.F}, {0.F, 0.F, 1.F, 0.F}},
-    }};
-    const uint vertexByteSize = vertexData.size() * sizeof(Vertex);
-    mVertexBuffer = std::make_unique<DefaultBuffer>(device, commandList, vertexData.data(), vertexByteSize);
-
-    mVertexBufferView.BufferLocation = mVertexBuffer->Resource()->GetGPUVirtualAddress();
-    mVertexBufferView.SizeInBytes = vertexByteSize;
-    mVertexBufferView.StrideInBytes = sizeof(Vertex);
 }
 
 void Scene::CreateSphereTest(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList)
@@ -357,20 +184,6 @@ void Scene::CreateSphereTest(ID3D12Device *device, ID3D12GraphicsCommandList *cm
     mGBufferIndexView.BufferLocation = mGBufferIndexBuffer->Resource()->GetGPUVirtualAddress();
     mGBufferIndexView.Format = DXGI_FORMAT_R16_UINT;
     mGBufferIndexView.SizeInBytes = sizeof(uint16);
-
-    const std::array<LightPassVertex, 4> quadData{{
-        {{-1.0F, 1.0F, 0.0F}, {0.0F, 0.0F}},
-        {{1.0F, 1.0F, 0.0F}, {1.0F, 0.0F}},
-        {{-1.0F, -1.0F, 0.0F}, {0.0F, 1.0F}},
-        {{1.0F, -1.0F, 0.0F}, {1.0F, 1.0F}},
-    }};
-
-    const uint lightPassVertexByteSize = quadData.size() * sizeof(LightPassVertex);
-    mQuadVertexBuffer = std::make_unique<DefaultBuffer>(device, cmdList, quadData.data(), lightPassVertexByteSize);
-
-    mQuadVertexView.BufferLocation = mQuadVertexBuffer->Resource()->GetGPUVirtualAddress();
-    mQuadVertexView.SizeInBytes = lightPassVertexByteSize;
-    mQuadVertexView.StrideInBytes = sizeof(LightPassVertex);
 
     mDeferredItems["sphere"].SetVertexInfo(0,
                                            mGBufferVertexBuffer->Resource()->GetGPUVirtualAddress(),
@@ -553,92 +366,6 @@ void Scene::CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12Gr
     }
 }
 
-void Scene::RenderTriangleScene(ID3D12GraphicsCommandList *commandList, uint frameIndex)
-{
-    commandList->SetGraphicsRootSignature(mSignature["Test"].Get());
-    commandList->SetPipelineState(mPSO["Test"].Get());
-
-    // State Convert Befor Render Barrier
-    auto beginBarrier = CD3DX12_RESOURCE_BARRIER::Transition(mRTVBuffer.at(frameIndex).Get(),
-                                                             D3D12_RESOURCE_STATE_PRESENT,
-                                                             D3D12_RESOURCE_STATE_RENDER_TARGET);
-    commandList->ResourceBarrier(1, &beginBarrier);
-
-    // Rendering
-    auto rtvHandle = mRTVDescriptorHeap->CPUHandle(frameIndex);
-
-    commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
-    commandList->ClearRenderTargetView(rtvHandle, DirectX::Colors::SteelBlue, 0, nullptr);
-    commandList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-    commandList->IASetVertexBuffers(0, 1, &mVertexBufferView);
-    commandList->DrawInstanced(3, 1, 0, 0);
-}
-
-void Scene::RenderModelScene(ID3D12GraphicsCommandList *commandList, uint frameIndex)
-{
-    // TODO Update Model Scene Parameters
-    commandList->SetGraphicsRootSignature(mSignature["Model"].Get());
-    commandList->SetPipelineState(mPSO["Model"].Get());
-
-    // State Convert Befor Render Barrier
-    auto beginBarrier = CD3DX12_RESOURCE_BARRIER::Transition(mRTVBuffer.at(frameIndex).Get(),
-                                                             D3D12_RESOURCE_STATE_PRESENT,
-                                                             D3D12_RESOURCE_STATE_RENDER_TARGET);
-    commandList->ResourceBarrier(1, &beginBarrier);
-
-    // Binding Heap
-    std::array<ID3D12DescriptorHeap *, 1> textureHeap = {mSRVDescriptorHeap->Resource()};
-    commandList->SetDescriptorHeaps(textureHeap.size(), textureHeap.data());
-    commandList->SetGraphicsRootDescriptorTable(2, mSRVDescriptorHeap->GPUHandle(0));
-
-    // Rendering
-    auto rtvHandle = mRTVDescriptorHeap->CPUHandle(frameIndex);
-    auto dsvHandle = mDSVDescriptorHeap->CPUHandle(0);
-
-    commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
-    commandList->ClearRenderTargetView(rtvHandle, DirectX::Colors::SteelBlue, 0, nullptr);
-    commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0F, 0, 0, nullptr);
-
-    commandList->SetGraphicsRootConstantBufferView(1, mSceneConstant->resource()->GetGPUVirtualAddress());
-
-    for (auto &item : mRenderItems[EntityType::Opaque]) {
-        item.DrawItem(commandList);
-    }
-}
-
-void Scene::DeferredRenderScene(ID3D12GraphicsCommandList *cmdList, uint frameIndex)
-{
-    auto rtvHandle = mRTVDescriptorHeap->CPUHandle(frameIndex);
-    auto present2rtvBarrier = CD3DX12_RESOURCE_BARRIER::Transition(mRTVBuffer.at(frameIndex).Get(),
-                                                                   D3D12_RESOURCE_STATE_PRESENT,
-                                                                   D3D12_RESOURCE_STATE_RENDER_TARGET);
-
-    mDeferredRendering->GBufferPass(cmdList);
-    cmdList->SetGraphicsRootConstantBufferView(1, mSceneConstant->resource()->GetGPUVirtualAddress());
-
-    // TODO achieve Deferred Render Scene
-    // cmdList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-    // cmdList->IASetVertexBuffers(0, 1, &mGBufferVertexView);
-    // cmdList->DrawInstanced(3, 1, 0, 0);
-
-    mDeferredItems["sphere"].DrawItem(cmdList);
-    //
-
-    cmdList->ResourceBarrier(1, &present2rtvBarrier);
-
-    mDeferredRendering->LightingPass(cmdList);
-    cmdList->OMSetRenderTargets(1, &rtvHandle, true, nullptr);
-    cmdList->ClearRenderTargetView(rtvHandle, DirectX::Colors::SteelBlue, 0, nullptr);
-    cmdList->SetGraphicsRootConstantBufferView(1, mSceneConstant->resource()->GetGPUVirtualAddress());
-    cmdList->SetGraphicsRootShaderResourceView(2, mLightConstant->resource()->GetGPUVirtualAddress());
-
-    // TODO achieve Render On Quad
-    cmdList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-    cmdList->IASetVertexBuffers(0, 1, &mQuadVertexView);
-    cmdList->DrawInstanced(4, 1, 0, 0);
-    //
-}
-
 void Scene::UpdateSceneConstant()
 {
     using DirectX::XMMATRIX;
@@ -671,7 +398,7 @@ void Scene::UpdateSceneConstant()
     XMStoreFloat4x4(&sceneInfo.ViewProject, XMMatrixTranspose(viewProject));
     XMStoreFloat4x4(&sceneInfo.InvViewProject, XMMatrixTranspose(invViewProject));
     XMStoreFloat4x4(&sceneInfo.InvScreenModel, XMMatrixTranspose(screenModelMat));
-    XMStoreFloat4(&sceneInfo.Ambient,DirectX::Colors::DarkGray);
+    XMStoreFloat4(&sceneInfo.Ambient, DirectX::Colors::DarkGray);
 
     sceneInfo.EyePosition = mCamera["default"].GetPosition3f();
 

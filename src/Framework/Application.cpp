@@ -64,6 +64,7 @@ int Application::Run(RendererBase *renderer, HINSTANCE hInstance, int hCmdShow)
         }
     }
 
+    GResource::TextureManager->Destory();
     renderer->OnDestory();
     renderer = nullptr;
 
@@ -97,7 +98,7 @@ LRESULT CALLBACK Application::WindowProc(HWND hWnd, uint32_t message, WPARAM wPa
         }
         return 0;
     case WM_MOUSEMOVE:
-        if(imguiIO.WantCaptureMouse) break;
+        if (imguiIO.WantCaptureMouse) break;
         if (renderer) {
             renderer->OnMouseDown(wParam, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
         }

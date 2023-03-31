@@ -9,11 +9,59 @@ DeferredRendering::DeferredRendering(uint width, uint height) :
 
 void DeferredRendering::Init(ID3D12Device *device)
 {
+    CreateInputLayout();
     CreateRTV(device);
     CreateDSV(device);
+    CompileShaders();
     CreateRootSignature(device);
+    CreatePSOs(device);
+}
+void DeferredRendering::CompileShaders()
+{
+    UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+    ThrowIfFailed(D3DCompileFromFile(L"Shaders/GBuffer.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VSMain", "vs_5_1", compileFlags, 0, &mShaders["GBufferVS"], nullptr));
+    ThrowIfFailed(D3DCompileFromFile(L"Shaders/GBuffer.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PSMain", "ps_5_1", compileFlags, 0, &mShaders["GBufferPS"], nullptr));
+
+    ThrowIfFailed(D3DCompileFromFile(L"Shaders/LightingPass.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VSMain", "vs_5_1", compileFlags, 0, &mShaders["LightPassVS"], nullptr));
+    ThrowIfFailed(D3DCompileFromFile(L"Shaders/LightingPass.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PSMain", "ps_5_1", compileFlags, 0, &mShaders["LightPassPS"], nullptr));
 }
 
+void DeferredRendering::CreateInputLayout()
+{
+    mInputLayout["GBuffer"] = {{
+        {"POSITION",
+         0,
+         DXGI_FORMAT_R32G32B32_FLOAT,
+         0,
+         0,
+         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+         0},
+        {"NORMAL",
+         0,
+         DXGI_FORMAT_R32G32B32_FLOAT,
+         0,
+         12,
+         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+         0},
+    }};
+    mInputLayout["LightPass"] = {{
+        {"POSITION",
+         0,
+         DXGI_FORMAT_R32G32B32_FLOAT,
+         0,
+         0,
+         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+         0},
+        {"TEXCOORD",
+         0,
+         DXGI_FORMAT_R32G32_FLOAT,
+         0,
+         12,
+         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+         0},
+
+    }};
+}
 void DeferredRendering::CreateRTV(ID3D12Device *device)
 {
     mRTVDescriptorHeap = std::make_unique<DescriptorHeap>(device,
@@ -43,7 +91,8 @@ void DeferredRendering::CreateRTV(ID3D12Device *device)
     for (uint i = 0; i < mRTNum; i++) {
         uint index = GResource::TextureManager->StoreTexture(targets[i]);
         mGbufferTextureIndex.at(i) = static_cast<int>(index);
-        GResource::TextureManager->AddSrvDescriptor(index, mRTVFormat[i]);
+        uint srvIndex = GResource::TextureManager->AddSrvDescriptor(index, mRTVFormat[i]);
+        if (i == 0) { mSrvIndexBase = srvIndex; }
     }
 }
 void DeferredRendering::CreateDSV(ID3D12Device *device)
@@ -72,11 +121,12 @@ void DeferredRendering::CreateRootSignature(ID3D12Device *device)
     std::array<CD3DX12_DESCRIPTOR_RANGE, 1> srvRange = {};
     srvRange.at(0).Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, mRTNum + 1, 0); // Gbuffer 3 output + Depth
 
-    std::array<CD3DX12_ROOT_PARAMETER, 4> rootParameters = {};
+    std::array<CD3DX12_ROOT_PARAMETER, 5> rootParameters = {};
     rootParameters.at(0).InitAsConstantBufferView(0);                             // Object Constant
     rootParameters.at(1).InitAsConstantBufferView(1);                             // Scene Constant
     rootParameters.at(2).InitAsShaderResourceView(0, 1);                          // PointLight
-    rootParameters.at(3).InitAsDescriptorTable(srvRange.size(), srvRange.data()); // Gbuffer 3 output + Depth
+    rootParameters.at(3).InitAsConstants(1, 2);                                   // Screen Result Target
+    rootParameters.at(4).InitAsDescriptorTable(srvRange.size(), srvRange.data()); // Gbuffer 3 output + Depth
 
     std::array<CD3DX12_STATIC_SAMPLER_DESC, 1> staticSamplers = {};
     staticSamplers[0].Init(0, D3D12_FILTER_MIN_MAG_MIP_LINEAR);
@@ -95,19 +145,13 @@ void DeferredRendering::CreateRootSignature(ID3D12Device *device)
                                               IID_PPV_ARGS(&mRootSignature)));
 }
 
-void DeferredRendering::CreatePSOs(ID3D12Device *device,
-                                   std::vector<D3D12_INPUT_ELEMENT_DESC> gBufferInputLayout,
-                                   ComPtr<ID3DBlob> gBufferVS,
-                                   ComPtr<ID3DBlob> gBufferPS,
-                                   std::vector<D3D12_INPUT_ELEMENT_DESC> lightPassInputLayout,
-                                   ComPtr<ID3DBlob> QuadRenderingVS,
-                                   ComPtr<ID3DBlob> QuadRenderingPS)
+void DeferredRendering::CreatePSOs(ID3D12Device *device)
 {
     // CreatePSO
     D3D12_GRAPHICS_PIPELINE_STATE_DESC gBufferDesc = {};
-    gBufferDesc.VS = CD3DX12_SHADER_BYTECODE(gBufferVS.Get());
-    gBufferDesc.PS = CD3DX12_SHADER_BYTECODE(gBufferPS.Get());
-    gBufferDesc.InputLayout = {gBufferInputLayout.data(), static_cast<uint>(gBufferInputLayout.size())};
+    gBufferDesc.VS = CD3DX12_SHADER_BYTECODE(mShaders["GBufferVS"].Get());
+    gBufferDesc.PS = CD3DX12_SHADER_BYTECODE(mShaders["GBufferPS"].Get());
+    gBufferDesc.InputLayout = {mInputLayout["GBuffer"].data(), static_cast<uint>(mInputLayout["GBuffer"].size())};
     gBufferDesc.pRootSignature = mRootSignature.Get();
     gBufferDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
     gBufferDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
@@ -122,9 +166,9 @@ void DeferredRendering::CreatePSOs(ID3D12Device *device,
     ThrowIfFailed(device->CreateGraphicsPipelineState(&gBufferDesc, IID_PPV_ARGS(&mGBufferPSO)));
 
     D3D12_GRAPHICS_PIPELINE_STATE_DESC lightPassDesc = {};
-    lightPassDesc.InputLayout = {lightPassInputLayout.data(), static_cast<uint>(lightPassInputLayout.size())};
-    lightPassDesc.VS = CD3DX12_SHADER_BYTECODE(QuadRenderingVS.Get());
-    lightPassDesc.PS = CD3DX12_SHADER_BYTECODE(QuadRenderingPS.Get());
+    lightPassDesc.InputLayout = {mInputLayout["LightPass"].data(), static_cast<uint>(mInputLayout["LightPass"].size())};
+    lightPassDesc.VS = CD3DX12_SHADER_BYTECODE(mShaders["LightPassVS"].Get());
+    lightPassDesc.PS = CD3DX12_SHADER_BYTECODE(mShaders["LightPassPS"].Get());
     lightPassDesc.pRootSignature = mRootSignature.Get();
     lightPassDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
     lightPassDesc.DepthStencilState.DepthEnable = false;
@@ -165,10 +209,10 @@ void DeferredRendering::GBufferPass(ID3D12GraphicsCommandList *cmdList)
     cmdList->OMSetRenderTargets(mRTNum, &rtvHandle, true, &dsvHandle);
     cmdList->SetDescriptorHeaps(srvHeaps.size(), srvHeaps.data());
     cmdList->SetGraphicsRootSignature(mRootSignature.Get());
-    cmdList->SetGraphicsRootDescriptorTable(3, GResource::TextureManager->GetTexture2DDescriptoHeap()->GPUHandle(0));
+    cmdList->SetGraphicsRootDescriptorTable(4, GResource::TextureManager->GetTexture2DDescriptoHeap()->GPUHandle(mSrvIndexBase));
 }
 
-void DeferredRendering::LightingPass(ID3D12GraphicsCommandList *cmdList)
+void DeferredRendering::LightPass(ID3D12GraphicsCommandList *cmdList)
 {
     for (uint i = 0; i < mRTNum; i++) {
         auto rtvTexture = GResource::TextureManager->GetTexture(mGbufferTextureIndex.at(i));
@@ -184,6 +228,4 @@ void DeferredRendering::LightingPass(ID3D12GraphicsCommandList *cmdList)
     cmdList->ResourceBarrier(1, &depth2srvBarrier);
     cmdList->SetPipelineState(mLightingPSO.Get());
     cmdList->SetGraphicsRootSignature(mRootSignature.Get());
-
-    // TODO  Render Quad
 }

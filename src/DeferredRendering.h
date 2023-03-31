@@ -16,21 +16,21 @@ public:
     void Init(ID3D12Device *device);
 
     // GBuffer & Quad
-    void CreatePSOs(ID3D12Device *device,
-                    std::vector<D3D12_INPUT_ELEMENT_DESC> gBufferInputLayout,
-                    ComPtr<ID3DBlob> gBufferVS,
-                    ComPtr<ID3DBlob> gBufferPS,
-                    std::vector<D3D12_INPUT_ELEMENT_DESC> lightPassInputLayout,
-                    ComPtr<ID3DBlob> QuadRenderingVS,
-                    ComPtr<ID3DBlob> QuadRenderingPS);
 
     void GBufferPass(ID3D12GraphicsCommandList *cmdList);
-    void LightingPass(ID3D12GraphicsCommandList *cmdList);
+    void LightPass(ID3D12GraphicsCommandList *cmdList);
+    uint GetDepthTexture() const
+    {
+        return mDepthTextureIndex;
+    }
 
 private:
+    void CreateInputLayout();
     void CreateRTV(ID3D12Device *device);
     void CreateDSV(ID3D12Device *device);
+    void CompileShaders();
     void CreateRootSignature(ID3D12Device *device);
+    void CreatePSOs(ID3D12Device *device);
 
     ComPtr<ID3D12PipelineState> mGBufferPSO;
     ComPtr<ID3D12PipelineState> mLightingPSO;
@@ -50,8 +50,11 @@ private:
     std::unique_ptr<DescriptorHeap> mDSVDescriptorHeap;
 
     int mDepthTextureIndex = -1;
+    uint mSrvIndexBase = 0;
     std::array<int, mRTNum> mGbufferTextureIndex;
 
     uint mScreenWidth;
     uint mScreenHeight;
+    std::unordered_map<std::string, std::vector<D3D12_INPUT_ELEMENT_DESC>> mInputLayout;
+    std::unordered_map<std::string, ComPtr<ID3DBlob>> mShaders;
 };

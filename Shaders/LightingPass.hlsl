@@ -18,8 +18,6 @@ Texture2D<float4> gNormalTexture : register(t1);
 Texture2D<float4> gSpecularGlossTexture : register(t2);
 Texture2D gDepth : register(t3);
 
-sampler gLinearSample;
-
 PSInput VSMain(VSInput input) {
   PSInput output;
   output.Position = input.Position;
