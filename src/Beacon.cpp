@@ -131,7 +131,12 @@ void Beacon::OnUpdate()
 
 void Beacon::OnDestory()
 {
-    mScene.reset();
+    mScene = nullptr;
+    mPostProcesser = nullptr;
+    mRTVDescriptorHeap = nullptr;
+    mRTVBuffer.clear();
+    mDeferredRendering = nullptr;
+    mQuadPass = nullptr;
 }
 Beacon::~Beacon()
 {

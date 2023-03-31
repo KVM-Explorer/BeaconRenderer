@@ -63,8 +63,7 @@ int Application::Run(RendererBase *renderer, HINSTANCE hInstance, int hCmdShow)
             DispatchMessage(&msg);
         }
     }
-
-    GResource::TextureManager->Destory();
+    GResource::Desctory();
     renderer->OnDestory();
     renderer = nullptr;
 

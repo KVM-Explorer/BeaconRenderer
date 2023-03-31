@@ -6,7 +6,11 @@ DeferredRendering::DeferredRendering(uint width, uint height) :
     mScreenWidth(width)
 {
 }
-
+DeferredRendering::~DeferredRendering()
+{
+    mRTVDescriptorHeap = nullptr;
+    mDSVDescriptorHeap = nullptr;
+}
 void DeferredRendering::Init(ID3D12Device *device)
 {
     CreateInputLayout();

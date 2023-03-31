@@ -22,7 +22,10 @@ public:
         return CD3DX12_GPU_DESCRIPTOR_HANDLE(mGPUHandle, index, mDescriptorSize);
     };
 
-    [[nodiscard]] ID3D12DescriptorHeap* Resource() const {return mHeap.Get();}
+    [[nodiscard]] ID3D12DescriptorHeap *Resource() const
+    {
+        return mHeap.Get();
+    }
 
 private:
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> mHeap;

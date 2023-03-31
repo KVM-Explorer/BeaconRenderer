@@ -6,7 +6,11 @@ TextureManager::TextureManager(ID3D12Device *device, uint textureMaxNum) :
 {
     mDescriptorHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, textureMaxNum, true);
 }
-
+TextureManager::~TextureManager()
+{
+    mTexture2D.clear();
+    mDevice = nullptr;
+}
 uint TextureManager::StoreTexture(Texture &texture)
 {
     if (mResourceIndex + 1 > mMaxNum) throw std::runtime_error("TextureManager::StoreTexture OverMaxNum");
@@ -47,10 +51,4 @@ uint TextureManager::AddUvaDescriptor(uint resourceIndex, DXGI_FORMAT format)
 Texture *TextureManager::GetTexture(uint index)
 {
     return &mTexture2D[index];
-}
-
-void TextureManager::Destory()
-{
-    mTexture2D.clear();
-    mDevice = nullptr;
 }

@@ -12,7 +12,7 @@ public:
     DeferredRendering &operator=(DeferredRendering &&) = default;
 
     DeferredRendering(uint width, uint height);
-
+    ~DeferredRendering();
     void Init(ID3D12Device *device);
 
     // GBuffer & Quad

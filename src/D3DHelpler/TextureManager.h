@@ -10,6 +10,7 @@ public:
     TextureManager &operator=(TextureManager &&) = default;
 
     TextureManager(ID3D12Device *device, uint textureMaxNum);
+    ~TextureManager();
 
     uint StoreTexture(Texture &texture);
     uint AddSrvDescriptor(uint resourceIndex, DXGI_FORMAT format);
@@ -20,7 +21,6 @@ public:
         return mDescriptorHeap.get();
     }
 
-    void Destory();
 
 private:
     uint mMaxNum;

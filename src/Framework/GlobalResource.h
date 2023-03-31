@@ -15,4 +15,13 @@ public:
     inline static std::unique_ptr<D3D12GpuTimer> GPUTimer = nullptr;
     inline static uint Width = 0;
     inline static uint Height = 0;
+
+    inline static void Desctory()
+    {
+        GPUTimer = nullptr;
+        CPUTimerManager = nullptr;
+        MaterialManager = nullptr;
+        GUIManager = nullptr;
+        TextureManager = nullptr;
+    }
 };
