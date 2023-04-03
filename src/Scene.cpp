@@ -30,6 +30,7 @@ void Scene::RenderScene(ID3D12GraphicsCommandList *cmdList)
 {
     cmdList->SetGraphicsRootConstantBufferView(1, mSceneConstant->resource()->GetGPUVirtualAddress());
     cmdList->SetGraphicsRootShaderResourceView(2, mLightConstant->resource()->GetGPUVirtualAddress());
+    cmdList->SetGraphicsRootShaderResourceView(5, mMaterialSR->resource()->GetGPUVirtualAddress());
 
     if (GResource::GUIManager->State.EnableSphere) {
         mDeferredItems["sphere"].DrawItem(cmdList);
@@ -47,6 +48,7 @@ void Scene::UpdateScene()
     UpdateSceneConstant();
     UpdateEntityConstant();
     UpdateLight();
+    UpdateMaterial();
 }
 
 std::array<CD3DX12_STATIC_SAMPLER_DESC, 7> Scene::GetStaticSamplers()
@@ -291,6 +293,7 @@ void Scene::CreateMaterials(const std::vector<ModelMaterial> &info,
         mMaterials.push_back(std::move(material));
         index++;
     }
+    mMaterialSR = std::make_unique<UploadBuffer<MaterialInfo>>(device, mMaterials.size(), false);
 }
 
 MeshInfo Scene::CreateMeshes(Mesh &mesh, ID3D12Device *device, ID3D12GraphicsCommandList *commandList)
@@ -407,6 +410,17 @@ void Scene::UpdateLight()
     pointLight.Position = DirectX::XMFLOAT3(3, 3, -5);
     pointLight.LightStrengh = DirectX::XMFLOAT3(1.0, 1.0, 1.0);
     mLightConstant->copyData(0, pointLight);
+}
+
+void Scene::UpdateMaterial()
+{
+    for (uint i = 0; i < mMaterials.size(); i++) {
+        MaterialInfo info = {};
+        info.Diffuse = mMaterials[i].BaseColor;
+        info.Roughness = 1 - mMaterials[i].Shineness;
+        info.FresnelR0 = DirectX::XMFLOAT3(0.2F, 0.3F, 0.1F);
+        mMaterialSR->copyData(i, info);
+    }
 }
 
 void Scene::UpdateEntityConstant()

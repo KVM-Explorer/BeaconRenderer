@@ -63,6 +63,12 @@ struct Material {
     std::unique_ptr<Texture> Texture;
 };
 
+struct MaterialInfo {
+    DirectX::XMFLOAT4 Diffuse;
+    DirectX::XMFLOAT3 FresnelR0;
+    float Roughness;
+};
+
 struct Light {
     DirectX::XMFLOAT3 Position;
     float LightBegin;

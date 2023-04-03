@@ -48,6 +48,7 @@ private:
     void UpdateEntityConstant();
     void UpdateCamera();
     void UpdateLight();
+    void UpdateMaterial();
 
 private:
     uint mEntityCount = 0;
@@ -83,6 +84,7 @@ private:
     std::unique_ptr<UploadBuffer<EntityInfo>> mObjectConstant;
     std::unique_ptr<UploadBuffer<SceneInfo>> mSceneConstant;
     std::unique_ptr<UploadBuffer<Light>> mLightConstant;
+    std::unique_ptr<UploadBuffer<MaterialInfo>> mMaterialSR;
     std::vector<Entity> mEntities;
     std::unordered_map<EntityType, std::vector<RenderItem>> mRenderItems;
 

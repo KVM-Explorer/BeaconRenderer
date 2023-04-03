@@ -9,8 +9,8 @@ public:
     MaterialManager &operator=(const MaterialManager &) = default;
     MaterialManager &operator=(MaterialManager &&) = default;
 
-    uint CreateMaterial(Material material/*,std::string name = ""*/);
-    uint UpdateMaterial(Material material, uint index);
+    uint AddMaterial(Material material /*,std::string name = ""*/);
+    void UpdateMaterial(Material material, uint index);
     void Init(ID3D12Device *device);
     // Material GetMaterial(std::string name);
     Material GetMaterial(uint index);
@@ -18,5 +18,6 @@ public:
 
 private:
     ComPtr<ID3D12Resource> mResource;
+    std::vector<Material> mMaterials;
     uint mTotalNum;
 };

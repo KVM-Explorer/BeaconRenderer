@@ -12,6 +12,7 @@ struct PSInput {
 };
 
 StructuredBuffer<Light> PointLights : register(t0, space1);
+StructuredBuffer<Material> Materials : register(t1, space1);
 
 Texture2D<float4> gNormalTexture : register(t0);
 Texture2D<float2> gUVTexture : register(t1);
@@ -51,7 +52,7 @@ float4 PSMain(PSInput input) : SV_TARGET {
     float4 ambient = gAmbient * mat.Diffuse;
     color = PointLightColor(PointLights[0], mat, worldPos.xyz, normal,
                             gEyePosition);
-    color += ambient.rgb;                    // 反射光 + 漫反射光
+    color += ambient.rgb;                // 反射光 + 漫反射光
     return float4(color, mat.Diffuse.a); // 材质提取alpha
   }
   return float4(0, 0, 0, 1.0F);
