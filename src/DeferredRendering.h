@@ -41,10 +41,10 @@ private:
     const static int mRTNum = 3;
     std::array<DXGI_FORMAT, mRTNum> mRTVFormat =
         {
-            DXGI_FORMAT_R10G10B10A2_UNORM, // NORMAL
-            DXGI_FORMAT_R16G16_UNORM,      // UV
-            DXGI_FORMAT_R16_UINT,          // MaterialID
-                                           // DXGI_FORMAT_R8_UINT,            // ShaderID
+            DXGI_FORMAT_R11G11B10_FLOAT, // NORMAL
+            DXGI_FORMAT_R16G16_FLOAT,    // UV
+            DXGI_FORMAT_R16_UINT,        // MaterialID
+                                         // DXGI_FORMAT_R8_UINT,            // ShaderID
     };
 
     std::unique_ptr<DescriptorHeap> mRTVDescriptorHeap;

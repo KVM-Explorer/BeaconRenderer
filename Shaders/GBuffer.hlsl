@@ -2,14 +2,14 @@
 struct VSInput {
 	float3 Position : POSITION;
 	float3 Normal : NORMAL;
-	float2 TExcoord: TEXCOORD;
+	float2 Texcoord: TEXCOORD;
 };
 
 struct PSInput {
 	float4 Position : SV_POSITION;
 	float3 Normal : NORMAL;
 	float2 UV : TEXCOORD;
-	float3 WorldPos : POSITION0;
+	float3 WorldPos : POSITION;
 };
 
 struct PSOutput {
@@ -33,7 +33,7 @@ PSInput VSMain(VSInput input) {
 	float4 pos = float4(input.Position, 1);
 	res.Position = mul(pos, gViewProject);
 	res.Normal = input.Normal;
-	res.UV = input.TExcoord;
+	res.UV = input.Texcoord;
 	res.WorldPos = input.Position ; // TODO Understand
 	return res;
 }

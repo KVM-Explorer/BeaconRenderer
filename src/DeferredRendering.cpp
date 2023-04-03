@@ -92,6 +92,7 @@ void DeferredRendering::CreateRTV(ID3D12Device *device)
     rtvDesc.Texture2D.MipSlice = 0;
     rtvDesc.Texture2D.PlaneSlice = 0;
 
+    // RTV
     for (uint i = 0; i < mRTNum; i++) {
         rtvDesc.Format = mRTVFormat.at(i);
         device->CreateRenderTargetView(targets[i].Resource(),
@@ -99,6 +100,7 @@ void DeferredRendering::CreateRTV(ID3D12Device *device)
                                        mRTVDescriptorHeap->CPUHandle(i));
     }
 
+    // SRV
     for (uint i = 0; i < mRTNum; i++) {
         uint index = GResource::TextureManager->StoreTexture(targets[i]);
         mGbufferTextureIndex.at(i) = static_cast<int>(index);

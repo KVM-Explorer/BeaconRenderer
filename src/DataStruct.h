@@ -19,8 +19,8 @@ struct Vertex {
 // import model
 struct ModelVertex {
     DirectX::XMFLOAT3 Position;
-    DirectX::XMFLOAT2 UV;
     DirectX::XMFLOAT3 Normal;
+    DirectX::XMFLOAT2 UV;
 };
 
 struct GBufferVertex {
@@ -37,6 +37,7 @@ enum class EntityType {
     Sky,
     Debug,
     Opaque, // 不透明
+    Test, // Sphere Test
 };
 
 struct MeshInfo {

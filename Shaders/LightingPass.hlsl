@@ -34,7 +34,11 @@ float4 PSMain(PSInput input) : SV_TARGET {
   worldPos = mul(worldPos, gInvViewProject);
   worldPos = worldPos / worldPos.w;
 
-  float3 normal = normalize(gNormalTexture[input.Position.xy].xyz);
+  float2 uv = gUVTexture[input.Position.xy].xy;
+  uint materialID = gMaterialTexture[input.Position.xy].x;
+
+  float3 tmp = gNormalTexture[input.Position.xy].xyz;
+  float3 normal = normalize(tmp);
   float3 color;
   Material mat;
   mat.Diffuse = float4(0.5, 0.64, 1.0, 1.0);

@@ -178,6 +178,8 @@ void Scene::CreateSphereTest(ID3D12Device *device, ID3D12GraphicsCommandList *cm
     }
     indices.insert(indices.end(), mesh.GetIndices16().begin(), mesh.GetIndices16().end());
 
+    
+
     const uint gbufferVertexByteSize = vertices.size() * sizeof(ModelVertex);
     const uint gbufferIndexByteSize = indices.size() * sizeof(uint16);
 
