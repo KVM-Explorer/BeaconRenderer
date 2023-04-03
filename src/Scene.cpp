@@ -33,7 +33,8 @@ void Scene::RenderScene(ID3D12GraphicsCommandList *cmdList)
 
     if (GResource::GUIManager->State.EnableSphere) {
         mDeferredItems["sphere"].DrawItem(cmdList);
-    } else {
+    }
+    if (GResource::GUIManager->State.EnableModel) {
         for (auto &item : mRenderItems[EntityType::Opaque]) {
             item.DrawItem(cmdList);
         }
