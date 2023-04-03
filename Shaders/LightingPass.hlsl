@@ -13,7 +13,7 @@ struct PSInput {
 
 StructuredBuffer<Light> PointLights : register(t0, space1);
 
-Texture2D<float4> gNormalTexture : register(t0);
+Texture2D gNormalTexture : register(t0);
 Texture2D<float2> gUVTexture : register(t1);
 Texture2D<uint> gMaterialTexture : register(t2);
 Texture2D gDepth : register(t3);
@@ -43,7 +43,8 @@ float4 PSMain(PSInput input) : SV_TARGET {
   Material mat;
   mat.Diffuse = float4(0.5, 0.64, 1.0, 1.0);
   mat.Roughness = 0.2;
-  mat.FresnelR0 = float3(0.08, 0.08, 0.08);
+  // mat.FresnelR0 = float3(0.08, 0.08, 0.08);
+  mat.FresnelR0 = uv.xyx;
 
   float4 ambient = gAmbient * mat.Diffuse;
   color =

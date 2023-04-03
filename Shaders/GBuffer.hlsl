@@ -42,8 +42,8 @@ PSOutput PSMain(PSInput input) : SV_TARGET {
 	PSOutput output;
 
 
-	output.UV = input.UV;
 	output.Normal = float4(input.Normal, 1.0f);
+	output.UV = input.UV;
 	output.MaterialID = gMaterialIndex;
 	
 	return output;

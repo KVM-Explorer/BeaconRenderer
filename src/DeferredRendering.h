@@ -41,7 +41,7 @@ private:
     const static int mRTNum = 3;
     std::array<DXGI_FORMAT, mRTNum> mRTVFormat =
         {
-            DXGI_FORMAT_R11G11B10_FLOAT, // NORMAL
+            DXGI_FORMAT_R8G8B8A8_SNORM, // NORMAL
             DXGI_FORMAT_R16G16_FLOAT,    // UV
             DXGI_FORMAT_R16_UINT,        // MaterialID
                                          // DXGI_FORMAT_R8_UINT,            // ShaderID
