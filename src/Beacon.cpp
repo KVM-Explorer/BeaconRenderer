@@ -259,8 +259,8 @@ void Beacon::CreateRTV(ID3D12Device *device, IDXGISwapChain4 *swapchain, uint fr
 void Beacon::LoadScene()
 {
     // TODO add read config file
-    std::wstring Path = L"C:\\Users\\Geek\\Desktop\\dst";
-    auto scene = std::make_unique<Scene>(Path, L"witch");
+    std::string Path = "./Assets";
+    auto scene = std::make_unique<Scene>(Path, "witch");
 
     SceneAdapter adapater{
         .Device = mDevice.Get(),

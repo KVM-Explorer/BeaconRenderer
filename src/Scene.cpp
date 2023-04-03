@@ -4,7 +4,7 @@
 #include "Framework/Application.h"
 #include <GeometryGenerator.h>
 
-Scene::Scene(const std::wstring &root, const std::wstring &scenename) :
+Scene::Scene(const std::string &root, const std::string &scenename) :
     mRootPath(root),
     mSceneName(scenename)
 {
@@ -31,7 +31,13 @@ void Scene::RenderScene(ID3D12GraphicsCommandList *cmdList)
     cmdList->SetGraphicsRootConstantBufferView(1, mSceneConstant->resource()->GetGPUVirtualAddress());
     cmdList->SetGraphicsRootShaderResourceView(2, mLightConstant->resource()->GetGPUVirtualAddress());
 
-    mDeferredItems["sphere"].DrawItem(cmdList);
+    if (GResource::GUIManager->State.EnableSphere) {
+        mDeferredItems["sphere"].DrawItem(cmdList);
+    } else {
+        for (auto &item : mRenderItems[EntityType::Opaque]) {
+            item.DrawItem(cmdList);
+        }
+    }
 }
 
 void Scene::UpdateScene()
@@ -162,16 +168,17 @@ void Scene::CreateSphereTest(ID3D12Device *device, ID3D12GraphicsCommandList *cm
 {
     auto gen = GeometryGenerator();
     auto mesh = gen.CreateSphere(2, 30, 30);
-    std::vector<GBufferVertex> vertices(mesh.Vertices.size());
+    std::vector<ModelVertex> vertices(mesh.Vertices.size());
     std::vector<uint16> indices;
 
     for (uint i = 0; i < mesh.Vertices.size(); i++) {
         vertices[i].Position = mesh.Vertices[i].Position;
         vertices[i].Normal = mesh.Vertices[i].Normal;
+        vertices[i].UV = mesh.Vertices[i].TexC;
     }
     indices.insert(indices.end(), mesh.GetIndices16().begin(), mesh.GetIndices16().end());
 
-    const uint gbufferVertexByteSize = vertices.size() * sizeof(GBufferVertex);
+    const uint gbufferVertexByteSize = vertices.size() * sizeof(ModelVertex);
     const uint gbufferIndexByteSize = indices.size() * sizeof(uint16);
 
     mGBufferVertexBuffer = std::make_unique<DefaultBuffer>(device, cmdList, vertices.data(), gbufferVertexByteSize);
@@ -179,7 +186,7 @@ void Scene::CreateSphereTest(ID3D12Device *device, ID3D12GraphicsCommandList *cm
 
     mGBufferVertexView.BufferLocation = mGBufferVertexBuffer->Resource()->GetGPUVirtualAddress();
     mGBufferVertexView.SizeInBytes = gbufferVertexByteSize;
-    mGBufferVertexView.StrideInBytes = sizeof(GBufferVertex);
+    mGBufferVertexView.StrideInBytes = sizeof(ModelVertex);
 
     mGBufferIndexView.BufferLocation = mGBufferIndexBuffer->Resource()->GetGPUVirtualAddress();
     mGBufferIndexView.Format = DXGI_FORMAT_R16_UINT;
@@ -187,7 +194,7 @@ void Scene::CreateSphereTest(ID3D12Device *device, ID3D12GraphicsCommandList *cm
 
     mDeferredItems["sphere"].SetVertexInfo(0,
                                            mGBufferVertexBuffer->Resource()->GetGPUVirtualAddress(),
-                                           sizeof(GBufferVertex),
+                                           sizeof(ModelVertex),
                                            vertices.size());
     mDeferredItems["sphere"].SetIndexInfo(0,
                                           mGBufferIndexBuffer->Resource()->GetGPUVirtualAddress(),
@@ -292,7 +299,7 @@ void Scene::CreateMaterials(const std::vector<ModelMaterial> &info,
         material.Index = index;
         material.Shineness = item.shiniess;
         if (item.diffuse_map != "null") {
-            std::wstring path = mRootPath + L"\\" + string2wstring(item.diffuse_map);
+            std::wstring path = string2wstring(mRootPath + "\\" + item.diffuse_map);
             std::replace(path.begin(), path.end(), '/', '\\');
             material.Texture = std::make_unique<Texture>(device, commandList, path);
         }

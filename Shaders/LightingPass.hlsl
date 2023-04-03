@@ -13,9 +13,9 @@ struct PSInput {
 
 StructuredBuffer<Light> PointLights : register(t0, space1);
 
-Texture2D<float3> gAlbedoTexture : register(t0);
-Texture2D<float4> gNormalTexture : register(t1);
-Texture2D<float4> gSpecularGlossTexture : register(t2);
+Texture2D<float4> gNormalTexture : register(t0);
+Texture2D<float2> gUVTexture : register(t1);
+Texture2D<uint> gMaterialTexture : register(t2);
 Texture2D gDepth : register(t3);
 
 PSInput VSMain(VSInput input) {
