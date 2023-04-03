@@ -13,6 +13,7 @@ public:
     uint EntityIndex;
     DirectX::XMFLOAT4X4 Transform = MathHelper::Identity4x4();
     uint MaterialIndex;
+    uint ShaderID;
     MeshInfo MeshInfo;
 
 private:

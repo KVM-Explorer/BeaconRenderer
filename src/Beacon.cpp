@@ -104,7 +104,7 @@ void Beacon::OnRender()
     mCommandList->ResourceBarrier(1, &present2rtv);
     rtvHandle = mRTVDescriptorHeap->CPUHandle(frameIndex);
     mCommandList->OMSetRenderTargets(1, &rtvHandle, true, nullptr);
-    mCommandList->ClearRenderTargetView(rtvHandle, DirectX::Colors::SteelBlue, 0, nullptr);
+    mCommandList->ClearRenderTargetView(rtvHandle, DirectX::Colors::Black, 0, nullptr);
     bool isEnablePostProcess = false;
     if (!isEnablePostProcess) {
         mQuadPass->SetState(mCommandList.Get(), QuadShader::MixQuad);

@@ -134,12 +134,16 @@ void DeferredRendering::CreateRootSignature(ID3D12Device *device)
     std::array<CD3DX12_DESCRIPTOR_RANGE, 1> srvRange = {};
     srvRange.at(0).Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, mRTNum + 1, 0); // Gbuffer 3 output + Depth
 
+    // std::array<CD3DX12_DESCRIPTOR_RANGE, 1> textureRange = {};
+    // textureRange.at(0).Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV,1000,0,1);
+
     std::array<CD3DX12_ROOT_PARAMETER, 5> rootParameters = {};
     rootParameters.at(0).InitAsConstantBufferView(0);                             // Object Constant
     rootParameters.at(1).InitAsConstantBufferView(1);                             // Scene Constant
     rootParameters.at(2).InitAsShaderResourceView(0, 1);                          // PointLight
     rootParameters.at(3).InitAsConstants(1, 2);                                   // Screen Result Target
     rootParameters.at(4).InitAsDescriptorTable(srvRange.size(), srvRange.data()); // Gbuffer 3 output + Depth
+    // rootParameters.at(5).InitAsDescriptorTable()
 
     std::array<CD3DX12_STATIC_SAMPLER_DESC, 1> staticSamplers = {};
     staticSamplers[0].Init(0, D3D12_FILTER_MIN_MAG_MIP_LINEAR);

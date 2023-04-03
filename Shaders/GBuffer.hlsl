@@ -16,13 +16,14 @@ struct PSOutput {
 	float4 Normal : SV_TARGET0;
 	float2 UV : SV_TARGET1;
   	uint MaterialID : SV_TARGET2;
+	uint ShaderID : SV_TARGET3;
 };
 
 
 cbuffer EntityInfo : register(b0) {
   float4x4 gEntityTransform;
-  uint gMaterialIndex;
-  uint Padding0;
+  uint gMaterialID;
+  uint gShaderID;
   uint Padding1;
   uint Padding2;
 };
@@ -44,7 +45,7 @@ PSOutput PSMain(PSInput input) : SV_TARGET {
 
 	output.Normal = float4(input.Normal, 1.0f);
 	output.UV = input.UV;
-	output.MaterialID = gMaterialIndex;
-	
+	output.MaterialID = gMaterialID;
+	output.ShaderID = gShaderID;
 	return output;
 }

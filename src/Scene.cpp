@@ -16,10 +16,10 @@ void Scene::Init(SceneAdapter &adapter)
     CreatePipelineStateObject(adapter.Device);
 
     CreateCommonConstant(adapter.Device);
-    CreateSphereTest(adapter.Device, adapter.CommandList);
 
     mDataLoader = std::make_unique<DataLoader>(mRootPath, mSceneName);
     LoadAssets(adapter.Device, adapter.CommandList);
+    CreateSphereTest(adapter.Device, adapter.CommandList);
     CreateDescriptorHeaps2Descriptors(adapter.Device, adapter.FrameWidth, adapter.FrameHeight);
 
     mCamera["default"].SetPosition(0, 0, -10.5F);
@@ -116,24 +116,8 @@ std::array<CD3DX12_STATIC_SAMPLER_DESC, 7> Scene::GetStaticSamplers()
 
 void Scene::CreateRootSignature(ID3D12Device *device)
 {
-    std::array<CD3DX12_ROOT_PARAMETER, 2> testRootParameters;
-    testRootParameters.at(0).InitAsConstantBufferView(0);
-    testRootParameters.at(1).InitAsConstantBufferView(1);
-    CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc(testRootParameters.size(),
-                                                  testRootParameters.data(),
-                                                  0,
-                                                  nullptr,
-                                                  D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
-    ComPtr<ID3DBlob> signature = nullptr;
-    ComPtr<ID3DBlob> error = nullptr;
-    ThrowIfFailed(D3D12SerializeRootSignature(&rootSignatureDesc,
-                                              D3D_ROOT_SIGNATURE_VERSION_1_0,
-                                              &signature, &error));
-    ThrowIfFailed(device->CreateRootSignature(0,
-                                              signature->GetBufferPointer(),
-                                              signature->GetBufferSize(),
-                                              IID_PPV_ARGS(&mSignature["Test"])));
-
+    ComPtr<ID3DBlob> error;
+    ComPtr<ID3DBlob> signature;
     CD3DX12_DESCRIPTOR_RANGE textureRange;
     textureRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 28, 0, 1);
 
@@ -178,8 +162,6 @@ void Scene::CreateSphereTest(ID3D12Device *device, ID3D12GraphicsCommandList *cm
     }
     indices.insert(indices.end(), mesh.GetIndices16().begin(), mesh.GetIndices16().end());
 
-    
-
     const uint gbufferVertexByteSize = vertices.size() * sizeof(ModelVertex);
     const uint gbufferIndexByteSize = indices.size() * sizeof(uint16);
 
@@ -202,10 +184,10 @@ void Scene::CreateSphereTest(ID3D12Device *device, ID3D12GraphicsCommandList *cm
                                           mGBufferIndexBuffer->Resource()->GetGPUVirtualAddress(),
                                           sizeof(uint16),
                                           indices.size());
-    mDeferredItems["sphere"].SetConstantInfo(0,
-                                             mSceneConstant->resource()->GetGPUVirtualAddress(),
-                                             sizeof(SceneInfo),
-                                             1);
+    mDeferredItems["sphere"].SetConstantInfo(2,
+                                             mObjectConstant->resource()->GetGPUVirtualAddress(),
+                                             sizeof(EntityInfo),
+                                             0);
 }
 
 void Scene::CreateCommonConstant(ID3D12Device *device)
@@ -334,6 +316,7 @@ void Scene::CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12Gr
         entity.Transform = mTransforms[item.transform];
         entity.MaterialIndex = item.material;
         entity.EntityIndex = mEntityCount;
+        entity.ShaderID = static_cast<uint>(ShaderID::Opaque);
         auto meshInfo = CreateMeshes(mMeshesData[item.mesh], device, commandList);
         entity.MeshInfo = meshInfo;
         mEntityCount++;
@@ -347,11 +330,12 @@ void Scene::CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12Gr
     mIndicesBuffer->copyAllData(mAllIndices.data(), mAllIndices.size());
 
     // ConstantData
-    mObjectConstant = std::make_unique<UploadBuffer<EntityInfo>>(device, mEntities.size(), true);
+    mObjectConstant = std::make_unique<UploadBuffer<EntityInfo>>(device, mEntities.size() + 1, true); // Entity + Sphere
     for (const auto &item : mEntities) {
         EntityInfo entityInfo = {};
-        entityInfo.MaterialIndex = item.MaterialIndex;
         entityInfo.Transform = item.Transform;
+        entityInfo.MaterialIndex = item.MaterialIndex;
+        entityInfo.ShaderID = item.ShaderID;
         mObjectConstant->copyData(item.EntityIndex, entityInfo);
     }
 
@@ -369,8 +353,8 @@ void Scene::CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12Gr
                           item.MeshInfo.IndexCount)
             .SetConstantInfo(item.EntityIndex,
                              mObjectConstant->resource()->GetGPUVirtualAddress(),
-                             sizeof(DirectX::XMFLOAT4X4),
-                             0); // TODO Update Root Parameter Index
+                             sizeof(EntityInfo),
+                             0);
         mRenderItems[EntityType::Opaque].push_back(target);
     }
 }
@@ -432,8 +416,16 @@ void Scene::UpdateEntityConstant()
         auto transform = DirectX::XMLoadFloat4x4(&entity.Transform);
         XMStoreFloat4x4(&info.Transform, DirectX::XMMatrixTranspose(transform));
         info.MaterialIndex = entity.MaterialIndex;
+        info.ShaderID = static_cast<uint>(ShaderID::Opaque);
         mObjectConstant->copyData(entity.EntityIndex, info);
     }
+    // Sphere
+    EntityInfo info;
+    auto transform = XMMatrixIdentity();
+    XMStoreFloat4x4(&info.Transform, DirectX::XMMatrixTranspose(transform));
+    info.MaterialIndex = 1;
+    info.ShaderID = static_cast<uint>(ShaderID::Opaque);
+    mObjectConstant->copyData(2, info);
 }
 
 void Scene::UpdateCamera()

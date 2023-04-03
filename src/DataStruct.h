@@ -37,7 +37,14 @@ enum class EntityType {
     Sky,
     Debug,
     Opaque, // 不透明
-    Test, // Sphere Test
+    Test,   // Sphere Test
+};
+
+enum class ShaderID {
+    None,
+    Opaque,
+    Sky,
+    Shadow
 };
 
 struct MeshInfo {
@@ -82,7 +89,7 @@ struct Mesh {
 struct EntityInfo {
     DirectX::XMFLOAT4X4 Transform;
     uint MaterialIndex;
-    uint Padding0;
+    uint ShaderID;
     uint Padding1;
     uint Padding2;
 };

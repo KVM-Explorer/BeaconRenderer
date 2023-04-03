@@ -38,13 +38,13 @@ private:
     ComPtr<ID3D12RootSignature> mRootSignature;
 
     DXGI_FORMAT mDSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
-    const static int mRTNum = 3;
+    const static int mRTNum = 4;
     std::array<DXGI_FORMAT, mRTNum> mRTVFormat =
         {
             DXGI_FORMAT_R8G8B8A8_SNORM, // NORMAL
-            DXGI_FORMAT_R16G16_FLOAT,    // UV
-            DXGI_FORMAT_R16_UINT,        // MaterialID
-                                         // DXGI_FORMAT_R8_UINT,            // ShaderID
+            DXGI_FORMAT_R16G16_FLOAT,   // UV
+            DXGI_FORMAT_R16_UINT,       // MaterialID
+            DXGI_FORMAT_R8_UINT         // ShaderID
     };
 
     std::unique_ptr<DescriptorHeap> mRTVDescriptorHeap;
