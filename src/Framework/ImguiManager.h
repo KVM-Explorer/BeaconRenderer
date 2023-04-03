@@ -10,6 +10,8 @@ class ImguiManager {
         float DrawCallTime;
         float GBufferTime;
         float ComputeShaderTime;
+        bool EnableSphere = true;
+        bool EnableModel;
     };
 
 public:

@@ -1,8 +1,12 @@
 #include "DataLoader.h"
 #include <iostream>
 #include <fstream>
-DataLoader::DataLoader(std::wstring path, std::wstring name) :
-    mScenePath(path + L"\\" + name),
+#include <assimp/Importer.hpp>
+#include <assimp/postprocess.h>
+#include <assimp/scene.h>
+
+DataLoader::DataLoader(std::string path, std::string name) :
+    mScenePath(path + "\\" + name),
     mRootPath(path)
 {
     GetModelMetaFile();
@@ -108,8 +112,9 @@ std::vector<DirectX::XMFLOAT4X4> DataLoader::GetTransforms() const
     // TODO ReDesign Root Transform
     std::vector<DirectX::XMFLOAT4X4> transforms;
     auto translation = DirectX::XMMatrixTranslation(-13.924f, -21.974f, 19.691f);
-    auto rotationX = DirectX::XMMatrixRotationX(DirectX::XMConvertToRadians(-90));
-    auto rotationY = DirectX::XMMatrixRotationY(DirectX::XMConvertToRadians(180));
+    // auto translation = DirectX::XMMatrixTranslation(-17.924f, -16.974f, 32.691f);
+    // auto rotationX = DirectX::XMMatrixRotationX(DirectX::XMConvertToRadians(-90));
+    // auto rotationY = DirectX::XMMatrixRotationY(DirectX::XMConvertToRadians(180));
     // auto rotationZ = DirectX::XMMatrixRotationZ(DirectX::XMConvertToRadians(180));
     // auto rotation = rotationX * rotationY;
     auto scale = DirectX::XMMatrixScaling(0.1F, 0.1F, 0.1F);
@@ -118,8 +123,6 @@ std::vector<DirectX::XMFLOAT4X4> DataLoader::GetTransforms() const
     for (const auto &item : mModel.Transforms) {
         auto itemTransform = DirectX::XMLoadFloat4x4(&item);
         auto result = scale * translation;
-
-        // TODO Remove Transform Test
 
         DirectX::XMFLOAT4X4 result4x4;
         DirectX::XMStoreFloat4x4(&result4x4, result);
@@ -158,64 +161,36 @@ std::vector<ModelMaterial> DataLoader::GetMaterials() const
     return mModel.Materials;
 }
 
-Mesh DataLoader::ReadMesh(std::wstring path)
+Mesh DataLoader::ReadMesh(std::string path)
 {
-    std::ifstream file(path);
-    std::stringstream reader;
-    std::string line;
-    std::string tmp;
-    std::string type;
-    std::vector<DirectX::XMFLOAT3> vertices;
-    std::vector<DirectX::XMFLOAT2> uvs;
-    std::vector<DirectX::XMFLOAT3> normals;
+    Assimp::Importer importer;
+    const uint flags = {aiProcess_ConvertToLeftHanded | aiProcess_Triangulate};
+    auto *scene = importer.ReadFile(path.c_str(), flags);
+    if (scene == nullptr) throw std::runtime_error("No Model Exist");
+    auto const &mesh = scene->mMeshes;
+
+    std::vector<ModelVertex> vertices;
     std::vector<uint16> indices;
 
-    while (getline(file, line)) {
-        reader.clear();
-        reader << line;
-        reader >> type;
-
-        if (type == "v") {
-            DirectX::XMFLOAT3 vertex;
-            reader >> vertex.x >> vertex.y >> vertex.z;
-            vertices.emplace_back(vertex);
+    for (uint i = 0; i < scene->mNumMeshes; i++) {
+        // Vertex
+        for (uint j = 0; j < mesh[i]->mNumVertices; j++) {
+            ModelVertex vertex{};
+            vertex.Position = {mesh[i]->mVertices[j].x, mesh[i]->mVertices[j].y, mesh[i]->mVertices[j].z};
+            vertex.Normal = {mesh[i]->mNormals[j].x, mesh[i]->mNormals[j].y, mesh[i]->mNormals[j].z};
+            vertex.UV = {mesh[i]->mTextureCoords[0][j].x, mesh[i]->mTextureCoords[0][j].y};
+            vertices.push_back(vertex);
         }
-        if (type == "vt") {
-            DirectX::XMFLOAT2 uv;
-            reader >> uv.x >> uv.y;
-            uv.y = 1 - uv.y;
-            uvs.emplace_back(uv);
-        }
-        if (type == "vn") {
-            DirectX::XMFLOAT3 normal;
-            reader >> normal.x >> normal.y >> normal.z;
-            normals.emplace_back(normal);
-        }
-        if (type == "f") {
-            uint16 index1, index2, index3;
-            reader >> index1;
-            reader >> tmp;
-            reader >> index2;
-            reader >> tmp;
-            reader >> index3;
-            reader >> tmp;
-            indices.push_back(index1 - 1);
-            indices.push_back(index2 - 1);
-            indices.push_back(index3 - 1);
+        // Index
+        for (uint k = 0; k < mesh[i]->mNumFaces; k++) {
+            auto face = mesh[i]->mFaces[k];
+            for (uint j = 0; j < face.mNumIndices; j++) {
+                indices.push_back(static_cast<uint16>(face.mIndices[j]));
+                // TODO 数据量非常奇怪Vertex = Index，但是渲染结果正确
+            }
         }
     }
-    if (vertices.size() != uvs.size() || vertices.size() != normals.size() || normals.size() != uvs.size()) {
-        throw std::exception("Model Data Not Normalize");
-    }
-
-    std::vector<ModelVertex> modelVertex;
-    for (uint i = 0; i < vertices.size(); i++) {
-        modelVertex.push_back({vertices[i],
-                               uvs[i],
-                               normals[i]});
-    }
-
-    return {modelVertex, indices};
+    return {vertices, indices};
 }
 
 std::unordered_map<std::string, Mesh> DataLoader::GetMeshes()
@@ -223,7 +198,7 @@ std::unordered_map<std::string, Mesh> DataLoader::GetMeshes()
     std::unordered_map<std::string, Mesh> ret;
 
     for (const auto &item : mModel.Models) {
-        std::wstring path = mRootPath.wstring() + L"\\" + string2wstring(item.mesh);
+        std::string path = mRootPath.string() + "\\" + item.mesh;
         std::replace(path.begin(), path.end(), '/', '\\');
         auto mesh = ReadMesh(path);
         ret[item.mesh] = mesh;
@@ -241,4 +216,3 @@ std::vector<Model> DataLoader::GetModels() const
 
     // return models;
 }
-

@@ -16,7 +16,7 @@
 */
 class Scene {
 public:
-    explicit Scene(const std::wstring &root, const std::wstring &modelname);
+    explicit Scene(const std::string &root, const std::string &modelname);
     Scene(const Scene &) = delete;
     Scene(Scene &&) = default;
     Scene &operator=(const Scene &) = delete;
@@ -55,8 +55,8 @@ private:
     std::unordered_map<std::string, ComPtr<ID3D12RootSignature>> mSignature;
     std::unordered_map<std::string, ComPtr<ID3DBlob>> mShaders;
     std::unordered_map<std::string, Camera> mCamera;
-    std::wstring mRootPath;
-    std::wstring mSceneName;
+    std::string mRootPath;
+    std::string mSceneName;
 
     std::unique_ptr<DataLoader> mDataLoader;
 

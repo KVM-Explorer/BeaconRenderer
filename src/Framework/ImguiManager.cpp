@@ -49,6 +49,8 @@ void ImguiManager::DrawUI(ID3D12GraphicsCommandList *cmdList, ID3D12Resource *ta
     ImGui::NewFrame();
 
     bool show_window = true;
+    ImGui::Checkbox("Enable Sphere Scene", &State.EnableSphere);
+    ImGui::Checkbox("Enable Model Scene", &State.EnableModel);
     ImGui::Begin("Timer Summary", &show_window); // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
     ImGui::Text("Rendering Time: %.3f ms", State.RenderTime);
     ImGui::Text("Draw Call with UI: %.2f ms", State.DrawCallTime);

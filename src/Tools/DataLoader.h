@@ -41,7 +41,7 @@ struct ModelProps {
 
 class DataLoader {
 public:
-    DataLoader(std::wstring path, std::wstring name);
+    DataLoader(std::string path, std::string name);
 
     [[nodiscard]] std::vector<DirectX::XMFLOAT4X4> GetTransforms() const;
     [[nodiscard]] ModelLight GetLight() const;
@@ -60,7 +60,7 @@ private:
     void ReadTransforms(std::stringstream &reader);
     void ReadModels(std::stringstream &reader);
 
-    Mesh ReadMesh(std::wstring path);
+    Mesh ReadMesh(std::string path);
 
 private:
     std::filesystem::path mScenePath;
