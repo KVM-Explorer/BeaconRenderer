@@ -23,7 +23,10 @@ void Beacon::OnInit()
     CreateRTV(mDevice.Get(), mSwapChain.Get(), mFrameCount);
     GResource::GUIManager->Init(mDevice.Get());
     GResource::GPUTimer = std::make_unique<D3D12GpuTimer>(mDevice.Get(), mCommandQueue.Get(), static_cast<UINT>(GpuTimers::NumTimers));
-    GResource::GPUTimer->SetTimerName(static_cast<UINT>(GpuTimers::FPS), "render ms");
+    GResource::GPUTimer->SetTimerName(static_cast<UINT>(GpuTimers::FPS), "Render ms");
+    GResource::GPUTimer->SetTimerName(static_cast<uint>(GpuTimers::GBuffer), "GBuffer ms");
+    GResource::GPUTimer->SetTimerName(static_cast<uint>(GpuTimers::LightPass), "LightPass ms");
+    GResource::GPUTimer->SetTimerName(static_cast<uint>(GpuTimers::ComputeShader), "ComputeShader ms");
 
     LoadScene();
 
@@ -52,16 +55,19 @@ void Beacon::OnRender()
     mCommandList->Reset(mCommandAllocator.Get(), nullptr);
 
     // ============================= Init Stage =================================
-    GResource::GPUTimer->BeginTimer(mCommandList.Get(), static_cast<std::uint32_t>(GpuTimers::FPS));
+    GResource::GPUTimer->BeginTimer(mCommandList.Get(), static_cast<uint>(GpuTimers::FPS));
     GResource::CPUTimerManager->BeginTimer("DrawCall");
     mCommandList->RSSetViewports(1, &mViewPort);
     mCommandList->RSSetScissorRects(1, &mScissor);
 
     // ===============================G-Buffer Pass===============================
+    GResource::GPUTimer->BeginTimer(mCommandList.Get(), static_cast<uint>(GpuTimers::GBuffer));
     mDeferredRendering->GBufferPass(mCommandList.Get());
     mScene->RenderScene(mCommandList.Get());
+    GResource::GPUTimer->EndTimer(mCommandList.Get(), static_cast<uint>(GpuTimers::GBuffer));
 
     // ===============================Light Pass =================================
+    GResource::GPUTimer->BeginTimer(mCommandList.Get(),static_cast<uint>(GpuTimers::LightPass));
     auto rtvHandle = mRTVDescriptorHeap->CPUHandle(mFrameCount);
     // auto rtvHandle = mRTVDescriptorHeap->CPUHandle(frameIndex);
     mDeferredRendering->LightPass(mCommandList.Get());
@@ -80,13 +86,17 @@ void Beacon::OnRender()
     mCommandList->ClearRenderTargetView(rtvHandle, clearValue, 0, nullptr);
 
     mQuadPass->Draw(mCommandList.Get());
+
     auto rtv2srv = CD3DX12_RESOURCE_BARRIER::Transition(mediaTexture1,
                                                         D3D12_RESOURCE_STATE_RENDER_TARGET,
                                                         D3D12_RESOURCE_STATE_GENERIC_READ);
     mCommandList->ResourceBarrier(1, &rtv2srv);
+    GResource::GPUTimer->EndTimer(mCommandList.Get(),static_cast<uint>(GpuTimers::LightPass));
     // =============================== Sobel Pass ================================
+    GResource::GPUTimer->BeginTimer(mCommandList.Get(), static_cast<uint>(GpuTimers::ComputeShader));
     mPostProcesser->Draw(mCommandList.Get(), srvHeap->GPUHandle(mDeferredRendering->GetDepthTexture()));
     auto *sobelTexture = mPostProcesser->OuptputResource();
+    GResource::GPUTimer->EndTimer(mCommandList.Get(), static_cast<uint>(GpuTimers::ComputeShader));
     // ============================= Screen Quad Pass ===========================
     auto present2rtv = CD3DX12_RESOURCE_BARRIER::Transition(mRTVBuffer.at(frameIndex).Get(),
                                                             D3D12_RESOURCE_STATE_PRESENT,

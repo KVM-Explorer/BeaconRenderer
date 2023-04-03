@@ -105,7 +105,30 @@ void DataLoader::ReadTransforms(std::stringstream &reader)
 
 std::vector<DirectX::XMFLOAT4X4> DataLoader::GetTransforms() const
 {
-    return mModel.Transforms;
+    // TODO ReDesign Root Transform
+    std::vector<DirectX::XMFLOAT4X4> transforms;
+    auto translation = DirectX::XMMatrixTranslation(-13.924f, -21.974f, 19.691f);
+    auto rotationX = DirectX::XMMatrixRotationX(DirectX::XMConvertToRadians(-90));
+    auto rotationY = DirectX::XMMatrixRotationY(DirectX::XMConvertToRadians(180));
+    // auto rotationZ = DirectX::XMMatrixRotationZ(DirectX::XMConvertToRadians(180));
+    // auto rotation = rotationX * rotationY;
+    auto scale = DirectX::XMMatrixScaling(0.1F, 0.1F, 0.1F);
+    // auto root = scale * rotation * translation;
+
+    for (const auto &item : mModel.Transforms) {
+        auto itemTransform = DirectX::XMLoadFloat4x4(&item);
+        auto result = scale * translation;
+
+        // TODO Remove Transform Test
+
+        DirectX::XMFLOAT4X4 result4x4;
+        DirectX::XMStoreFloat4x4(&result4x4, result);
+
+        transforms.push_back(result4x4);
+    }
+    return transforms;
+
+    // return mModel.Transforms;
 }
 
 void DataLoader::ReadModels(std::stringstream &reader)
@@ -160,6 +183,7 @@ Mesh DataLoader::ReadMesh(std::wstring path)
         if (type == "vt") {
             DirectX::XMFLOAT2 uv;
             reader >> uv.x >> uv.y;
+            uv.y = 1 - uv.y;
             uvs.emplace_back(uv);
         }
         if (type == "vn") {
@@ -169,12 +193,15 @@ Mesh DataLoader::ReadMesh(std::wstring path)
         }
         if (type == "f") {
             uint16 index1, index2, index3;
-            reader >> index1 >> tmp >> index1 >> tmp >> index1;
-            reader >> index2 >> tmp >> index2 >> tmp >> index2;
-            reader >> index3 >> tmp >> index3 >> tmp >> index3;
-            indices.push_back(index1);
-            indices.push_back(index2);
-            indices.push_back(index3);
+            reader >> index1;
+            reader >> tmp;
+            reader >> index2;
+            reader >> tmp;
+            reader >> index3;
+            reader >> tmp;
+            indices.push_back(index1 - 1);
+            indices.push_back(index2 - 1);
+            indices.push_back(index3 - 1);
         }
     }
     if (vertices.size() != uvs.size() || vertices.size() != normals.size() || normals.size() != uvs.size()) {
@@ -208,5 +235,10 @@ std::unordered_map<std::string, Mesh> DataLoader::GetMeshes()
 std::vector<Model> DataLoader::GetModels() const
 
 {
+    std::vector<Model> models{mModel.Models[0]};
+    // TODO Remove Test Signle Model
     return mModel.Models;
+
+    // return models;
 }
+

@@ -1,3 +1,4 @@
+#pragma once
 #include <stdafx.h>
 #include "D3DHelpler/DefaultBuffer.h"
 #include "DataStruct.h"
