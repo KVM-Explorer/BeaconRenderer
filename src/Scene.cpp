@@ -333,8 +333,8 @@ void Scene::CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12Gr
     mVerticesBuffer->copyAllData(mAllVertices.data(), mAllVertices.size());
     mIndicesBuffer->copyAllData(mAllIndices.data(), mAllIndices.size());
 
-    // ConstantData
-    mObjectConstant = std::make_unique<UploadBuffer<EntityInfo>>(device, mEntities.size() + 1, true); // Entity + Sphere
+    // ConstantData Entity + Sphere
+    mObjectConstant = std::make_unique<UploadBuffer<EntityInfo>>(device, mEntities.size() + 1, true);
     for (const auto &item : mEntities) {
         EntityInfo entityInfo = {};
         entityInfo.Transform = item.Transform;
@@ -417,7 +417,8 @@ void Scene::UpdateMaterial()
     for (uint i = 0; i < mMaterials.size(); i++) {
         MaterialInfo info = {};
         info.Diffuse = mMaterials[i].BaseColor;
-        info.Roughness = 1 - mMaterials[i].Shineness;
+        // info.Roughness = 1 - mMaterials[i].Shineness; // TODO 默认Roughness是非归一化的数值如32
+        info.Roughness = 0.02;
         info.FresnelR0 = DirectX::XMFLOAT3(0.2F, 0.3F, 0.1F);
         mMaterialSR->copyData(i, info);
     }
@@ -438,7 +439,7 @@ void Scene::UpdateEntityConstant()
     EntityInfo info;
     auto transform = XMMatrixIdentity();
     XMStoreFloat4x4(&info.Transform, DirectX::XMMatrixTranspose(transform));
-    info.MaterialIndex = 1;
+    info.MaterialIndex = 1; // TODO Model 1# 材质
     info.ShaderID = static_cast<uint>(ShaderID::Opaque);
     mObjectConstant->copyData(2, info);
 }

@@ -42,11 +42,7 @@ float4 PSMain(PSInput input) : SV_TARGET {
   float3 tmp = gNormalTexture[input.Position.xy].xyz;
   float3 normal = normalize(tmp);
   float3 color = float3(0, 0, 0);
-  Material mat;
-  mat.Diffuse = float4(0.5, 0.64, 1.0, 1.0);
-  mat.Roughness = 0.2;
-  // mat.FresnelR0 = float3(0.08, 0.08, 0.08);
-  mat.FresnelR0 = uv.xyx;
+  Material mat = Materials[materialID];
 
   if (gShaderID[input.Position.xy] == 1) {
     float4 ambient = gAmbient * mat.Diffuse;
