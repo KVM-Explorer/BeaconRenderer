@@ -280,6 +280,8 @@ void Scene::CreateMaterials(const std::vector<ModelMaterial> &info,
                             ID3D12GraphicsCommandList *commandList)
 {
     int index = 0;
+
+    // build Texture
     for (const auto &item : info) {
         Material material = {};
         material.BaseColor = item.basecolor;
@@ -288,11 +290,16 @@ void Scene::CreateMaterials(const std::vector<ModelMaterial> &info,
         if (item.diffuse_map != "null") {
             std::wstring path = string2wstring(mRootPath + "\\" + item.diffuse_map);
             std::replace(path.begin(), path.end(), '/', '\\');
-            material.Texture = std::make_unique<Texture>(device, commandList, path);
+            Texture texture (device, commandList, path);
+            uint index = GResource::TextureManager->StoreTexture(texture);
+            uint srvIndex = GResource::TextureManager->AddSrvDescriptor(index);
+            GResource::TextureManager->SetDescriptorName(item.diffuse_map,srvIndex);
         }
         mMaterials.push_back(std::move(material));
         index++;
     }
+
+    // build Materials Resouce
     mMaterialSR = std::make_unique<UploadBuffer<MaterialInfo>>(device, mMaterials.size(), false);
 }
 

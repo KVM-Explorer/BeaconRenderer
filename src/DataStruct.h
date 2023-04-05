@@ -41,10 +41,10 @@ enum class EntityType {
 };
 
 enum class ShaderID {
-    None,
-    Opaque,
     Sky,
-    Shadow
+    Opaque,
+    Shadow,
+    Test,
 };
 
 struct MeshInfo {

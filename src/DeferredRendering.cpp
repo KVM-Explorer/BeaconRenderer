@@ -133,14 +133,16 @@ void DeferredRendering::CreateRootSignature(ID3D12Device *device)
 {
     std::array<CD3DX12_DESCRIPTOR_RANGE, 1> srvRange = {};
     srvRange.at(0).Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, mRTNum + 1, 0); // Gbuffer 3 output + Depth
+    std::array<CD3DX12_DESCRIPTOR_RANGE, 1> texRange = {};
+    texRange.at(0).Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1000, 0, 2);
 
     std::array<CD3DX12_ROOT_PARAMETER, 6> rootParameters = {};
     rootParameters.at(0).InitAsConstantBufferView(0);                             // Object Constant
     rootParameters.at(1).InitAsConstantBufferView(1);                             // Scene Constant
     rootParameters.at(2).InitAsShaderResourceView(0, 1);                          // PointLight
-    rootParameters.at(3).InitAsConstants(1, 2);                                   // Screen Result Target
+    rootParameters.at(3).InitAsDescriptorTable(texRange.size(), texRange.data()); // Texture
     rootParameters.at(4).InitAsDescriptorTable(srvRange.size(), srvRange.data()); // Gbuffer 3 output + Depth
-    rootParameters.at(5).InitAsShaderResourceView(1, 1);
+    rootParameters.at(5).InitAsShaderResourceView(1, 1);                          // Materials
 
     std::array<CD3DX12_STATIC_SAMPLER_DESC, 1> staticSamplers = {};
     staticSamplers[0].Init(0, D3D12_FILTER_MIN_MAG_MIP_LINEAR);
@@ -152,10 +154,13 @@ void DeferredRendering::CreateRootSignature(ID3D12Device *device)
                            staticSamplers.data(),
                            D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
-    ComPtr<ID3DBlob> rootBlob;
-    ComPtr<ID3DBlob> errorBlob;
-    ThrowIfFailed(D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &rootBlob, &errorBlob));
-    ThrowIfFailed(device->CreateRootSignature(0, rootBlob->GetBufferPointer(), rootBlob->GetBufferSize(),
+    ComPtr<ID3DBlob> signature;
+    ComPtr<ID3DBlob> error;
+    ThrowIfFailed(D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error));
+    if (error != nullptr) {
+        OutputDebugStringA(static_cast<char*>(error->GetBufferPointer()));
+    }
+    ThrowIfFailed(device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(),
                                               IID_PPV_ARGS(&mRootSignature)));
 }
 

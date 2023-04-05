@@ -44,12 +44,17 @@ float4 PSMain(PSInput input) : SV_TARGET {
   float3 color = float3(0, 0, 0);
   Material mat = Materials[materialID];
 
-  if (gShaderID[input.Position.xy] == 1) {
+  // 0 Skybox == None
+
+  // 1 Opaque
+
+  if (gShaderID[input.Position.xy] == 1) { //
     float4 ambient = gAmbient * mat.Diffuse;
     color = PointLightColor(PointLights[0], mat, worldPos.xyz, normal,
                             gEyePosition);
     color += ambient.rgb;                // 反射光 + 漫反射光
     return float4(color, mat.Diffuse.a); // 材质提取alpha
   }
+
   return float4(0, 0, 0, 1.0F);
 }

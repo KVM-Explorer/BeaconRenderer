@@ -23,6 +23,8 @@ uint TextureManager::StoreTexture(Texture &texture)
 
 uint TextureManager::AddSrvDescriptor(uint resourceIndex, DXGI_FORMAT format)
 {
+    if (format == DXGI_FORMAT_UNKNOWN) format = mTexture2D[resourceIndex].GetDesc().Format;
+
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -51,4 +53,15 @@ uint TextureManager::AddUvaDescriptor(uint resourceIndex, DXGI_FORMAT format)
 Texture *TextureManager::GetTexture(uint index)
 {
     return &mTexture2D[index];
+}
+
+void TextureManager::SetDescriptorName(std::string name, uint index)
+{
+    if (mTextureMap.contains(name)) throw std::runtime_error("Redefine Texture Name");
+    mTextureMap[name] = index;
+}
+uint TextureManager::GetDescriptorName(std::string name)
+{
+    if (!mTextureMap.contains(name)) throw std::runtime_error("Not Exist Texture Name");
+    return mTextureMap[name];
 }
