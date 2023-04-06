@@ -426,7 +426,7 @@ void Scene::UpdateMaterial()
         info.Diffuse = mMaterials[i].BaseColor;
         // info.Roughness = 1 - mMaterials[i].Shineness; // TODO 默认Roughness是非归一化的数值如32
         info.Roughness = 0.02;
-        info.FresnelR0 = DirectX::XMFLOAT3(0.2F, 0.3F, 0.1F);
+        info.FresnelR0 = DirectX::XMFLOAT3(0.2F, 0.3F, 1.0F);
         mMaterialSR->copyData(i, info);
     }
 }
