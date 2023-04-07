@@ -1,11 +1,6 @@
 #include "Common.hlsl"
 #include "LightHelper.hlsl"
 
-struct VSInput {
-  float4 Position : POSITION;
-  float2 Texcoord : TEXCOORD;
-};
-
 struct PSInput {
   float4 Position : SV_POSITION;
   float2 Texcoord : TEXCOORD;
@@ -22,7 +17,7 @@ Texture2D gDepth : register(t4);
 
 PSInput VSMain(VSInput input) {
   PSInput output;
-  output.Position = input.Position;
+  output.Position = float4(input.Position,1.0);
   output.Texcoord = input.Texcoord;
   return output;
 }

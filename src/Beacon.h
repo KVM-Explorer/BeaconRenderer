@@ -28,6 +28,7 @@ public:
 private:
     void CreateDevice(HWND handle);
     void CreateCommandResource();
+    std::vector<D3D12_INPUT_ELEMENT_DESC> CreateInputLayout();
     void CompileShaders();
     void CreateRTV(ID3D12Device *device, IDXGISwapChain4 *swapchain, uint frameCount);
     void CreateSwapChain(HWND handle);

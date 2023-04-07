@@ -23,15 +23,6 @@ struct ModelVertex {
     DirectX::XMFLOAT2 UV;
 };
 
-struct GBufferVertex {
-    DirectX::XMFLOAT3 Position;
-    DirectX::XMFLOAT3 Normal;
-};
-
-struct ScreenQuadVertex {
-    DirectX::XMFLOAT3 Position;
-    DirectX::XMFLOAT2 Texcoord;
-};
 
 enum class EntityType {
     Sky,

@@ -13,7 +13,6 @@ DeferredRendering::~DeferredRendering()
 }
 void DeferredRendering::Init(ID3D12Device *device)
 {
-    CreateInputLayout();
     CreateRTV(device);
     CreateDSV(device);
     CompileShaders();
@@ -23,56 +22,16 @@ void DeferredRendering::Init(ID3D12Device *device)
 void DeferredRendering::CompileShaders()
 {
     UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-    ThrowIfFailed(D3DCompileFromFile(L"Shaders/GBuffer.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VSMain", "vs_5_1", compileFlags, 0, &mShaders["GBufferVS"], nullptr));
+    ComPtr<ID3DBlob> error;
+    ThrowIfFailed(D3DCompileFromFile(L"Shaders/GBuffer.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VSMain", "vs_5_1", compileFlags, 0, &mShaders["GBufferVS"], &error));
+    if(error!=nullptr) {OutputDebugStringA(static_cast<char*>(error->GetBufferPointer()));}
     ThrowIfFailed(D3DCompileFromFile(L"Shaders/GBuffer.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PSMain", "ps_5_1", compileFlags, 0, &mShaders["GBufferPS"], nullptr));
 
     ThrowIfFailed(D3DCompileFromFile(L"Shaders/LightingPass.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VSMain", "vs_5_1", compileFlags, 0, &mShaders["LightPassVS"], nullptr));
     ThrowIfFailed(D3DCompileFromFile(L"Shaders/LightingPass.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PSMain", "ps_5_1", compileFlags, 0, &mShaders["LightPassPS"], nullptr));
 }
 
-void DeferredRendering::CreateInputLayout()
-{
-    mInputLayout["GBuffer"] = {{
-        {"POSITION",
-         0,
-         DXGI_FORMAT_R32G32B32_FLOAT,
-         0,
-         0,
-         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-         0},
-        {"NORMAL",
-         0,
-         DXGI_FORMAT_R32G32B32_FLOAT,
-         0,
-         12,
-         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-         0},
-        {"TEXCOORD",
-         0,
-         DXGI_FORMAT_R32G32_FLOAT,
-         0,
-         24,
-         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-         0},
-    }};
-    mInputLayout["LightPass"] = {{
-        {"POSITION",
-         0,
-         DXGI_FORMAT_R32G32B32_FLOAT,
-         0,
-         0,
-         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-         0},
-        {"TEXCOORD",
-         0,
-         DXGI_FORMAT_R32G32_FLOAT,
-         0,
-         12,
-         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-         0},
 
-    }};
-}
 void DeferredRendering::CreateRTV(ID3D12Device *device)
 {
     mRTVDescriptorHeap = std::make_unique<DescriptorHeap>(device,
@@ -170,7 +129,7 @@ void DeferredRendering::CreatePSOs(ID3D12Device *device)
     D3D12_GRAPHICS_PIPELINE_STATE_DESC gBufferDesc = {};
     gBufferDesc.VS = CD3DX12_SHADER_BYTECODE(mShaders["GBufferVS"].Get());
     gBufferDesc.PS = CD3DX12_SHADER_BYTECODE(mShaders["GBufferPS"].Get());
-    gBufferDesc.InputLayout = {mInputLayout["GBuffer"].data(), static_cast<uint>(mInputLayout["GBuffer"].size())};
+    gBufferDesc.InputLayout = {GResource::InputLayout.data(), static_cast<uint>(GResource::InputLayout.size())};
     gBufferDesc.pRootSignature = mRootSignature.Get();
     gBufferDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
     gBufferDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
@@ -185,7 +144,7 @@ void DeferredRendering::CreatePSOs(ID3D12Device *device)
     ThrowIfFailed(device->CreateGraphicsPipelineState(&gBufferDesc, IID_PPV_ARGS(&mGBufferPSO)));
 
     D3D12_GRAPHICS_PIPELINE_STATE_DESC lightPassDesc = {};
-    lightPassDesc.InputLayout = {mInputLayout["LightPass"].data(), static_cast<uint>(mInputLayout["LightPass"].size())};
+    lightPassDesc.InputLayout = {GResource::InputLayout.data(), static_cast<uint>(GResource::InputLayout.size())};
     lightPassDesc.VS = CD3DX12_SHADER_BYTECODE(mShaders["LightPassVS"].Get());
     lightPassDesc.PS = CD3DX12_SHADER_BYTECODE(mShaders["LightPassPS"].Get());
     lightPassDesc.pRootSignature = mRootSignature.Get();

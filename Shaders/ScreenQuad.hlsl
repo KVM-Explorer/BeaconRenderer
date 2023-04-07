@@ -11,13 +11,14 @@ struct PSInput {
 };
 
 struct VSInput {
-  float4 Position : POSITION;
+  float3 Position : POSITION;
+  float3 Normal : NORMAL;
   float2 Texcoord : TEXCOORD;
 };
 
 PSInput VSMain(VSInput input) {
   PSInput output;
-  output.Position = input.Position;
+  output.Position = float4(input.Position,1.0F);
   output.Texcoord = input.Texcoord;
   return output;
 }

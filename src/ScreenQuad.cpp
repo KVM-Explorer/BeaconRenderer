@@ -1,49 +1,30 @@
 #include "ScreenQuad.h"
+#include "Framework/GlobalResource.h"
 
 void ScreenQuad::Init(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList)
 {
-    CreateInputLayout();
     CreateVertices(device, cmdList);
     CompileShaders();
     CreateRootSignature(device);
     CreatePSO(device);
 }
 
-void ScreenQuad::CreateInputLayout()
-{
-    mInputLayot = {{
-        {"POSITION",
-         0,
-         DXGI_FORMAT_R32G32B32_FLOAT,
-         0,
-         0,
-         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-         0},
-        {"TEXCOORD",
-         0,
-         DXGI_FORMAT_R32G32_FLOAT,
-         0,
-         12,
-         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-         0},
-    }};
-}
 
 void ScreenQuad::CreateVertices(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList)
 {
-    const std::array<ScreenQuadVertex, 4> vertices{{
-        {{-1.0F, 1.0F, 0.0F}, {0.0F, 0.0F}},
-        {{1.0F, 1.0F, 0.0F}, {1.0F, 0.0F}},
-        {{-1.0F, -1.0F, 0.0F}, {0.0F, 1.0F}},
-        {{1.0F, -1.0F, 0.0F}, {1.0F, 1.0F}},
+    const std::array<ModelVertex, 4> vertices{{
+        {{-1.0F, 1.0F, 0.0F},{} ,{0.0F, 0.0F}},
+        {{1.0F, 1.0F, 0.0F}, {},{1.0F, 0.0F}},
+        {{-1.0F, -1.0F, 0.0F},{} ,{0.0F, 1.0F}},
+        {{1.0F, -1.0F, 0.0F}, {},{1.0F, 1.0F}},
     }};
 
-    const uint verticesByteSize = vertices.size() * sizeof(ScreenQuadVertex);
+    const uint verticesByteSize = vertices.size() * sizeof(ModelVertex);
     mQuadVertexBuffer = std::make_unique<DefaultBuffer>(device, cmdList, vertices.data(), verticesByteSize);
 
     mQuadVertexView.BufferLocation = mQuadVertexBuffer->Resource()->GetGPUVirtualAddress();
     mQuadVertexView.SizeInBytes = verticesByteSize;
-    mQuadVertexView.StrideInBytes = sizeof(ScreenQuadVertex);
+    mQuadVertexView.StrideInBytes = sizeof(ModelVertex);
 }
 
 void ScreenQuad::CompileShaders()
@@ -105,7 +86,7 @@ void ScreenQuad::CreateRootSignature(ID3D12Device *device)
 void ScreenQuad::CreatePSO(ID3D12Device *device)
 {
     D3D12_GRAPHICS_PIPELINE_STATE_DESC quadDesc = {};
-    quadDesc.InputLayout = {mInputLayot.data(), static_cast<uint>(mInputLayot.size())};
+    quadDesc.InputLayout = {GResource::InputLayout.data(), static_cast<uint>(GResource::InputLayout.size())};
     quadDesc.VS = CD3DX12_SHADER_BYTECODE(mShaders["ScreenQuadVS"].Get());
     quadDesc.PS = CD3DX12_SHADER_BYTECODE(mShaders["ScreenQuadPS"].Get());
     quadDesc.pRootSignature = mRootSignature.Get();

@@ -25,7 +25,6 @@ public:
     }
 
 private:
-    void CreateInputLayout();
     void CreateRTV(ID3D12Device *device);
     void CreateDSV(ID3D12Device *device);
     void CompileShaders();
@@ -56,6 +55,5 @@ private:
 
     uint mScreenWidth;
     uint mScreenHeight;
-    std::unordered_map<std::string, std::vector<D3D12_INPUT_ELEMENT_DESC>> mInputLayout;
     std::unordered_map<std::string, ComPtr<ID3DBlob>> mShaders;
 };

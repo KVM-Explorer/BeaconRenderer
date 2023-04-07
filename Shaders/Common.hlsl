@@ -10,3 +10,9 @@ cbuffer SceneInfo : register(b1) {
   float gPadding0;
   float4 gAmbient; // 环境光
 }
+
+struct VSInput {
+  float3 Position : POSITION;
+  float3 Normal : NORMAL;
+  float2 Texcoord : TEXCOORD;
+};

@@ -18,6 +18,7 @@ void Beacon::OnInit()
     CreateCommandResource();
     CreateSwapChain(handle);
     CreateFence();
+    CreateInputLayout();
 
     GResource::TextureManager = std::make_unique<TextureManager>(mDevice.Get(), 1000);
     CreateRTV(mDevice.Get(), mSwapChain.Get(), mFrameCount);
@@ -27,6 +28,7 @@ void Beacon::OnInit()
     GResource::GPUTimer->SetTimerName(static_cast<uint>(GpuTimers::GBuffer), "GBuffer ms");
     GResource::GPUTimer->SetTimerName(static_cast<uint>(GpuTimers::LightPass), "LightPass ms");
     GResource::GPUTimer->SetTimerName(static_cast<uint>(GpuTimers::ComputeShader), "ComputeShader ms");
+    GResource::InputLayout = CreateInputLayout();
 
     LoadScene();
 
@@ -67,7 +69,7 @@ void Beacon::OnRender()
     GResource::GPUTimer->EndTimer(mCommandList.Get(), static_cast<uint>(GpuTimers::GBuffer));
 
     // ===============================Light Pass =================================
-    GResource::GPUTimer->BeginTimer(mCommandList.Get(),static_cast<uint>(GpuTimers::LightPass));
+    GResource::GPUTimer->BeginTimer(mCommandList.Get(), static_cast<uint>(GpuTimers::LightPass));
     auto rtvHandle = mRTVDescriptorHeap->CPUHandle(mFrameCount);
     // auto rtvHandle = mRTVDescriptorHeap->CPUHandle(frameIndex);
     mDeferredRendering->LightPass(mCommandList.Get());
@@ -91,7 +93,7 @@ void Beacon::OnRender()
                                                         D3D12_RESOURCE_STATE_RENDER_TARGET,
                                                         D3D12_RESOURCE_STATE_GENERIC_READ);
     mCommandList->ResourceBarrier(1, &rtv2srv);
-    GResource::GPUTimer->EndTimer(mCommandList.Get(),static_cast<uint>(GpuTimers::LightPass));
+    GResource::GPUTimer->EndTimer(mCommandList.Get(), static_cast<uint>(GpuTimers::LightPass));
     // =============================== Sobel Pass ================================
     GResource::GPUTimer->BeginTimer(mCommandList.Get(), static_cast<uint>(GpuTimers::ComputeShader));
     mPostProcesser->Draw(mCommandList.Get(), srvHeap->GPUHandle(mDeferredRendering->GetDepthTexture()));
@@ -293,4 +295,31 @@ void Beacon::SyncTask()
 
         CloseHandle(fenceEvent);
     }
+}
+
+std::vector<D3D12_INPUT_ELEMENT_DESC> Beacon::CreateInputLayout()
+{
+    return {{
+        {"POSITION",
+         0,
+         DXGI_FORMAT_R32G32B32_FLOAT,
+         0,
+         0,
+         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+         0},
+        {"NORMAL",
+         0,
+         DXGI_FORMAT_R32G32B32_FLOAT,
+         0,
+         12,
+         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+         0},
+        {"TEXCOORD",
+         0,
+         DXGI_FORMAT_R32G32_FLOAT,
+         0,
+         24,
+         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+         0},
+    }};
 }
