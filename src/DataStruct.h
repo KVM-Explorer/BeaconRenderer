@@ -1,14 +1,6 @@
 #pragma once
 #include <stdafx.h>
 #include "D3DHelpler/Texture.h"
-struct SceneAdapter {
-    ID3D12Device *Device;
-    ID3D12GraphicsCommandList *CommandList;
-    IDXGISwapChain *SwapChain;
-    uint FrameWidth;
-    uint FrameHeight;
-    uint FrameCount;
-};
 
 // Test Triangle
 struct Vertex {
@@ -23,12 +15,12 @@ struct ModelVertex {
     DirectX::XMFLOAT2 UV;
 };
 
-
 enum class EntityType {
     Sky,
     Debug,
     Opaque, // 不透明
     Test,   // Sphere Test
+    Quad,   // Quad Rendering
 };
 
 enum class ShaderID {

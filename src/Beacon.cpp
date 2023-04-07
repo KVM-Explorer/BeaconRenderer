@@ -264,15 +264,7 @@ void Beacon::LoadScene()
     // TODO add read config file
     std::string Path = "./Assets";
     auto scene = std::make_unique<Scene>(Path, "witch");
-
-    SceneAdapter adapater{
-        .Device = mDevice.Get(),
-        .CommandList = mCommandList.Get(),
-        .SwapChain = mSwapChain.Get(),
-        .FrameWidth = mWidth,
-        .FrameHeight = mHeight,
-        .FrameCount = mFrameCount};
-    scene->Init(adapater);
+    scene->Init(mDevice.Get(), mCommandList.Get());
 
     mScene = std::move(scene);
 }

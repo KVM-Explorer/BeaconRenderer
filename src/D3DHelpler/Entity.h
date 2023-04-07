@@ -15,7 +15,7 @@ public:
     uint MaterialIndex;
     uint ShaderID;
     MeshInfo MeshInfo;
-
+    inline EntityType Type() const { return mType;}
 private:
     EntityType mType;
 };

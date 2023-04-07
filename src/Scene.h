@@ -23,7 +23,7 @@ public:
     Scene &operator=(Scene &&) = default;
 
 public:
-    void Init(SceneAdapter &adapter);
+    void Init(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList);
     void RenderScene(ID3D12GraphicsCommandList *cmdList);
     void UpdateScene();
     void UpdateMouse(float dx, float dy);
@@ -39,9 +39,10 @@ private:
     void CreateSphereTest(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList);
 
     void LoadAssets(ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
+    void BuildVertex2Constant(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList);
     void CreateSceneInfo(const ModelLight &info);
     void CreateMaterials(const std::vector<ModelMaterial> &info, ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
-    MeshInfo CreateMeshes(Mesh &mesh, ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
+    MeshInfo AddMesh(Mesh &mesh, ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
     void CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
 
     void UpdateSceneConstant();
@@ -51,7 +52,6 @@ private:
     void UpdateMaterial();
 
 private:
-    uint mEntityCount = 0;
     std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> mPSO;
     std::unordered_map<std::string, ComPtr<ID3D12RootSignature>> mSignature;
     std::unordered_map<std::string, Camera> mCamera;
@@ -59,20 +59,6 @@ private:
     std::string mSceneName;
 
     std::unique_ptr<DataLoader> mDataLoader;
-
-    // Test Triagle
-    std::unique_ptr<DefaultBuffer> mVertexBuffer;
-    D3D12_VERTEX_BUFFER_VIEW mVertexBufferView;
-
-    // Test GBuffer
-    std::unique_ptr<DefaultBuffer> mGBufferVertexBuffer;
-    std::unique_ptr<DefaultBuffer> mGBufferIndexBuffer;
-    D3D12_VERTEX_BUFFER_VIEW mGBufferVertexView;
-    D3D12_INDEX_BUFFER_VIEW mGBufferIndexView;
-
-    // Test  Light Pass Quad Buffer
-    std::unique_ptr<DefaultBuffer> mQuadVertexBuffer;
-    D3D12_VERTEX_BUFFER_VIEW mQuadVertexView;
 
     std::vector<DirectX::XMFLOAT4X4> mTransforms;
     std::vector<Material> mMaterials;
@@ -95,6 +81,4 @@ private:
     std::unique_ptr<DescriptorHeap> mRTVDescriptorHeap;
     std::unique_ptr<DescriptorHeap> mSRVDescriptorHeap;
     std::unique_ptr<DescriptorHeap> mDSVDescriptorHeap;
-
-    std::unordered_map<std::string, RenderItem> mDeferredItems;
 };

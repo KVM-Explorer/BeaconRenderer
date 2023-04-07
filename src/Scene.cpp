@@ -10,20 +10,20 @@ Scene::Scene(const std::string &root, const std::string &scenename) :
 {
 }
 
-void Scene::Init(SceneAdapter &adapter)
+void Scene::Init(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList)
 {
-    CreateRootSignature(adapter.Device);
-    CreatePipelineStateObject(adapter.Device);
+    CreateRootSignature(device);
+    CreatePipelineStateObject(device);
 
-    CreateCommonConstant(adapter.Device);
-
+    CreateCommonConstant(device);
+    CreateSphereTest(device, cmdList);
     mDataLoader = std::make_unique<DataLoader>(mRootPath, mSceneName);
-    LoadAssets(adapter.Device, adapter.CommandList);
-    CreateSphereTest(adapter.Device, adapter.CommandList);
-    CreateDescriptorHeaps2Descriptors(adapter.Device, adapter.FrameWidth, adapter.FrameHeight);
+    LoadAssets(device, cmdList);
+    BuildVertex2Constant(device, cmdList);
+    CreateDescriptorHeaps2Descriptors(device, GResource::Width, GResource::Height);
 
     mCamera["default"].SetPosition(0, 0, -10.5F);
-    mCamera["default"].SetLens(0.25f * MathHelper::Pi, adapter.FrameWidth / adapter.FrameHeight, 1, 1000);
+    mCamera["default"].SetLens(0.25f * MathHelper::Pi, GResource::Width / GResource::Height, 1, 1000);
 }
 
 void Scene::RenderScene(ID3D12GraphicsCommandList *cmdList)
@@ -33,7 +33,9 @@ void Scene::RenderScene(ID3D12GraphicsCommandList *cmdList)
     cmdList->SetGraphicsRootShaderResourceView(5, mMaterialSR->resource()->GetGPUVirtualAddress());
 
     if (GResource::GUIManager->State.EnableSphere) {
-        mDeferredItems["sphere"].DrawItem(cmdList);
+        for (auto &item : mRenderItems[EntityType::Test]) {
+            item.DrawItem(cmdList);
+        }
     }
     if (GResource::GUIManager->State.EnableModel) {
         for (auto &item : mRenderItems[EntityType::Opaque]) {
@@ -165,32 +167,16 @@ void Scene::CreateSphereTest(ID3D12Device *device, ID3D12GraphicsCommandList *cm
     }
     indices.insert(indices.end(), mesh.GetIndices16().begin(), mesh.GetIndices16().end());
 
-    const uint gbufferVertexByteSize = vertices.size() * sizeof(ModelVertex);
-    const uint gbufferIndexByteSize = indices.size() * sizeof(uint16);
+    Mesh meshData{vertices, indices};
+    auto meshInfo = AddMesh(meshData, device, cmdList);
 
-    mGBufferVertexBuffer = std::make_unique<DefaultBuffer>(device, cmdList, vertices.data(), gbufferVertexByteSize);
-    mGBufferIndexBuffer = std::make_unique<DefaultBuffer>(device, cmdList, indices.data(), gbufferIndexByteSize);
-
-    mGBufferVertexView.BufferLocation = mGBufferVertexBuffer->Resource()->GetGPUVirtualAddress();
-    mGBufferVertexView.SizeInBytes = gbufferVertexByteSize;
-    mGBufferVertexView.StrideInBytes = sizeof(ModelVertex);
-
-    mGBufferIndexView.BufferLocation = mGBufferIndexBuffer->Resource()->GetGPUVirtualAddress();
-    mGBufferIndexView.Format = DXGI_FORMAT_R16_UINT;
-    mGBufferIndexView.SizeInBytes = sizeof(uint16);
-
-    mDeferredItems["sphere"].SetVertexInfo(0,
-                                           mGBufferVertexBuffer->Resource()->GetGPUVirtualAddress(),
-                                           sizeof(ModelVertex),
-                                           vertices.size());
-    mDeferredItems["sphere"].SetIndexInfo(0,
-                                          mGBufferIndexBuffer->Resource()->GetGPUVirtualAddress(),
-                                          sizeof(uint16),
-                                          indices.size());
-    mDeferredItems["sphere"].SetConstantInfo(2,
-                                             mObjectConstant->resource()->GetGPUVirtualAddress(),
-                                             sizeof(EntityInfo),
-                                             0);
+    Entity entity(EntityType::Test);
+    entity.MeshInfo = meshInfo;
+    entity.ShaderID = static_cast<uint>(ShaderID::Opaque);
+    entity.Transform = MathHelper::Identity4x4();
+    entity.MaterialIndex = 0;
+    entity.EntityIndex = mEntities.size();
+    mEntities.push_back(entity);
 }
 
 void Scene::CreateCommonConstant(ID3D12Device *device)
@@ -290,10 +276,10 @@ void Scene::CreateMaterials(const std::vector<ModelMaterial> &info,
         if (item.diffuse_map != "null") {
             std::wstring path = string2wstring(mRootPath + "\\" + item.diffuse_map);
             std::replace(path.begin(), path.end(), '/', '\\');
-            Texture texture (device, commandList, path);
+            Texture texture(device, commandList, path);
             uint index = GResource::TextureManager->StoreTexture(texture);
             uint srvIndex = GResource::TextureManager->AddSrvDescriptor(index);
-            GResource::TextureManager->SetDescriptorName(item.diffuse_map,srvIndex);
+            GResource::TextureManager->SetDescriptorName(item.diffuse_map, srvIndex);
         }
         mMaterials.push_back(std::move(material));
         index++;
@@ -303,7 +289,7 @@ void Scene::CreateMaterials(const std::vector<ModelMaterial> &info,
     mMaterialSR = std::make_unique<UploadBuffer<MaterialInfo>>(device, mMaterials.size(), false);
 }
 
-MeshInfo Scene::CreateMeshes(Mesh &mesh, ID3D12Device *device, ID3D12GraphicsCommandList *commandList)
+MeshInfo Scene::AddMesh(Mesh &mesh, ID3D12Device *device, ID3D12GraphicsCommandList *commandList)
 {
     uint vertexOffset = mAllVertices.size();
     uint indexOffset = mAllIndices.size();
@@ -326,22 +312,24 @@ void Scene::CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12Gr
         Entity entity(EntityType::Opaque);
         entity.Transform = mTransforms[item.transform];
         entity.MaterialIndex = item.material;
-        entity.EntityIndex = mEntityCount;
+        entity.EntityIndex = mEntities.size();
         entity.ShaderID = static_cast<uint>(ShaderID::Opaque);
-        auto meshInfo = CreateMeshes(mMeshesData[item.mesh], device, commandList);
+        auto meshInfo = AddMesh(mMeshesData[item.mesh], device, commandList);
         entity.MeshInfo = meshInfo;
-        mEntityCount++;
         mEntities.push_back(entity);
     }
+}
 
-    // Upload Data
+void Scene::BuildVertex2Constant(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList)
+{
+    // Upload Vertex Index Data
     mVerticesBuffer = std::make_unique<UploadBuffer<ModelVertex>>(device, mAllVertices.size(), false);
     mIndicesBuffer = std::make_unique<UploadBuffer<UINT16>>(device, mAllIndices.size(), false);
     mVerticesBuffer->copyAllData(mAllVertices.data(), mAllVertices.size());
     mIndicesBuffer->copyAllData(mAllIndices.data(), mAllIndices.size());
 
-    // ConstantData Entity + Sphere
-    mObjectConstant = std::make_unique<UploadBuffer<EntityInfo>>(device, mEntities.size() + 1, true);
+    // ConstantData Common Entity +  Test Entity
+    mObjectConstant = std::make_unique<UploadBuffer<EntityInfo>>(device, mEntities.size(), true);
     for (const auto &item : mEntities) {
         EntityInfo entityInfo = {};
         entityInfo.Transform = item.Transform;
@@ -366,7 +354,14 @@ void Scene::CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12Gr
                              mObjectConstant->resource()->GetGPUVirtualAddress(),
                              sizeof(EntityInfo),
                              0);
-        mRenderItems[EntityType::Opaque].push_back(target);
+        switch (item.Type()) {
+        case EntityType::Opaque:
+            mRenderItems[EntityType::Opaque].push_back(target);
+            break;
+        case EntityType::Test:
+            mRenderItems[EntityType::Test].push_back(target);
+            break;
+        }
     }
 }
 
