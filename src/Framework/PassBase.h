@@ -1,14 +1,22 @@
+#pragma once
 #include <stdafx.h>
 
 class PassBase {
-    explicit PassBase(uint targetNum);
-    void SetTarget(std::vector<ID3D12Resource *> targets, ID3D12PipelineState *pso);
-    void BeginPass(ID3D12GraphicsCommandList *cmdList);
-    void ExecutePass(ID3D12GraphicsCommandList *cmdList);
-    void EndPass(ID3D12GraphicsCommandList *cmdList);
-    std::vector<ID3D12Resource *> Output();
+public:
+    explicit PassBase(ID3D12PipelineState *pso, ID3D12RootSignature *rs);
+    ~PassBase();
+    PassBase(const PassBase &) = delete;
+    PassBase &operator=(const PassBase &) = delete;
+    PassBase &operator=(PassBase &&) = default;
+    PassBase(PassBase &&) = default;
 
-private:
-    uint mTargetNUm;
-    std::vector<ID3D12Resource *> mTargets;
+    virtual void BeginPass(ID3D12GraphicsCommandList *cmdList) = 0;
+    virtual void ExecutePass(ID3D12GraphicsCommandList *cmdList) = 0;
+    virtual void EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES resultState) = 0;
+    ID3D12Resource *Output();
+
+protected:
+
+    ID3D12PipelineState *mPSO = nullptr;
+    ID3D12RootSignature *mRS = nullptr;
 };
