@@ -7,6 +7,7 @@
 #include "Tools/D3D12GpuTimer.h"
 #include "SobelFilter.h"
 #include "ScreenQuad.h"
+#include "FrameResource.h"
 
 class Beacon : public RendererBase {
 public:
@@ -34,22 +35,17 @@ private:
     void CreateSwapChain(HWND handle);
     void CreateFence();
     void LoadScene();
-    void SyncTask();
 
 private:
     CD3DX12_VIEWPORT mViewPort;
     CD3DX12_RECT mScissor;
-    const uint mFrameCount = 3;
-    uint64 mFenceValue = 0;
+    static const uint mFrameCount = 3;
 
     ComPtr<ID3D12Device> mDevice;
     ComPtr<IDXGIFactory6> mFactory;
     ComPtr<IDXGIAdapter1> mDeviceAdapter;
-    ComPtr<ID3D12GraphicsCommandList> mCommandList;
     ComPtr<ID3D12CommandQueue> mCommandQueue;
-    ComPtr<ID3D12CommandAllocator> mCommandAllocator;
     ComPtr<IDXGISwapChain4> mSwapChain;
-    ComPtr<ID3D12Fence> mFence;
     std::unique_ptr<Scene> mScene;
     std::unique_ptr<SobelFilter> mPostProcesser;
     std::unique_ptr<DescriptorHeap> mRTVDescriptorHeap;
@@ -61,4 +57,5 @@ private:
     // Multi-Pass
     std::unique_ptr<DeferredRendering> mDeferredRendering;
     std::unique_ptr<ScreenQuad> mQuadPass;
+    std::array<FrameResource,mFrameCount> mFR;
 };
