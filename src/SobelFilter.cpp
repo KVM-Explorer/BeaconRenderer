@@ -5,21 +5,11 @@
 
 void SobelFilter::Init(ID3D12Device *device)
 {
-    CompileShader();
     CreateResource(device);
     CreateRS(device);
     CreatePSO(device);
 }
-void SobelFilter::CompileShader()
-{
-    UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-    ComPtr<ID3DBlob> error;
 
-    ThrowIfFailed(D3DCompileFromFile(L"Shaders/PostProcess.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "SobelMain", "cs_5_1", compileFlags, 0, &mShaders["SobelCS"], &error));
-    if (error != nullptr) {
-        OutputDebugStringA(static_cast<char *>(error->GetBufferPointer()));
-    }
-}
 void SobelFilter::CreateResource(ID3D12Device *device)
 {
     Texture texture(device,
@@ -68,7 +58,7 @@ void SobelFilter::CreateRS(ID3D12Device *device)
 void SobelFilter::CreatePSO(ID3D12Device *device)
 {
     D3D12_COMPUTE_PIPELINE_STATE_DESC desc = {};
-    desc.CS = CD3DX12_SHADER_BYTECODE(mShaders["SobelCS"].Get());
+    desc.CS = CD3DX12_SHADER_BYTECODE(GResource::Shaders["SobelCS"].Get());
     desc.pRootSignature = mRS.Get();
     desc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
     ThrowIfFailed(device->CreateComputePipelineState(&desc, IID_PPV_ARGS(&mPSO)));

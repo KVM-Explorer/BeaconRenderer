@@ -4,7 +4,6 @@
 void ScreenQuad::Init(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList)
 {
     CreateVertices(device, cmdList);
-    CompileShaders();
     CreateRootSignature(device);
     CreatePSO(device);
 }
@@ -27,20 +26,7 @@ void ScreenQuad::CreateVertices(ID3D12Device *device, ID3D12GraphicsCommandList 
     mQuadVertexView.StrideInBytes = sizeof(ModelVertex);
 }
 
-void ScreenQuad::CompileShaders()
-{
-    UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-    ComPtr<ID3DBlob> error;
 
-    ThrowIfFailed(D3DCompileFromFile(L"Shaders/ScreenQuad.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VSMain", "vs_5_1", compileFlags, 0, &mShaders["ScreenQuadVS"], &error));
-    if (error != nullptr) {
-        OutputDebugStringA(static_cast<char *>(error->GetBufferPointer()));
-    }
-    ThrowIfFailed(D3DCompileFromFile(L"Shaders/ScreenQuad.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PSMain", "ps_5_1", compileFlags, 0, &mShaders["ScreenQuadPS"], &error));
-    if (error != nullptr) {
-        OutputDebugStringA(static_cast<char *>(error->GetBufferPointer()));
-    }
-}
 
 void ScreenQuad::CreateRootSignature(ID3D12Device *device)
 {
@@ -87,8 +73,8 @@ void ScreenQuad::CreatePSO(ID3D12Device *device)
 {
     D3D12_GRAPHICS_PIPELINE_STATE_DESC quadDesc = {};
     quadDesc.InputLayout = {GResource::InputLayout.data(), static_cast<uint>(GResource::InputLayout.size())};
-    quadDesc.VS = CD3DX12_SHADER_BYTECODE(mShaders["ScreenQuadVS"].Get());
-    quadDesc.PS = CD3DX12_SHADER_BYTECODE(mShaders["ScreenQuadPS"].Get());
+    quadDesc.VS = CD3DX12_SHADER_BYTECODE(GResource::Shaders["ScreenQuadVS"].Get());
+    quadDesc.PS = CD3DX12_SHADER_BYTECODE(GResource::Shaders["ScreenQuadPS"].Get());
     quadDesc.pRootSignature = mRootSignature.Get();
     quadDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
     quadDesc.DepthStencilState.DepthEnable = false;

@@ -14,6 +14,7 @@ public:
     inline static std::unique_ptr<CPUTimer> CPUTimerManager = nullptr;
     inline static std::unique_ptr<D3D12GpuTimer> GPUTimer = nullptr;
     inline static std::vector<D3D12_INPUT_ELEMENT_DESC> InputLayout;
+    inline static std::unordered_map<std::string,ComPtr<ID3DBlob>> Shaders;
     inline static uint Width = 0;
     inline static uint Height = 0;
 

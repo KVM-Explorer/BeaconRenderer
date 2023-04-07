@@ -27,7 +27,6 @@ public:
 private:
     void CreateRTV(ID3D12Device *device);
     void CreateDSV(ID3D12Device *device);
-    void CompileShaders();
     void CreateRootSignature(ID3D12Device *device);
     void CreatePSOs(ID3D12Device *device);
 
@@ -55,5 +54,4 @@ private:
 
     uint mScreenWidth;
     uint mScreenHeight;
-    std::unordered_map<std::string, ComPtr<ID3DBlob>> mShaders;
 };

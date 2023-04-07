@@ -54,14 +54,11 @@ private:
     uint mEntityCount = 0;
     std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> mPSO;
     std::unordered_map<std::string, ComPtr<ID3D12RootSignature>> mSignature;
-    std::unordered_map<std::string, ComPtr<ID3DBlob>> mShaders;
     std::unordered_map<std::string, Camera> mCamera;
     std::string mRootPath;
     std::string mSceneName;
 
     std::unique_ptr<DataLoader> mDataLoader;
-
-    std::unordered_map<std::string, std::vector<D3D12_INPUT_ELEMENT_DESC>> mInputLayout;
 
     // Test Triagle
     std::unique_ptr<DefaultBuffer> mVertexBuffer;

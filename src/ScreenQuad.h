@@ -16,7 +16,6 @@ public:
     void Init(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList);
 
 private:
-    void CompileShaders();
     void CreateRootSignature(ID3D12Device *device);
     void CreatePSO(ID3D12Device *device);
     void CreateVertices(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList);
@@ -24,5 +23,4 @@ private:
     D3D12_VERTEX_BUFFER_VIEW mQuadVertexView;
     ComPtr<ID3D12RootSignature> mRootSignature;
     ComPtr<ID3D12PipelineState> mPSO;
-    std::unordered_map<std::string, ComPtr<ID3DBlob>> mShaders;
 };
