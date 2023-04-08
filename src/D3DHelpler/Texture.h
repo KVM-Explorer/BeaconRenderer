@@ -10,6 +10,7 @@ public:
     Texture &operator=(const Texture &) = delete;
     Texture(const Texture &) = delete;
 
+    Texture(ID3D12Resource *resource, ID3D12Resource *uploader = nullptr); 
     Texture(ID3D12Device *device, ID3D12GraphicsCommandList *commandList,
             std::wstring path, bool isCube = false);
     Texture(ID3D12Device *device,

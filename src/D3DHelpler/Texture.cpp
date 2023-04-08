@@ -80,5 +80,11 @@ Texture::Texture(ID3D12Device *device,
                                                       D3D12_RESOURCE_STATE_GENERIC_READ,
                                                       nullptr,
                                                       IID_PPV_ARGS(&mTexture)));
+ 
     }
+}
+
+Texture::Texture(ID3D12Resource *resource, ID3D12Resource *uploader)
+    : mTexture(resource), mUploader(uploader)
+{
 }

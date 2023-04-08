@@ -1,5 +1,5 @@
 #include "FrameResource.h"
-
+#include "Pass/GBufferPass.h"
 void FrameResource::Reset() const
 {
     CmdAllocator->Reset();
@@ -31,4 +31,118 @@ void FrameResource::Release()
     CmdList = nullptr;
     CmdAllocator = nullptr;
     Fence = nullptr;
+}
+
+void FrameResource::Init(ID3D12Device *device)
+{
+    ThrowIfFailed(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&CmdAllocator)));
+    ThrowIfFailed(device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, CmdAllocator.Get(), nullptr, IID_PPV_ARGS(&CmdList)));
+    CmdList->Close();
+    ThrowIfFailed(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&Fence)));
+}
+
+void FrameResource::CreateRenderTarget(ID3D12Device *device, ID3D12Resource* backBuffer)
+{
+    ///================== Create Render Target================
+    // Render Target Resource GBuffer*4 + Depth + ScreenQuad * 2  + SwapChain Buffer
+    for (uint i = 0; i < GBufferPass::GetTargetCount(); ++i) {
+        Texture texture(device,
+                        GBufferPass::GetTargetFormat()[i],
+                        backBuffer->GetDesc().Width,
+                        backBuffer->GetDesc().Height,
+                        D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
+        RenderTargets.push_back(std::move(texture));
+    }
+    ResourceMap["Depth"] = RenderTargets.size();
+    RenderTargets.emplace_back(device,
+                               GBufferPass::GetDepthFormat(),
+                               backBuffer->GetDesc().Width,
+                               backBuffer->GetDesc().Height,
+                               D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL);
+
+    // ScreenTexture1
+    ResourceMap["ScreenTexture1"] = RenderTargets.size();
+    RenderTargets.emplace_back(device,
+                               DXGI_FORMAT_R8G8B8A8_UNORM,
+                               backBuffer->GetDesc().Width,
+                               backBuffer->GetDesc().Height,
+                               D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
+    // ScreenTexture2
+    ResourceMap["ScreenTexture2"] = RenderTargets.size();
+    RenderTargets.emplace_back(device,
+                               DXGI_FORMAT_R8G8B8A8_UNORM,
+                               backBuffer->GetDesc().Width,
+                               backBuffer->GetDesc().Height,
+                               D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+    // SwapChain Buffer
+    RenderTargets.push_back(std::move(Texture(backBuffer)));
+
+    ///================== Create Render Target View================
+    
+    // Create Render Target View
+    for (uint i = 0; i < GBufferPass::GetTargetCount(); i++) {
+        std::string index = "GBuffer" + std::to_string(i);
+        RtvMap[index] = i;
+        RtvDescriptorHeap->AddRtvDescriptor(device, RenderTargets[i].Resource());
+    }
+    RtvMap["ScreenTexture1"] = RtvDescriptorHeap->AddRtvDescriptor(device, RenderTargets[ResourceMap["ScreenTexture1"]].Resource());
+
+    // Create Depth Stencil View
+    D3D12_DEPTH_STENCIL_VIEW_DESC dsvDescriptor = {};
+    dsvDescriptor.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+    dsvDescriptor.Flags = D3D12_DSV_FLAG_NONE;
+    dsvDescriptor.Format = GBufferPass::GetDepthFormat();
+    dsvDescriptor.Texture2D.MipSlice = 0;
+    DsvDescriptorHeap->AddDsvDescriptor(device, RenderTargets[ResourceMap["Depth"]].Resource(), &dsvDescriptor);
+
+    // SwapChain Buffer
+    RtvMap["SwapChain"] = RtvDescriptorHeap->AddRtvDescriptor(device, RenderTargets[RenderTargets.size() - 1].Resource());
+
+    ///================== Create Shader Resource View================
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDescriptor = {};
+    srvDescriptor.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    srvDescriptor.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srvDescriptor.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    srvDescriptor.Texture2D.MipLevels = 1;
+    srvDescriptor.Texture2D.MostDetailedMip = 0;
+    srvDescriptor.Texture2D.PlaneSlice = 0;
+    srvDescriptor.Texture2D.ResourceMinLODClamp = 0.0f;
+
+    // GBuffer Texture Light Input SRV
+    for (uint i = 0; i < GBufferPass::GetTargetCount(); i++) {
+        std::string index = "GBuffer" + std::to_string(i);
+        SrvCbvUavMap[index] = SrvCbvUavDescriptorHeap->AddSrvDescriptor(device, RenderTargets[i].Resource());
+    }
+    // Depth Texture Light Input SRV
+    srvDescriptor.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+    SrvCbvUavMap["Depth"] = SrvCbvUavDescriptorHeap->AddSrvDescriptor(device, RenderTargets[ResourceMap["Depth"]].Resource(), &srvDescriptor);
+    // ScreenTexture1 Sobel Input SRV
+    SrvCbvUavMap["ScreenTexture1"] = SrvCbvUavDescriptorHeap->AddSrvDescriptor(device, RenderTargets[ResourceMap["ScreenTexture1"]].Resource());
+    // ScreenTexture2 Sobel Output SRV
+    SrvCbvUavMap["ScreenTexture2"] = SrvCbvUavDescriptorHeap->AddSrvDescriptor(device, RenderTargets[ResourceMap["ScreenTexture2"]].Resource());
+
+    ///================== Create Unordered Access View================
+    
+    // ScreenTexture2 Sobel Output UAV
+    SrvCbvUavMap["ScreenTexture2"] = SrvCbvUavDescriptorHeap->AddUavDescriptor(device, RenderTargets[ResourceMap["ScreenTexture2"]].Resource());
+}
+
+ID3D12Resource *FrameResource::GetResource(const std::string &name) const
+{
+    return RenderTargets[ResourceMap.at(name)].Resource();
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE FrameResource::GetRtv(const std::string &name) const
+{
+    return RtvDescriptorHeap->CPUHandle(RtvMap.at(name));
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE FrameResource::GetDsv(const std::string &name) const
+{
+    return DsvDescriptorHeap->CPUHandle(DsvMap.at(name));
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE FrameResource::GetSrvCbvUav(const std::string &name) const
+{
+    return SrvCbvUavDescriptorHeap->CPUHandle(SrvCbvUavMap.at(name));
 }
