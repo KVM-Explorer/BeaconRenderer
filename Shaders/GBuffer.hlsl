@@ -14,14 +14,6 @@ struct PSOutput {
 };
 
 
-cbuffer EntityInfo : register(b0) {
-  float4x4 gEntityTransform;
-  uint gMaterialID;
-  uint gShaderID;
-  uint Padding1;
-  uint Padding2;
-};
-
 
 PSInput VSMain(VSInput input) {
 	PSInput res;

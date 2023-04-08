@@ -16,3 +16,18 @@ struct VSInput {
   float3 Normal : NORMAL;
   float2 Texcoord : TEXCOORD;
 };
+
+cbuffer EntityInfo : register(b0) {
+  float4x4 gEntityTransform;
+  uint gMaterialID;
+  uint gShaderID;
+  uint Padding1;
+  uint Padding2;
+};
+
+SamplerState gSamplerPointWrap        : register(s0);
+SamplerState gSamplerPointClamp       : register(s1);
+SamplerState gSamplerLinearWrap       : register(s2);
+SamplerState gSamplerLinearClamp      : register(s3);
+SamplerState gSamplerAnisotropicWrap  : register(s4);
+SamplerState gSamplerAnisotropicClamp : register(s5);
