@@ -4,19 +4,17 @@
 #include "Framework/Application.h"
 #include <GeometryGenerator.h>
 
-Scene::Scene(const std::string &root, const std::string &scenename) :
+Scene::Scene(const std::string &root, const std::string &modelname) :
     mRootPath(root),
-    mSceneName(scenename)
+    mSceneName(modelname)
 {
 }
 
 void Scene::Init(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList)
 {
-    CreateRootSignature(device);
-    CreatePipelineStateObject(device);
-
     CreateCommonConstant(device);
     CreateSphereTest(device, cmdList);
+    CreateQuadTest(device, cmdList);
     mDataLoader = std::make_unique<DataLoader>(mRootPath, mSceneName);
     LoadAssets(device, cmdList);
     BuildVertex2Constant(device, cmdList);
@@ -31,14 +29,27 @@ void Scene::RenderScene(ID3D12GraphicsCommandList *cmdList)
     cmdList->SetGraphicsRootConstantBufferView(1, mSceneConstant->resource()->GetGPUVirtualAddress());
     cmdList->SetGraphicsRootShaderResourceView(2, mLightConstant->resource()->GetGPUVirtualAddress());
     cmdList->SetGraphicsRootShaderResourceView(5, mMaterialSR->resource()->GetGPUVirtualAddress());
-
-    if (GResource::GUIManager->State.EnableSphere) {
-        for (auto &item : mRenderItems[EntityType::Test]) {
+    if (GResource::GUIManager->State.EnableModel) {
+        for (auto &item : mRenderItems[EntityType::Opaque]) {
             item.DrawItem(cmdList);
         }
     }
-    if (GResource::GUIManager->State.EnableModel) {
-        for (auto &item : mRenderItems[EntityType::Opaque]) {
+}
+
+void Scene::RenderQuad(ID3D12GraphicsCommandList *cmdList)
+{
+    for (auto &item : mRenderItems[EntityType::Quad]) {
+        item.DrawItem(cmdList);
+    }
+}
+
+void Scene::RenderSphere(ID3D12GraphicsCommandList *cmdList)
+{
+    cmdList->SetGraphicsRootConstantBufferView(1, mSceneConstant->resource()->GetGPUVirtualAddress());
+    cmdList->SetGraphicsRootShaderResourceView(2, mLightConstant->resource()->GetGPUVirtualAddress());
+    cmdList->SetGraphicsRootShaderResourceView(5, mMaterialSR->resource()->GetGPUVirtualAddress());
+    if (GResource::GUIManager->State.EnableSphere) {
+        for (auto &item : mRenderItems[EntityType::Test]) {
             item.DrawItem(cmdList);
         }
     }
@@ -119,40 +130,6 @@ std::array<CD3DX12_STATIC_SAMPLER_DESC, 7> Scene::GetStaticSamplers()
         shadow};
 }
 
-void Scene::CreateRootSignature(ID3D12Device *device)
-{
-    ComPtr<ID3DBlob> error;
-    ComPtr<ID3DBlob> signature;
-    CD3DX12_DESCRIPTOR_RANGE textureRange;
-    textureRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 28, 0, 1);
-
-    std::array<CD3DX12_ROOT_PARAMETER, 3> rootParameters;
-    rootParameters.at(0).InitAsConstantBufferView(0);             // Object
-    rootParameters.at(1).InitAsConstantBufferView(1);             // Common
-    rootParameters.at(2).InitAsDescriptorTable(1, &textureRange); // Material/Texture
-    // rootParameters.at(3).InitAsConstantBufferView(0, 0); //
-
-    auto samplers = GetStaticSamplers();
-
-    CD3DX12_ROOT_SIGNATURE_DESC commonRootSignatureDesc(rootParameters.size(),
-                                                        rootParameters.data(),
-                                                        samplers.size(),
-                                                        samplers.data(),
-                                                        D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
-
-    ThrowIfFailed(D3D12SerializeRootSignature(&commonRootSignatureDesc,
-                                              D3D_ROOT_SIGNATURE_VERSION_1_0,
-                                              &signature, &error));
-    ThrowIfFailed(device->CreateRootSignature(0,
-                                              signature->GetBufferPointer(),
-                                              signature->GetBufferSize(),
-                                              IID_PPV_ARGS(&mSignature["Model"])));
-}
-
-void Scene::CreatePipelineStateObject(ID3D12Device *device)
-{
-}
-
 void Scene::CreateSphereTest(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList)
 {
     auto gen = GeometryGenerator();
@@ -179,6 +156,35 @@ void Scene::CreateSphereTest(ID3D12Device *device, ID3D12GraphicsCommandList *cm
     mEntities.push_back(entity);
 }
 
+void Scene::CreateQuadTest(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList)
+{
+    const std::vector<ModelVertex> vertices{{
+        {{-1.0F, 1.0F, 0.0F}, {}, {0.0F, 0.0F}},
+        {{1.0F, 1.0F, 0.0F}, {}, {1.0F, 0.0F}},
+        {{-1.0F, -1.0F, 0.0F}, {}, {0.0F, 1.0F}},
+        {{1.0F, -1.0F, 0.0F}, {}, {1.0F, 1.0F}},
+    }};
+
+    const std::vector<uint16> indices{{
+        0,
+        1,
+        2,
+        1,
+        3,
+        2,
+    }};
+
+    Mesh meshData{vertices, indices};
+    auto meshInfo = AddMesh(meshData, device, cmdList);
+
+    Entity entity(EntityType::Quad);
+    entity.MeshInfo = meshInfo;
+    entity.ShaderID = static_cast<uint>(ShaderID::Opaque);
+    entity.Transform = MathHelper::Identity4x4();
+    entity.MaterialIndex = 0;
+    entity.EntityIndex = mEntities.size();
+    mEntities.push_back(entity);
+}
 void Scene::CreateCommonConstant(ID3D12Device *device)
 {
     mSceneConstant = std::make_unique<UploadBuffer<SceneInfo>>(device, 1, true);
@@ -187,38 +193,6 @@ void Scene::CreateCommonConstant(ID3D12Device *device)
 
 void Scene::CreateDescriptorHeaps2Descriptors(ID3D12Device *device, uint width, uint height)
 {
-    // DSV
-    mDSVDescriptorHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, false);
-    D3D12_DEPTH_STENCIL_VIEW_DESC depthStencilDesc = {};
-    depthStencilDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-    depthStencilDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-    depthStencilDesc.Flags = D3D12_DSV_FLAG_NONE;
-
-    D3D12_CLEAR_VALUE depthOptimizedClearValue = {};
-    depthOptimizedClearValue.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-    depthOptimizedClearValue.DepthStencil.Depth = 1.0F;
-    depthOptimizedClearValue.DepthStencil.Stencil = 0.0F;
-
-    CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_DEFAULT);
-    CD3DX12_RESOURCE_DESC texture2D = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_D24_UNORM_S8_UINT,
-                                                                   width,
-                                                                   height,
-                                                                   1,
-                                                                   1,
-                                                                   1,
-                                                                   0,
-                                                                   D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL);
-
-    ThrowIfFailed(device->CreateCommittedResource(&heapProperties,
-                                                  D3D12_HEAP_FLAG_NONE,
-                                                  &texture2D,
-                                                  D3D12_RESOURCE_STATE_DEPTH_WRITE,
-                                                  &depthOptimizedClearValue,
-                                                  IID_PPV_ARGS(&mDepthStencilBuffer)));
-    device->CreateDepthStencilView(mDepthStencilBuffer.Get(),
-                                   &depthStencilDesc,
-                                   mDSVDescriptorHeap->CPUHandle(0));
-
     // SRV
     mSRVDescriptorHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, mMaterials.size(), true);
     int index = 0;

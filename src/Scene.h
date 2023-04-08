@@ -25,18 +25,20 @@ public:
 public:
     void Init(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList);
     void RenderScene(ID3D12GraphicsCommandList *cmdList);
+    void RenderQuad(ID3D12GraphicsCommandList *cmdList);
+    void RenderSphere(ID3D12GraphicsCommandList *cmdList);
     void UpdateScene();
     void UpdateMouse(float dx, float dy);
 
 private:
     void CreateRTV(ID3D12Device *device, IDXGISwapChain *swapChain, uint frameCount);
-    void CreatePipelineStateObject(ID3D12Device *device);
-    void CreateRootSignature(ID3D12Device *device);
 
     std::array<CD3DX12_STATIC_SAMPLER_DESC, 7> GetStaticSamplers();
     void CreateCommonConstant(ID3D12Device *device);
     void CreateDescriptorHeaps2Descriptors(ID3D12Device *device, uint width, uint height);
+
     void CreateSphereTest(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList);
+    void CreateQuadTest(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList);
 
     void LoadAssets(ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
     void BuildVertex2Constant(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList);
@@ -52,8 +54,6 @@ private:
     void UpdateMaterial();
 
 private:
-    std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> mPSO;
-    std::unordered_map<std::string, ComPtr<ID3D12RootSignature>> mSignature;
     std::unordered_map<std::string, Camera> mCamera;
     std::string mRootPath;
     std::string mSceneName;
@@ -71,14 +71,12 @@ private:
     std::vector<Entity> mEntities;
     std::unordered_map<EntityType, std::vector<RenderItem>> mRenderItems;
 
+    // Vertices & Indices
     std::vector<ModelVertex> mAllVertices;
     std::vector<uint16> mAllIndices;
     std::unique_ptr<UploadBuffer<ModelVertex>> mVerticesBuffer;
     std::unique_ptr<UploadBuffer<uint16>> mIndicesBuffer;
 
-    ComPtr<ID3D12Resource> mDepthStencilBuffer;
-
     std::unique_ptr<DescriptorHeap> mRTVDescriptorHeap;
     std::unique_ptr<DescriptorHeap> mSRVDescriptorHeap;
-    std::unique_ptr<DescriptorHeap> mDSVDescriptorHeap;
 };
