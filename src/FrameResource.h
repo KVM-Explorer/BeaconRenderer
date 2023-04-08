@@ -19,9 +19,9 @@ public:
     void Init(ID3D12Device *device);
     void CreateRenderTarget(ID3D12Device *device, ID3D12Resource *backBuffer);
     ID3D12Resource* GetResource(const std::string &name) const;
-    D3D12_CPU_DESCRIPTOR_HANDLE GetRtv(const std::string &name) const;
-    D3D12_CPU_DESCRIPTOR_HANDLE GetSrvCbvUav(const std::string &name) const;
-    D3D12_CPU_DESCRIPTOR_HANDLE GetDsv(const std::string &name) const;
+    CD3DX12_CPU_DESCRIPTOR_HANDLE GetRtv(const std::string &name) const;
+    CD3DX12_CPU_DESCRIPTOR_HANDLE GetSrvCbvUav(const std::string &name) const;
+    CD3DX12_CPU_DESCRIPTOR_HANDLE GetDsv(const std::string &name) const;
     
 
     ComPtr<ID3D12CommandAllocator> CmdAllocator;

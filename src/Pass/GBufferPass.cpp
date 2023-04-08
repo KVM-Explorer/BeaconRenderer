@@ -6,7 +6,7 @@ GBufferPass::GBufferPass(ID3D12PipelineState *pso, ID3D12RootSignature *rs) :
 {
 }
 
-void GBufferPass::SetTarget(std::array<ID3D12Resource *, 3> targets, D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle, D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle)
+void GBufferPass::SetRenderTarget(std::vector<ID3D12Resource *> targets, CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle, CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle)
 {
     mTargets = targets;
     mRtvHandle = rtvHandle;
@@ -14,37 +14,41 @@ void GBufferPass::SetTarget(std::array<ID3D12Resource *, 3> targets, D3D12_CPU_D
 }
 void GBufferPass::BeginPass(ID3D12GraphicsCommandList *cmdList)
 {
+    cmdList->SetGraphicsRootSignature(mRS);
+    cmdList->SetPipelineState(mPSO);
+    cmdList->OMSetRenderTargets(3, &mRtvHandle, true, &mDsvHandle);
+
     float clearColor[4] = {0, 0, 0, 1.0F};
 
+    auto targetRtvHandle = mRtvHandle;
     for (uint i = 0; i < mTargets.size(); i++) {
-        // 1. rtvHandle
-        // 2. Srv -> Rtv Barrier
-        // 3. Clear Value
+        auto srv2rtv = CD3DX12_RESOURCE_BARRIER::Transition(mTargets.at(i),
+                                                            D3D12_RESOURCE_STATE_GENERIC_READ,
+                                                            D3D12_RESOURCE_STATE_RENDER_TARGET);
+        cmdList->ResourceBarrier(1, &srv2rtv);
+        cmdList->ClearRenderTargetView(targetRtvHandle, clearColor, 0, nullptr);
+        targetRtvHandle.Offset(1);
     }
 
-    cmdList->OMSetRenderTargets(3, &mRtvHandle, true, &mDsvHandle);
-    // cmdList->SetDescriptorHeaps(srvHeaps.size(), srvHeaps.data());
-    // cmdList->SetGraphicsRootSignature(mRS);
-    // cmdList->SetGraphicsRootDescriptorTable(4, GResource::TextureManager->GetTexture2DDescriptoHeap()->GPUHandle(mSrvIndexBase));
-}
-
-void GBufferPass::ExecutePass(ID3D12GraphicsCommandList *cmdList)
-{
+    auto srv2dsv = CD3DX12_RESOURCE_BARRIER::Transition(mTargets.at(3),
+                                                        D3D12_RESOURCE_STATE_GENERIC_READ,
+                                                        D3D12_RESOURCE_STATE_DEPTH_WRITE);
+    cmdList->ResourceBarrier(1, &srv2dsv);
+    cmdList->ClearDepthStencilView(mDsvHandle, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0F, 0, 0, nullptr);
 }
 
 void GBufferPass::EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES resultState)
 {
-    //  GBuffer + Texture -> SRV
-    // for (uint i = 0; i < mTargets.size(); i++) {
-    //     auto rtvTexture = GResource::TextureManager->GetTexture(mGbufferTextureIndex.at(i));
-    //     auto rtv2srvBarrier = CD3DX12_RESOURCE_BARRIER::Transition(rtvTexture->Resource(),
-    //                                                                D3D12_RESOURCE_STATE_RENDER_TARGET,
-    //                                                                D3D12_RESOURCE_STATE_GENERIC_READ);
-    //     cmdList->ResourceBarrier(1, &rtv2srvBarrier);
-    // }
-    // auto depthTexture = GResource::TextureManager->GetTexture(mDepthTextureIndex);
-    // auto depth2srvBarrier = CD3DX12_RESOURCE_BARRIER::Transition(depthTexture->Resource(),
-    //                                                              D3D12_RESOURCE_STATE_DEPTH_WRITE,
-    //                                                              D3D12_RESOURCE_STATE_GENERIC_READ);
-    // cmdList->ResourceBarrier(1, &depth2srvBarrier);
+    //  GBuffer + Depth -> SRV
+
+    for (uint i = 0; i < mTargets.size(); i++) {
+        auto rtv2srv = CD3DX12_RESOURCE_BARRIER::Transition(mTargets.at(i),
+                                                            D3D12_RESOURCE_STATE_RENDER_TARGET,
+                                                            D3D12_RESOURCE_STATE_GENERIC_READ);
+        cmdList->ResourceBarrier(1, &rtv2srv);
+    }
+    auto dsv2srv = CD3DX12_RESOURCE_BARRIER::Transition(mDepthBuffer,
+                                                        D3D12_RESOURCE_STATE_DEPTH_WRITE,
+                                                        D3D12_RESOURCE_STATE_GENERIC_READ);
+    cmdList->ResourceBarrier(1, &dsv2srv);
 }

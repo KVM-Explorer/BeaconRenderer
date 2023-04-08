@@ -11,7 +11,6 @@ public:
     PassBase(PassBase &&) = default;
 
     virtual void BeginPass(ID3D12GraphicsCommandList *cmdList) = 0;
-    virtual void ExecutePass(ID3D12GraphicsCommandList *cmdList) = 0;
     virtual void EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES resultState) = 0;
     ID3D12Resource *Output();
 

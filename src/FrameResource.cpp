@@ -28,6 +28,7 @@ void FrameResource::Signal(ID3D12CommandQueue *queue)
 
 void FrameResource::Release()
 {
+    RenderTargets.clear();
     CmdList = nullptr;
     CmdAllocator = nullptr;
     Fence = nullptr;
@@ -41,7 +42,7 @@ void FrameResource::Init(ID3D12Device *device)
     ThrowIfFailed(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&Fence)));
 }
 
-void FrameResource::CreateRenderTarget(ID3D12Device *device, ID3D12Resource* backBuffer)
+void FrameResource::CreateRenderTarget(ID3D12Device *device, ID3D12Resource *backBuffer)
 {
     ///================== Create Render Target================
     // Render Target Resource GBuffer*4 + Depth + ScreenQuad * 2  + SwapChain Buffer
@@ -78,7 +79,7 @@ void FrameResource::CreateRenderTarget(ID3D12Device *device, ID3D12Resource* bac
     RenderTargets.push_back(std::move(Texture(backBuffer)));
 
     ///================== Create Render Target View================
-    
+
     // Create Render Target View
     for (uint i = 0; i < GBufferPass::GetTargetCount(); i++) {
         std::string index = "GBuffer" + std::to_string(i);
@@ -122,7 +123,7 @@ void FrameResource::CreateRenderTarget(ID3D12Device *device, ID3D12Resource* bac
     SrvCbvUavMap["ScreenTexture2"] = SrvCbvUavDescriptorHeap->AddSrvDescriptor(device, RenderTargets[ResourceMap["ScreenTexture2"]].Resource());
 
     ///================== Create Unordered Access View================
-    
+
     // ScreenTexture2 Sobel Output UAV
     SrvCbvUavMap["ScreenTexture2"] = SrvCbvUavDescriptorHeap->AddUavDescriptor(device, RenderTargets[ResourceMap["ScreenTexture2"]].Resource());
 }
@@ -132,17 +133,17 @@ ID3D12Resource *FrameResource::GetResource(const std::string &name) const
     return RenderTargets[ResourceMap.at(name)].Resource();
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE FrameResource::GetRtv(const std::string &name) const
+CD3DX12_CPU_DESCRIPTOR_HANDLE FrameResource::GetRtv(const std::string &name) const
 {
     return RtvDescriptorHeap->CPUHandle(RtvMap.at(name));
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE FrameResource::GetDsv(const std::string &name) const
+CD3DX12_CPU_DESCRIPTOR_HANDLE FrameResource::GetDsv(const std::string &name) const
 {
     return DsvDescriptorHeap->CPUHandle(DsvMap.at(name));
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE FrameResource::GetSrvCbvUav(const std::string &name) const
+CD3DX12_CPU_DESCRIPTOR_HANDLE FrameResource::GetSrvCbvUav(const std::string &name) const
 {
     return SrvCbvUavDescriptorHeap->CPUHandle(SrvCbvUavMap.at(name));
 }

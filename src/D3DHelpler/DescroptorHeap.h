@@ -10,9 +10,11 @@ public:
     DescriptorHeap(ID3D12Device *device, D3D12_DESCRIPTOR_HEAP_TYPE type, UINT descriptorNum, bool isShaderVisiable = false);
     UINT Length() const { return mDescriptorNum; }
 
-    D3D12_CPU_DESCRIPTOR_HANDLE
-    CPUHandle(int index) { return CD3DX12_CPU_DESCRIPTOR_HANDLE(mCPUHandle, index, mDescriptorSize); };
-    D3D12_GPU_DESCRIPTOR_HANDLE GPUHandle(int index) { return CD3DX12_GPU_DESCRIPTOR_HANDLE(mGPUHandle, index, mDescriptorSize); };
+    CD3DX12_CPU_DESCRIPTOR_HANDLE
+    CPUHandle(int index)
+    {
+        return CD3DX12_CPU_DESCRIPTOR_HANDLE(mCPUHandle, index, mDescriptorSize);};
+    CD3DX12_GPU_DESCRIPTOR_HANDLE GPUHandle(int index) { return CD3DX12_GPU_DESCRIPTOR_HANDLE(mGPUHandle, index, mDescriptorSize); };
 
     [[nodiscard]] ID3D12DescriptorHeap *Resource() const { return mHeap.Get(); }
 

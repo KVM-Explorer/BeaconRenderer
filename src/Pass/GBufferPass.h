@@ -9,13 +9,28 @@ public:
     GBufferPass(GBufferPass &&) = default;
     GBufferPass &operator=(GBufferPass &&) = default;
 
-    void SetTarget(std::array<ID3D12Resource *, 3> targets, D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle, D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle);
+    void SetRenderTarget(std::vector<ID3D12Resource *> targets, CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle, CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle);
+
     void BeginPass(ID3D12GraphicsCommandList *cmdList) override;
-    void ExecutePass(ID3D12GraphicsCommandList *cmdList) override;
     void EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES resultState) override;
 
+    static std::vector<DXGI_FORMAT> GetTargetFormat() { return mTargetFormats; }
+    static uint GetTargetCount() { return mTargetCount; }
+    static DXGI_FORMAT GetDepthFormat() { return mDepthFormat; }
+
 private:
-    std::array<ID3D12Resource *, 3> mTargets;
-    D3D12_CPU_DESCRIPTOR_HANDLE mRtvHandle;
-    D3D12_CPU_DESCRIPTOR_HANDLE mDsvHandle;
+    std::vector<ID3D12Resource *> mTargets;
+    ID3D12Resource * mDepthBuffer;
+    static const uint mTargetCount = 4;
+    inline static const std::vector<DXGI_FORMAT> mTargetFormats{
+        DXGI_FORMAT_R8G8B8A8_SNORM, // NORMAL
+        DXGI_FORMAT_R16G16_FLOAT,   // UV
+        DXGI_FORMAT_R16_UINT,       // MaterialID
+        DXGI_FORMAT_R8_UINT,        // ShaderID
+    };
+
+    static const DXGI_FORMAT mDepthFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+
+    CD3DX12_CPU_DESCRIPTOR_HANDLE mRtvHandle;
+    CD3DX12_CPU_DESCRIPTOR_HANDLE mDsvHandle;
 };
