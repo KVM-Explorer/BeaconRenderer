@@ -5,9 +5,8 @@
 #include "Framework/ImguiManager.h"
 #include "Framework/GlobalResource.h"
 #include "Tools/D3D12GpuTimer.h"
-#include "SobelFilter.h"
-#include "ScreenQuad.h"
 #include "FrameResource.h"
+#include "Pass/Pass.h"
 
 class Beacon : public RendererBase {
 public:
@@ -28,13 +27,16 @@ public:
 
 private:
     void CreateDevice(HWND handle);
-    void CreateCommandResource();
-    std::vector<D3D12_INPUT_ELEMENT_DESC> CreateInputLayout();
+    void CreateCommandQueue();
     void CompileShaders();
     void CreateRTV(ID3D12Device *device, IDXGISwapChain4 *swapchain, uint frameCount);
     void CreateSwapChain(HWND handle);
-    void CreateFence();
+    void CreateSignature2PSO();
+    void CreatePass();
     void LoadScene();
+
+    void SetPass(uint frameIndex);
+    void ExecutePass(uint frameIndex);
 
 private:
     CD3DX12_VIEWPORT mViewPort;
@@ -47,15 +49,15 @@ private:
     ComPtr<ID3D12CommandQueue> mCommandQueue;
     ComPtr<IDXGISwapChain4> mSwapChain;
     std::unique_ptr<Scene> mScene;
-    std::unique_ptr<SobelFilter> mPostProcesser;
-    std::unique_ptr<DescriptorHeap> mRTVDescriptorHeap;
-    std::vector<ComPtr<ID3D12Resource>> mRTVBuffer;
-    std::vector<uint> mMediaRTVBuffer;
-    std::vector<uint> mMediaSrvIndex;
     std::unordered_map<std::string, std::vector<D3D12_INPUT_ELEMENT_DESC>> mInputLayout;
 
+    std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> mPSO;
+    std::unordered_map<std::string, ComPtr<ID3D12RootSignature>> mSignature;
+
     // Multi-Pass
-    std::unique_ptr<DeferredRendering> mDeferredRendering;
-    std::unique_ptr<ScreenQuad> mQuadPass;
-    std::array<FrameResource,mFrameCount> mFR;
+    std::array<FrameResource, mFrameCount> mFR;
+    std::unique_ptr<GBufferPass> mGBufferPass;
+    std::unique_ptr<LightPass> mLightPass;
+    std::unique_ptr<SobelPass> mSobelPass;
+    std::unique_ptr<QuadPass> mQuadPass;
 };

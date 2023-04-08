@@ -12,7 +12,7 @@ StructuredBuffer<Material> Materials : register(t1, space1);
 Texture2D<float4> gNormalTexture : register(t0);
 Texture2D<float2> gUVTexture : register(t1);
 Texture2D<uint> gMaterialTexture : register(t2);
-Texture2D<uint> gShaderID : register(t3);
+Texture2D<uint> gShaderTexure : register(t3);
 Texture2D gDepth : register(t4);
 
 PSInput VSMain(VSInput input) {
@@ -43,7 +43,7 @@ float4 PSMain(PSInput input) : SV_TARGET {
 
   // 1 Opaque
 
-  if (gShaderID[input.Position.xy] == 1) { //
+  if (gShaderTexure[input.Position.xy] == 1) { //
     float4 ambient = gAmbient * mat.Diffuse;
     color = PointLightColor(PointLights[0], mat, worldPos.xyz, normal,
                             gEyePosition);

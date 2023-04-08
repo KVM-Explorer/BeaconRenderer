@@ -143,7 +143,7 @@ CD3DX12_CPU_DESCRIPTOR_HANDLE FrameResource::GetDsv(const std::string &name) con
     return DsvDescriptorHeap->CPUHandle(DsvMap.at(name));
 }
 
-CD3DX12_CPU_DESCRIPTOR_HANDLE FrameResource::GetSrvCbvUav(const std::string &name) const
+CD3DX12_GPU_DESCRIPTOR_HANDLE FrameResource::GetSrvCbvUav(const std::string &name) const
 {
-    return SrvCbvUavDescriptorHeap->CPUHandle(SrvCbvUavMap.at(name));
+    return SrvCbvUavDescriptorHeap->GPUHandle(SrvCbvUavMap.at(name));
 }

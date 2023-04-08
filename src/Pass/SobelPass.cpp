@@ -6,16 +6,28 @@ SobelPass::SobelPass(ID3D12PipelineState *pso, ID3D12RootSignature *rs) :
 {
 }
 
-void SobelPass::SetTarget(ID3D12Resource *target, D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle)
+void SobelPass::SetSrvHeap(ID3D12DescriptorHeap *srvHeap)
 {
-    mTarget = target;
-    mRtvHandle = rtvHandle;
+    mSrvHeap = srvHeap;
 }
 
+void SobelPass::SetInput(CD3DX12_GPU_DESCRIPTOR_HANDLE srcHandle)
+{
+    mSrcHandle = srcHandle;
+}
+
+void SobelPass::SetTarget(ID3D12Resource *target, CD3DX12_GPU_DESCRIPTOR_HANDLE dstHandle)
+{
+    mTarget = target;
+    mDstHandle = dstHandle;
+}
 void SobelPass::BeginPass(ID3D12GraphicsCommandList *cmdList)
 {
     cmdList->SetComputeRootSignature(mRS);
     cmdList->SetPipelineState(mPSO);
+
+    cmdList->SetComputeRootDescriptorTable(0, mSrcHandle);
+    cmdList->SetComputeRootDescriptorTable(1, mDstHandle);
 }
 
 void SobelPass::ExecutePass(ID3D12GraphicsCommandList *cmdList)
@@ -32,10 +44,4 @@ void SobelPass::EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATE
                                                         D3D12_RESOURCE_STATE_RENDER_TARGET,
                                                         resultState);
     cmdList->ResourceBarrier(1, &rtv2srv);
-}
-
-void SobelPass::SetSrvGpuHandle(ID3D12GraphicsCommandList *cmdList, D3D12_GPU_DESCRIPTOR_HANDLE srcHandle, D3D12_GPU_DESCRIPTOR_HANDLE dstHandle)
-{
-    cmdList->SetComputeRootDescriptorTable(0, srcHandle);
-    cmdList->SetComputeRootDescriptorTable(1, dstHandle);
 }

@@ -2,6 +2,7 @@
 #include "Tools/DataLoader.h"
 #include "Tools/FrameworkHelper.h"
 #include "Framework/Application.h"
+#include "Framework/GlobalResource.h"
 #include <GeometryGenerator.h>
 
 Scene::Scene(const std::string &root, const std::string &modelname) :

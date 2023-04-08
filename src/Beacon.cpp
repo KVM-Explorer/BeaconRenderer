@@ -2,6 +2,7 @@
 #include "Framework/Application.h"
 #include "Tools/FrameworkHelper.h"
 #include "DataStruct.h"
+#include "GpuEntryLayout.h"
 
 Beacon::Beacon(uint width, uint height, std::wstring title) :
     RendererBase(width, height, title),
@@ -15,12 +16,14 @@ void Beacon::OnInit()
 {
     HWND handle = Application::GetHandle();
     CreateDevice(handle);
-    CreateCommandResource();
-    mFR.at(0).Reset();
+    CreateCommandQueue();
     CreateSwapChain(handle);
-    CreateFence();
-    CreateInputLayout();
+    for (uint i = 0; i < mFrameCount; i++) { mFR.at(i).Init(mDevice.Get()); }
+
+    mFR.at(0).Reset();
     CompileShaders();
+    CreateSignature2PSO();
+    CreatePass();
 
     GResource::TextureManager = std::make_unique<TextureManager>(mDevice.Get(), 1000);
     CreateRTV(mDevice.Get(), mSwapChain.Get(), mFrameCount);
@@ -30,18 +33,8 @@ void Beacon::OnInit()
     GResource::GPUTimer->SetTimerName(static_cast<uint>(GpuTimers::GBuffer), "GBuffer ms");
     GResource::GPUTimer->SetTimerName(static_cast<uint>(GpuTimers::LightPass), "LightPass ms");
     GResource::GPUTimer->SetTimerName(static_cast<uint>(GpuTimers::ComputeShader), "ComputeShader ms");
-    GResource::InputLayout = CreateInputLayout();
 
     LoadScene();
-
-    mDeferredRendering = std::make_unique<DeferredRendering>(mWidth, mHeight);
-    mDeferredRendering->Init(mDevice.Get());
-
-    mQuadPass = std::make_unique<ScreenQuad>();
-    mQuadPass->Init(mDevice.Get(), mFR.at(0).CmdList.Get());
-
-    mPostProcesser = std::make_unique<SobelFilter>();
-    mPostProcesser->Init(mDevice.Get());
 
     // Upload Committed Resource 0 - > 1
     mFR.at(0).Signal(mCommandQueue.Get());
@@ -63,64 +56,25 @@ void Beacon::OnRender()
 
     // ===============================G-Buffer Pass===============================
     GResource::GPUTimer->BeginTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::GBuffer));
-    mDeferredRendering->GBufferPass(mFR.at(frameIndex).CmdList.Get());
-    mScene->RenderScene(mFR.at(frameIndex).CmdList.Get());
+
     GResource::GPUTimer->EndTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::GBuffer));
 
     // ===============================Light Pass =================================
     GResource::GPUTimer->BeginTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::LightPass));
-    auto rtvHandle = mRTVDescriptorHeap->CPUHandle(mFrameCount);
-    // auto rtvHandle = mRTVDescriptorHeap->CPUHandle(frameIndex);
-    mDeferredRendering->LightPass(mFR.at(frameIndex).CmdList.Get());
-    auto *mediaTexture1 = GResource::TextureManager->GetTexture(mMediaRTVBuffer.at(0))->Resource();
-    auto *srvHeap = GResource::TextureManager->GetTexture2DDescriptoHeap();
-    auto srv2rtv = CD3DX12_RESOURCE_BARRIER::Transition(mediaTexture1,
-                                                        D3D12_RESOURCE_STATE_GENERIC_READ,
-                                                        D3D12_RESOURCE_STATE_RENDER_TARGET);
-    // auto present2rtv0 = CD3DX12_RESOURCE_BARRIER::Transition(mRTVBuffer.at(frameIndex).Get(),
-    //                                                          D3D12_RESOURCE_STATE_PRESENT,
-    //                                                          D3D12_RESOURCE_STATE_RENDER_TARGET);
-    mFR.at(frameIndex).CmdList->ResourceBarrier(1, &srv2rtv);
-    // mCommandList->ResourceBarrier(1,&present2rtv0);
-    mFR.at(frameIndex).CmdList->OMSetRenderTargets(1, &rtvHandle, true, nullptr);
-    float clearValue[] = {0, 0, 0, 1.0F};
-    mFR.at(frameIndex).CmdList->ClearRenderTargetView(rtvHandle, clearValue, 0, nullptr);
 
-    mQuadPass->Draw(mFR.at(frameIndex).CmdList.Get());
 
-    auto rtv2srv = CD3DX12_RESOURCE_BARRIER::Transition(mediaTexture1,
-                                                        D3D12_RESOURCE_STATE_RENDER_TARGET,
-                                                        D3D12_RESOURCE_STATE_GENERIC_READ);
-    mFR.at(frameIndex).CmdList->ResourceBarrier(1, &rtv2srv);
     GResource::GPUTimer->EndTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::LightPass));
     // =============================== Sobel Pass ================================
     GResource::GPUTimer->BeginTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::ComputeShader));
-    mPostProcesser->Draw(mFR.at(frameIndex).CmdList.Get(), srvHeap->GPUHandle(mDeferredRendering->GetDepthTexture()));
-    auto *sobelTexture = mPostProcesser->OuptputResource();
+
+    
     GResource::GPUTimer->EndTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::ComputeShader));
     // ============================= Screen Quad Pass ===========================
-    auto present2rtv = CD3DX12_RESOURCE_BARRIER::Transition(mRTVBuffer.at(frameIndex).Get(),
-                                                            D3D12_RESOURCE_STATE_PRESENT,
-                                                            D3D12_RESOURCE_STATE_RENDER_TARGET);
-    mFR.at(frameIndex).CmdList->ResourceBarrier(1, &present2rtv);
-    rtvHandle = mRTVDescriptorHeap->CPUHandle(frameIndex);
-    mFR.at(frameIndex).CmdList->OMSetRenderTargets(1, &rtvHandle, true, nullptr);
-    mFR.at(frameIndex).CmdList->ClearRenderTargetView(rtvHandle, DirectX::Colors::Black, 0, nullptr);
-    bool isEnablePostProcess = false;
-    if (!isEnablePostProcess) {
-        mQuadPass->SetState(mFR.at(frameIndex).CmdList.Get(), QuadShader::MixQuad);
-        auto srv1Handle = srvHeap->GPUHandle(mMediaSrvIndex.at(0));
-        auto srv2Handle = srvHeap->GPUHandle(mPostProcesser->OutputSrvIndex());
-        mFR.at(frameIndex).CmdList->SetGraphicsRootDescriptorTable(1, srv1Handle);
-        mFR.at(frameIndex).CmdList->SetGraphicsRootDescriptorTable(2, srv2Handle);
-        mQuadPass->Draw(mFR.at(frameIndex).CmdList.Get());
-    } else {
-        mQuadPass->Draw(mFR.at(frameIndex).CmdList.Get());
-    }
+
 
     // ===============================UI Pass ====================================
 
-    GResource::GUIManager->DrawUI(mFR.at(frameIndex).CmdList.Get(), mRTVBuffer.at(frameIndex).Get());
+    GResource::GUIManager->DrawUI(mFR.at(frameIndex).CmdList.Get(), mFR.at(frameIndex).GetResource("SwapChain"));
 
     // ===============================End Stage ==================================
     GResource::CPUTimerManager->EndTimer("DrawCall");
@@ -141,16 +95,14 @@ void Beacon::OnUpdate()
 void Beacon::OnDestory()
 {
     mScene = nullptr;
-    mPostProcesser = nullptr;
-    mRTVDescriptorHeap = nullptr;
-    mRTVBuffer.clear();
-    mDeferredRendering = nullptr;
     mQuadPass = nullptr;
     mCommandQueue = nullptr;
     mSwapChain = nullptr;
     mDeviceAdapter = nullptr;
     mDevice = nullptr;
     mFactory = nullptr;
+    mPSO.clear();
+    mSignature.clear();
     for (uint i = 0; i < mFrameCount; i++) {
         mFR.at(i).Release();
     }
@@ -182,8 +134,6 @@ void Beacon::CreateDevice(HWND handle)
 
     if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController)))) {
         debugController->EnableDebugLayer();
-        // debugController->SetEnableSynchronizedCommandQueueValidation(TRUE);
-        // debugController->SetEnableGPUBasedValidation(TRUE);
         dxgiFactoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
     }
 
@@ -210,19 +160,11 @@ void Beacon::CreateDevice(HWND handle)
     }
 }
 
-void Beacon::CreateCommandResource()
+void Beacon::CreateCommandQueue()
 {
     D3D12_COMMAND_QUEUE_DESC queueDesc = {};
     queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
     queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-
-    ThrowIfFailed(mDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&mFR.at(0).CmdAllocator)));
-    ThrowIfFailed(mDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, mFR.at(0).CmdAllocator.Get(), nullptr, IID_PPV_ARGS(&mFR.at(0).CmdList)));
-    for (uint i = 0; i < mFrameCount; i++) {
-        ThrowIfFailed(mDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&mFR.at(i).CmdAllocator)));
-        ThrowIfFailed(mDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, mFR.at(i).CmdAllocator.Get(), nullptr, IID_PPV_ARGS(&mFR.at(i).CmdList)));
-        mFR.at(i).CmdList->Close();
-    }
 
     ThrowIfFailed(mDevice->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&mCommandQueue)));
 }
@@ -245,28 +187,10 @@ void Beacon::CreateSwapChain(HWND handle)
 
 void Beacon::CreateRTV(ID3D12Device *device, IDXGISwapChain4 *swapchain, uint frameCount)
 {
-    uint mediaRTVNum = 1;
-    mRTVDescriptorHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, frameCount + mediaRTVNum);
-    for (UINT i = 0; i < frameCount; i++) {
+    for (uint i = 0; i < frameCount; i++) {
         ComPtr<ID3D12Resource> buffer;
-        auto handle = mRTVDescriptorHeap->CPUHandle(i);
         ThrowIfFailed(swapchain->GetBuffer(i, IID_PPV_ARGS(&buffer)));
-        device->CreateRenderTargetView(buffer.Get(), nullptr, handle);
-        mRTVBuffer.push_back(std::move(buffer));
-    }
-
-    uint rtvIndex = frameCount;
-    // Middle Texture
-    for (uint i = 0; i < mediaRTVNum; i++) {
-        Texture texture(device, DXGI_FORMAT_R8G8B8A8_UNORM, mWidth, mHeight, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
-        texture.Resource()->SetName(L"PassMiddleTexture");
-        auto handle = mRTVDescriptorHeap->CPUHandle(rtvIndex);
-        device->CreateRenderTargetView(texture.Resource(), nullptr, handle);
-        uint resourceIndex = GResource::TextureManager->StoreTexture(texture);
-        uint srvIndex = GResource::TextureManager->AddSrvDescriptor(resourceIndex, DXGI_FORMAT_R8G8B8A8_UNORM);
-        mMediaRTVBuffer.push_back(resourceIndex);
-        mMediaSrvIndex.push_back(srvIndex);
-        rtvIndex++;
+        mFR.at(i).CreateRenderTarget(mDevice.Get(), buffer.Get());
     }
 }
 void Beacon::LoadScene()
@@ -277,42 +201,6 @@ void Beacon::LoadScene()
     scene->Init(mDevice.Get(), mFR.at(0).CmdList.Get());
 
     mScene = std::move(scene);
-}
-
-void Beacon::CreateFence()
-{
-    for (uint i = 0; i < mFrameCount; i++) {
-        ThrowIfFailed(mDevice->CreateFence(mFR.at(i).FenceValue,
-                                           D3D12_FENCE_FLAG_NONE,
-                                           IID_PPV_ARGS(&mFR.at(i).Fence)));
-    }
-}
-
-std::vector<D3D12_INPUT_ELEMENT_DESC> Beacon::CreateInputLayout()
-{
-    return {{
-        {"POSITION",
-         0,
-         DXGI_FORMAT_R32G32B32_FLOAT,
-         0,
-         0,
-         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-         0},
-        {"NORMAL",
-         0,
-         DXGI_FORMAT_R32G32B32_FLOAT,
-         0,
-         12,
-         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-         0},
-        {"TEXCOORD",
-         0,
-         DXGI_FORMAT_R32G32_FLOAT,
-         0,
-         24,
-         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-         0},
-    }};
 }
 
 void Beacon::CompileShaders()
@@ -333,4 +221,68 @@ void Beacon::CompileShaders()
     if (error != nullptr) {
         OutputDebugStringA(static_cast<char *>(error->GetBufferPointer()));
     }
+}
+
+void Beacon::CreateSignature2PSO()
+{
+    mSignature["Graphic"] = GpuEntryLayout::CreateRenderSignature(mDevice.Get(), GBufferPass::GetTargetCount());
+    mSignature["Compute"] = GpuEntryLayout::CreateComputeSignature(mDevice.Get());
+    mPSO["GBuffer"] = GpuEntryLayout::CreateGBufferPassPSO(mDevice.Get(), mSignature["Graphic"].Get(),
+                                                           GBufferPass::GetTargetFormat(),
+                                                           GBufferPass::GetDepthFormat());
+    mPSO["LightingPass"] = GpuEntryLayout::CreateLightPassPSO(mDevice.Get(), mSignature["Graphic"].Get());
+    mPSO["SobelPass"] = GpuEntryLayout::CreateSobelPSO(mDevice.Get(), mSignature["Compute"].Get());
+    mPSO["QuadPass"] = GpuEntryLayout::CreateQuadPassPSO(mDevice.Get(), mSignature["Graphic"].Get());
+}
+
+void Beacon::CreatePass()
+{
+    mGBufferPass = std::make_unique<GBufferPass>(mPSO["GBuffer"].Get(), mSignature["Graphic"].Get());
+
+    mLightPass = std::make_unique<LightPass>(mPSO["LightPass"].Get(), mSignature["Graphic"].Get());
+
+    mSobelPass = std::make_unique<SobelPass>(mPSO["SobelPass"].Get(), mSignature["Compute"].Get());
+
+    mQuadPass = std::make_unique<QuadPass>(mPSO["QuadPass"].Get(), mSignature["Graphic"].Get());
+}
+
+void Beacon::SetPass(uint frameIndex)
+{
+    // ================== GBufferPass ==================
+    std::vector<ID3D12Resource *> mutiRT;
+    for (uint i = 0; i < GBufferPass::GetTargetCount(); i++) {
+        std::string index = "GBuffer" + std::to_string(i);
+        mutiRT.push_back(mFR.at(frameIndex).GetResource(index));
+    }
+    auto rtvHandle = mFR.at(frameIndex).GetRtv("GBuffer0");
+    auto dsvHandle = mFR.at(frameIndex).GetDsv("Depth");
+    mGBufferPass->SetRenderTarget(mutiRT, rtvHandle, dsvHandle);
+
+    // ================== LightPass ==================
+
+    mLightPass->SetRenderTarget(mFR.at(frameIndex).GetResource("ScreenTexture1"), mFR.at(frameIndex).GetRtv("ScreenTexture1"));
+    mLightPass->SetGBuffer(mFR.at(frameIndex).SrvCbvUavDescriptorHeap->Resource(), mFR.at(frameIndex).GetSrvCbvUav("GBuffer0"));
+
+    // ================== SobelPass ==================
+
+    // ================== QuadPass ==================
+    mQuadPass->SetTarget(mFR.at(frameIndex).GetResource("SwapChain"), mFR.at(frameIndex).GetRtv("SwapChain"));
+}
+void Beacon::ExecutePass(uint frameIndex)
+{
+    mGBufferPass->BeginPass(mFR.at(frameIndex).CmdList.Get());
+    mScene->RenderScene(mFR.at(frameIndex).CmdList.Get());
+    mGBufferPass->EndPass(mFR.at(frameIndex).CmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
+
+    mLightPass->BeginPass(mFR.at(frameIndex).CmdList.Get());
+    mScene->RenderQuad(mFR.at(frameIndex).CmdList.Get());
+    mLightPass->EndPass(mFR.at(frameIndex).CmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
+
+    mSobelPass->BeginPass(mFR.at(frameIndex).CmdList.Get());
+    mSobelPass->ExecutePass(mFR.at(frameIndex).CmdList.Get());
+    mSobelPass->EndPass(mFR.at(frameIndex).CmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
+
+    mQuadPass->BeginPass(mFR.at(frameIndex).CmdList.Get());
+    mScene->RenderQuad(mFR.at(frameIndex).CmdList.Get());
+    mQuadPass->EndPass(mFR.at(frameIndex).CmdList.Get(), D3D12_RESOURCE_STATE_PRESENT);
 }

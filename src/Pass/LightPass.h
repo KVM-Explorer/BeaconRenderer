@@ -9,13 +9,14 @@ public:
     LightPass(LightPass &&) = default;
     LightPass &operator=(LightPass &&) = default;
 
-    void SetTarget(ID3D12Resource *target, D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle);
+    void SetRenderTarget(ID3D12Resource *target, CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle);
+    void SetGBuffer(ID3D12DescriptorHeap *srvHeap, CD3DX12_GPU_DESCRIPTOR_HANDLE srvHandle);
     void BeginPass(ID3D12GraphicsCommandList *cmdList) override;
-    void ExecutePass(ID3D12GraphicsCommandList *cmdList) override;
     void EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES resultState) override;
-    ID3D12Resource *Output();
 
 private:
+    ID3D12DescriptorHeap *mSrvHeap = nullptr;
+    CD3DX12_GPU_DESCRIPTOR_HANDLE mSrvHandle;
     ID3D12Resource *mTarget = nullptr;
-    D3D12_CPU_DESCRIPTOR_HANDLE mRtvHandle;
+    CD3DX12_CPU_DESCRIPTOR_HANDLE mRtvHandle;
 };

@@ -9,7 +9,6 @@
 #include "D3DHelpler/Entity.h"
 #include "D3DHelpler/UploadBuffer.h"
 #include "D3DHelpler/RenderItem.h"
-#include "DeferredRendering.h"
 
 /**
     @brief 场景资产管理

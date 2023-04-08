@@ -9,15 +9,16 @@ public:
     SobelPass(SobelPass &&) = default;
     SobelPass &operator=(SobelPass &&) = default;
 
-    void SetTarget(ID3D12Resource *target, D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle);
+    void SetSrvHeap(ID3D12DescriptorHeap *srvHeap);
+    void SetInput(CD3DX12_GPU_DESCRIPTOR_HANDLE srcHandle);
+    void SetTarget(ID3D12Resource *target, CD3DX12_GPU_DESCRIPTOR_HANDLE dstHandle);
     void BeginPass(ID3D12GraphicsCommandList *cmdList) override;
-    void ExecutePass(ID3D12GraphicsCommandList *cmdList) override;
+    void ExecutePass(ID3D12GraphicsCommandList *cmdList);
     void EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES resultState) override;
-
-    void SetSrvGpuHandle(ID3D12GraphicsCommandList *cmdList, D3D12_GPU_DESCRIPTOR_HANDLE srcHandle, D3D12_GPU_DESCRIPTOR_HANDLE dstHandle);
-    ID3D12Resource *Output();
 
 private:
     ID3D12Resource *mTarget = nullptr;
-    D3D12_CPU_DESCRIPTOR_HANDLE mRtvHandle;
+    CD3DX12_GPU_DESCRIPTOR_HANDLE mSrcHandle;
+    CD3DX12_GPU_DESCRIPTOR_HANDLE mDstHandle;
+    ID3D12DescriptorHeap *mSrvHeap = nullptr;
 };
