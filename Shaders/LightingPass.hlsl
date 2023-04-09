@@ -12,7 +12,7 @@ StructuredBuffer<Material> Materials : register(t1, space1);
 Texture2D<float4> gNormalTexture : register(t0);
 Texture2D<float2> gUVTexture : register(t1);
 Texture2D<uint> gMaterialTexture : register(t2);
-Texture2D<uint> gShaderTexure : register(t3);
+Texture2D<uint> gShaderTexure : register(t3); // Skybox == 0, Opaque == 1 , Shadow == 2
 Texture2D gDepth : register(t4);
 
 PSInput VSMain(VSInput input) {
@@ -39,11 +39,8 @@ float4 PSMain(PSInput input) : SV_TARGET {
   float3 color = float3(0, 0, 0);
   Material mat = Materials[materialID];
 
-  // 0 Skybox == None
 
-  // 1 Opaque
-
-  if (gShaderTexure[input.Position.xy] == 1) { //
+  if (gShaderTexure[input.Position.xy] == 1) { // Opaque
     float4 ambient = gAmbient * mat.Diffuse;
     color = PointLightColor(PointLights[0], mat, worldPos.xyz, normal,
                             gEyePosition);
@@ -51,5 +48,5 @@ float4 PSMain(PSInput input) : SV_TARGET {
     return float4(color, mat.Diffuse.a); // 材质提取alpha
   }
 
-  return float4(0, 0, 0, 1.0F);
+  return float4(0, 1, 0, 1.0F);
 }

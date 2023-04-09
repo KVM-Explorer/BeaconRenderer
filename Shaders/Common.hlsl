@@ -25,6 +25,8 @@ cbuffer EntityInfo : register(b0) {
   uint Padding2;
 };
 
+uint gQuadType : register(b0, space1);
+
 SamplerState gSamplerPointWrap        : register(s0);
 SamplerState gSamplerPointClamp       : register(s1);
 SamplerState gSamplerLinearWrap       : register(s2);

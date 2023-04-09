@@ -19,7 +19,6 @@ void Scene::Init(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList)
     mDataLoader = std::make_unique<DataLoader>(mRootPath, mSceneName);
     LoadAssets(device, cmdList);
     BuildVertex2Constant(device, cmdList);
-    CreateDescriptorHeaps2Descriptors(device, GResource::Width, GResource::Height);
 
     mCamera["default"].SetPosition(0, 0, -10.5F);
     mCamera["default"].SetLens(0.25f * MathHelper::Pi, GResource::Width / GResource::Height, 1, 1000);
@@ -192,39 +191,6 @@ void Scene::CreateCommonConstant(ID3D12Device *device)
     mLightConstant = std::make_unique<UploadBuffer<Light>>(device, 1, false);
 }
 
-void Scene::CreateDescriptorHeaps2Descriptors(ID3D12Device *device, uint width, uint height)
-{
-    // SRV
-    mSRVDescriptorHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, mMaterials.size(), true);
-    int index = 0;
-    for (const auto &item : mMaterials) {
-        // TODO 更定Material 和 Texture ID的问题因为存在Null Texture
-        if (item.Texture == nullptr) continue;
-        auto resourceDesc = item.Texture->GetDesc();
-        D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-        srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-
-        srvDesc.Format = resourceDesc.Format;
-        if (resourceDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE2D) {
-            srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-            srvDesc.Texture2D.MipLevels = resourceDesc.MipLevels;
-            srvDesc.Texture2D.MostDetailedMip = 0;
-            srvDesc.Texture2D.ResourceMinLODClamp = 0.0F;
-        }
-        if (resourceDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D) {
-            srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
-            srvDesc.TextureCube.MipLevels = resourceDesc.MipLevels;
-            srvDesc.TextureCube.ResourceMinLODClamp = 0.0F;
-            srvDesc.TextureCube.MostDetailedMip = 0;
-        }
-
-        auto handle = mSRVDescriptorHeap->CPUHandle(index);
-        device->CreateShaderResourceView(item.Texture->Resource(),
-                                         &srvDesc,
-                                         handle);
-        index++;
-    }
-}
 
 void Scene::LoadAssets(ID3D12Device *device, ID3D12GraphicsCommandList *commandList)
 {
@@ -259,7 +225,6 @@ void Scene::CreateMaterials(const std::vector<ModelMaterial> &info,
         mMaterials.push_back(std::move(material));
         index++;
     }
-
     // build Materials Resouce
     mMaterialSR = std::make_unique<UploadBuffer<MaterialInfo>>(device, mMaterials.size(), false);
 }
@@ -335,6 +300,12 @@ void Scene::BuildVertex2Constant(ID3D12Device *device, ID3D12GraphicsCommandList
             break;
         case EntityType::Test:
             mRenderItems[EntityType::Test].push_back(target);
+            break;
+        case EntityType::Sky:
+        case EntityType::Debug:
+            break;
+        case EntityType::Quad:
+            mRenderItems[EntityType::Quad].push_back(target);
             break;
         }
     }

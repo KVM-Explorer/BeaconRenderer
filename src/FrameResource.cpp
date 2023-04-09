@@ -32,6 +32,12 @@ void FrameResource::Release()
     CmdList = nullptr;
     CmdAllocator = nullptr;
     Fence = nullptr;
+    SceneConstant = nullptr;
+    EntityConstant = nullptr;
+    LightConstant = nullptr;
+    RtvDescriptorHeap = nullptr;
+    DsvDescriptorHeap = nullptr;
+    SrvCbvUavDescriptorHeap = nullptr;
 }
 
 void FrameResource::Init(ID3D12Device *device)
@@ -40,6 +46,15 @@ void FrameResource::Init(ID3D12Device *device)
     ThrowIfFailed(device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, CmdAllocator.Get(), nullptr, IID_PPV_ARGS(&CmdList)));
     CmdList->Close();
     ThrowIfFailed(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&Fence)));
+
+    SceneConstant = std::make_unique<UploadBuffer<SceneInfo>>(device, 1, true);
+    EntityConstant = std::make_unique<UploadBuffer<EntityInfo>>(device, 100, true);
+    LightConstant = std::make_unique<UploadBuffer<Light>>(device, 100, true);
+
+    RtvDescriptorHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 100);
+    DsvDescriptorHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 100);
+    SrvCbvUavDescriptorHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 100 ,true);
+
 }
 
 void FrameResource::CreateRenderTarget(ID3D12Device *device, ID3D12Resource *backBuffer)
@@ -52,14 +67,17 @@ void FrameResource::CreateRenderTarget(ID3D12Device *device, ID3D12Resource *bac
                         backBuffer->GetDesc().Width,
                         backBuffer->GetDesc().Height,
                         D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
+        std::string index = "GBuffer" + std::to_string(i);
+        ResourceMap[index] = i;
         RenderTargets.push_back(std::move(texture));
+        
     }
     ResourceMap["Depth"] = RenderTargets.size();
     RenderTargets.emplace_back(device,
                                GBufferPass::GetDepthFormat(),
                                backBuffer->GetDesc().Width,
                                backBuffer->GetDesc().Height,
-                               D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL);
+                               D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL,true);
 
     // ScreenTexture1
     ResourceMap["ScreenTexture1"] = RenderTargets.size();
@@ -77,6 +95,7 @@ void FrameResource::CreateRenderTarget(ID3D12Device *device, ID3D12Resource *bac
                                D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
     // SwapChain Buffer
     RenderTargets.push_back(std::move(Texture(backBuffer)));
+    ResourceMap["SwapChain"] = RenderTargets.size() - 1;
 
     ///================== Create Render Target View================
 
@@ -126,6 +145,9 @@ void FrameResource::CreateRenderTarget(ID3D12Device *device, ID3D12Resource *bac
 
     // ScreenTexture2 Sobel Output UAV
     SrvCbvUavMap["ScreenTexture2"] = SrvCbvUavDescriptorHeap->AddUavDescriptor(device, RenderTargets[ResourceMap["ScreenTexture2"]].Resource());
+
+    /// ================== Create Depth Stencil View================
+    DsvMap["Depth"] = DsvDescriptorHeap->AddDsvDescriptor(device, RenderTargets[ResourceMap["Depth"]].Resource(), &dsvDescriptor);
 }
 
 ID3D12Resource *FrameResource::GetResource(const std::string &name) const

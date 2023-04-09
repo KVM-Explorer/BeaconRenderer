@@ -40,8 +40,8 @@ void SobelPass::ExecutePass(ID3D12GraphicsCommandList *cmdList)
 
 void SobelPass::EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES resultState)
 {
-    auto rtv2srv = CD3DX12_RESOURCE_BARRIER::Transition(mTarget,
-                                                        D3D12_RESOURCE_STATE_RENDER_TARGET,
-                                                        resultState);
-    cmdList->ResourceBarrier(1, &rtv2srv);
+    // auto uav2srv = CD3DX12_RESOURCE_BARRIER::Transition(mTarget,
+    //                                                     D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+    //                                                     resultState);
+    // cmdList->ResourceBarrier(1, &uav2srv);
 }

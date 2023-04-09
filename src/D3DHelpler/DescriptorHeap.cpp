@@ -56,6 +56,7 @@ uint DescriptorHeap::AddSrvDescriptor(ID3D12Device *device, ID3D12Resource *reso
         desc.Texture2D.MostDetailedMip = 0;
         desc.Texture2D.PlaneSlice = 0;
         desc.Texture2D.ResourceMinLODClamp = 0.0f;
+        desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     } else {
         desc = *srvDesc;
     }

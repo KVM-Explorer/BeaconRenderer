@@ -54,6 +54,9 @@ void Beacon::OnRender()
     mFR.at(frameIndex).CmdList->RSSetViewports(1, &mViewPort);
     mFR.at(frameIndex).CmdList->RSSetScissorRects(1, &mScissor);
 
+    SetPass(frameIndex);
+    ExecutePass(frameIndex);
+
     // ===============================G-Buffer Pass===============================
     GResource::GPUTimer->BeginTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::GBuffer));
 
@@ -62,15 +65,12 @@ void Beacon::OnRender()
     // ===============================Light Pass =================================
     GResource::GPUTimer->BeginTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::LightPass));
 
-
     GResource::GPUTimer->EndTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::LightPass));
     // =============================== Sobel Pass ================================
     GResource::GPUTimer->BeginTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::ComputeShader));
 
-    
     GResource::GPUTimer->EndTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::ComputeShader));
     // ============================= Screen Quad Pass ===========================
-
 
     // ===============================UI Pass ====================================
 
@@ -95,6 +95,9 @@ void Beacon::OnUpdate()
 void Beacon::OnDestory()
 {
     mScene = nullptr;
+    for (uint i = 0; i < mFrameCount; i++) {
+        mFR.at(i).Release();
+    }
     mQuadPass = nullptr;
     mCommandQueue = nullptr;
     mSwapChain = nullptr;
@@ -103,9 +106,6 @@ void Beacon::OnDestory()
     mFactory = nullptr;
     mPSO.clear();
     mSignature.clear();
-    for (uint i = 0; i < mFrameCount; i++) {
-        mFR.at(i).Release();
-    }
 }
 Beacon::~Beacon()
 {
@@ -225,12 +225,15 @@ void Beacon::CompileShaders()
 
 void Beacon::CreateSignature2PSO()
 {
+    GResource::InputLayout = GpuEntryLayout::CreateInputLayout();
+    
     mSignature["Graphic"] = GpuEntryLayout::CreateRenderSignature(mDevice.Get(), GBufferPass::GetTargetCount());
     mSignature["Compute"] = GpuEntryLayout::CreateComputeSignature(mDevice.Get());
+
     mPSO["GBuffer"] = GpuEntryLayout::CreateGBufferPassPSO(mDevice.Get(), mSignature["Graphic"].Get(),
                                                            GBufferPass::GetTargetFormat(),
                                                            GBufferPass::GetDepthFormat());
-    mPSO["LightingPass"] = GpuEntryLayout::CreateLightPassPSO(mDevice.Get(), mSignature["Graphic"].Get());
+    mPSO["LightPass"] = GpuEntryLayout::CreateLightPassPSO(mDevice.Get(), mSignature["Graphic"].Get());
     mPSO["SobelPass"] = GpuEntryLayout::CreateSobelPSO(mDevice.Get(), mSignature["Compute"].Get());
     mPSO["QuadPass"] = GpuEntryLayout::CreateQuadPassPSO(mDevice.Get(), mSignature["Graphic"].Get());
 }
@@ -249,6 +252,7 @@ void Beacon::CreatePass()
 void Beacon::SetPass(uint frameIndex)
 {
     // ================== GBufferPass ==================
+
     std::vector<ID3D12Resource *> mutiRT;
     for (uint i = 0; i < GBufferPass::GetTargetCount(); i++) {
         std::string index = "GBuffer" + std::to_string(i);
@@ -256,7 +260,9 @@ void Beacon::SetPass(uint frameIndex)
     }
     auto rtvHandle = mFR.at(frameIndex).GetRtv("GBuffer0");
     auto dsvHandle = mFR.at(frameIndex).GetDsv("Depth");
-    mGBufferPass->SetRenderTarget(mutiRT, rtvHandle, dsvHandle);
+    mGBufferPass->SetRenderTarget(mutiRT, rtvHandle);
+    mGBufferPass->SetDepthBuffer(mFR.at(frameIndex).GetResource("Depth"), dsvHandle);
+    mGBufferPass->SetRTVDescriptorSize(mDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV));
 
     // ================== LightPass ==================
 
@@ -264,14 +270,19 @@ void Beacon::SetPass(uint frameIndex)
     mLightPass->SetGBuffer(mFR.at(frameIndex).SrvCbvUavDescriptorHeap->Resource(), mFR.at(frameIndex).GetSrvCbvUav("GBuffer0"));
 
     // ================== SobelPass ==================
+    mSobelPass->SetInput(mFR.at(frameIndex).GetSrvCbvUav("Depth"));
+    mSobelPass->SetTarget(mFR.at(frameIndex).GetResource("ScreenTexture2"), mFR.at(frameIndex).GetSrvCbvUav("ScreenTexture2"));
 
-    // ================== QuadPass ==================
+    // ================== QuadPass ===================
     mQuadPass->SetTarget(mFR.at(frameIndex).GetResource("SwapChain"), mFR.at(frameIndex).GetRtv("SwapChain"));
+    mQuadPass->SetRenderType(QuadShader::MixQuad);
+    mQuadPass->SetSrvHandle(mFR.at(frameIndex).GetSrvCbvUav("ScreenTexture1"));
 }
 void Beacon::ExecutePass(uint frameIndex)
 {
     mGBufferPass->BeginPass(mFR.at(frameIndex).CmdList.Get());
     mScene->RenderScene(mFR.at(frameIndex).CmdList.Get());
+    mScene->RenderSphere(mFR.at(frameIndex).CmdList.Get());
     mGBufferPass->EndPass(mFR.at(frameIndex).CmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
 
     mLightPass->BeginPass(mFR.at(frameIndex).CmdList.Get());

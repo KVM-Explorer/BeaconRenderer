@@ -6,31 +6,36 @@ GBufferPass::GBufferPass(ID3D12PipelineState *pso, ID3D12RootSignature *rs) :
 {
 }
 
-void GBufferPass::SetRenderTarget(std::vector<ID3D12Resource *> targets, CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle, CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle)
+void GBufferPass::SetRenderTarget(std::vector<ID3D12Resource *> targets, CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle)
 {
     mTargets = targets;
     mRtvHandle = rtvHandle;
+}
+void GBufferPass::SetDepthBuffer(ID3D12Resource *depthBuffer, CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle)
+{
+    mDepthBuffer = depthBuffer;
     mDsvHandle = dsvHandle;
 }
+
 void GBufferPass::BeginPass(ID3D12GraphicsCommandList *cmdList)
 {
     cmdList->SetGraphicsRootSignature(mRS);
     cmdList->SetPipelineState(mPSO);
-    cmdList->OMSetRenderTargets(3, &mRtvHandle, true, &mDsvHandle);
+    cmdList->OMSetRenderTargets(4, &mRtvHandle, true, &mDsvHandle);
 
     float clearColor[4] = {0, 0, 0, 1.0F};
 
-    auto targetRtvHandle = mRtvHandle;
+    CD3DX12_CPU_DESCRIPTOR_HANDLE targetRtvHandle = mRtvHandle;
     for (uint i = 0; i < mTargets.size(); i++) {
         auto srv2rtv = CD3DX12_RESOURCE_BARRIER::Transition(mTargets.at(i),
                                                             D3D12_RESOURCE_STATE_GENERIC_READ,
                                                             D3D12_RESOURCE_STATE_RENDER_TARGET);
         cmdList->ResourceBarrier(1, &srv2rtv);
         cmdList->ClearRenderTargetView(targetRtvHandle, clearColor, 0, nullptr);
-        targetRtvHandle.Offset(1);
+        targetRtvHandle.Offset(1,mRTVDescriptorSize);
     }
 
-    auto srv2dsv = CD3DX12_RESOURCE_BARRIER::Transition(mTargets.at(3),
+    auto srv2dsv = CD3DX12_RESOURCE_BARRIER::Transition(mDepthBuffer,
                                                         D3D12_RESOURCE_STATE_GENERIC_READ,
                                                         D3D12_RESOURCE_STATE_DEPTH_WRITE);
     cmdList->ResourceBarrier(1, &srv2dsv);

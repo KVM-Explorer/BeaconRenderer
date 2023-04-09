@@ -34,7 +34,6 @@ private:
 
     std::array<CD3DX12_STATIC_SAMPLER_DESC, 7> GetStaticSamplers();
     void CreateCommonConstant(ID3D12Device *device);
-    void CreateDescriptorHeaps2Descriptors(ID3D12Device *device, uint width, uint height);
 
     void CreateSphereTest(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList);
     void CreateQuadTest(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList);
@@ -75,7 +74,4 @@ private:
     std::vector<uint16> mAllIndices;
     std::unique_ptr<UploadBuffer<ModelVertex>> mVerticesBuffer;
     std::unique_ptr<UploadBuffer<uint16>> mIndicesBuffer;
-
-    std::unique_ptr<DescriptorHeap> mRTVDescriptorHeap;
-    std::unique_ptr<DescriptorHeap> mSRVDescriptorHeap;
 };

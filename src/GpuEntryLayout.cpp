@@ -36,13 +36,14 @@ ComPtr<ID3D12RootSignature> GpuEntryLayout::CreateRenderSignature(ID3D12Device *
     std::array<CD3DX12_DESCRIPTOR_RANGE, 1> texRange = {};
     texRange.at(0).Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1000, 0, 2);
 
-    std::array<CD3DX12_ROOT_PARAMETER, 6> rootParameters = {};
+    std::array<CD3DX12_ROOT_PARAMETER, 7> rootParameters = {};
     rootParameters.at(0).InitAsConstantBufferView(0);                             // Object Constant
     rootParameters.at(1).InitAsConstantBufferView(1);                             // Scene Constant
     rootParameters.at(2).InitAsShaderResourceView(0, 1);                          // PointLight
     rootParameters.at(3).InitAsDescriptorTable(texRange.size(), texRange.data()); // Texture
     rootParameters.at(4).InitAsDescriptorTable(srvRange.size(), srvRange.data()); // Gbuffer 3 output + Depth
     rootParameters.at(5).InitAsShaderResourceView(1, 1);                          // Materials
+    rootParameters.at(6).InitAsConstants(1, 0, 1);                                // RenderType
 
     auto staticSamplers = CreateStaticSamplers();
 

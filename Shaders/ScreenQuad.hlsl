@@ -19,7 +19,7 @@ float4 PSMain(PSInput input) : SV_TARGET { // TODO 匹配DataStruct中的Enum
   float4 color;
   float4 texColor1;
   float4 texColor2;
-  switch (gShaderID) {
+  switch (gQuadType) {
   case 0:
     color = float4(1.0, 0.0, 0.0, 1.0);
     break;

@@ -20,16 +20,19 @@ void LightPass::SetGBuffer(ID3D12DescriptorHeap *srvHeap, CD3DX12_GPU_DESCRIPTOR
 void LightPass::BeginPass(ID3D12GraphicsCommandList *cmdList)
 {
     const float clearValue[] = {0, 0, 0, 1.0F};
-    cmdList->SetGraphicsRootSignature(mRS);
-    cmdList->SetPipelineState(mPSO);
-    cmdList->OMSetRenderTargets(1, &mRtvHandle, true, nullptr);
-    cmdList->ClearRenderTargetView(mRtvHandle, clearValue, 0, nullptr);
     auto srv2rtv = CD3DX12_RESOURCE_BARRIER::Transition(mTarget,
                                                         D3D12_RESOURCE_STATE_GENERIC_READ,
                                                         D3D12_RESOURCE_STATE_RENDER_TARGET);
+
+    cmdList->SetGraphicsRootSignature(mRS);
+    cmdList->SetPipelineState(mPSO);
+
     cmdList->ResourceBarrier(1, &srv2rtv);
+    cmdList->OMSetRenderTargets(1, &mRtvHandle, true, nullptr);
+    cmdList->ClearRenderTargetView(mRtvHandle, clearValue, 0, nullptr);
+
     cmdList->SetDescriptorHeaps(1, &mSrvHeap);
-    cmdList->SetGraphicsRootDescriptorTable(4,mSrvHandle);
+    cmdList->SetGraphicsRootDescriptorTable(4, mSrvHandle);
 }
 
 void LightPass::EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES resultState)

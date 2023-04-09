@@ -9,7 +9,9 @@ public:
     GBufferPass(GBufferPass &&) = default;
     GBufferPass &operator=(GBufferPass &&) = default;
 
-    void SetRenderTarget(std::vector<ID3D12Resource *> targets, CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle, CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle);
+    void SetRenderTarget(std::vector<ID3D12Resource *> targets, CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle);
+    void SetDepthBuffer(ID3D12Resource *depthBuffer, CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle);
+    void SetRTVDescriptorSize(uint size) { mRTVDescriptorSize = size; }
 
     void BeginPass(ID3D12GraphicsCommandList *cmdList) override;
     void EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES resultState) override;
@@ -30,7 +32,7 @@ private:
     };
 
     static const DXGI_FORMAT mDepthFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
-
+    uint mRTVDescriptorSize;
     CD3DX12_CPU_DESCRIPTOR_HANDLE mRtvHandle;
     CD3DX12_CPU_DESCRIPTOR_HANDLE mDsvHandle;
 };
