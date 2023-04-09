@@ -35,6 +35,7 @@ void QuadPass::BeginPass(ID3D12GraphicsCommandList *cmdList)
     cmdList->ClearRenderTargetView(mRtvHandle, DirectX::Colors::LightSteelBlue, 0, nullptr);
 
     cmdList->SetGraphicsRootDescriptorTable(4, mSrvHandle);
+    cmdList->SetGraphicsRoot32BitConstants(6,1,&renderType,0);
 }
 
 void QuadPass::EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES resultState)
