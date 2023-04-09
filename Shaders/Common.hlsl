@@ -20,12 +20,10 @@ struct VSInput {
 cbuffer EntityInfo : register(b0) {
   float4x4 gEntityTransform;
   uint gMaterialID;
-  uint gShaderID;
-  uint Padding1;
+  uint gShaderID; // LightType
+  uint gQuadType; // QuadType
   uint Padding2;
 };
-
-uint gQuadType : register(b0, space1);
 
 SamplerState gSamplerPointWrap        : register(s0);
 SamplerState gSamplerPointClamp       : register(s1);

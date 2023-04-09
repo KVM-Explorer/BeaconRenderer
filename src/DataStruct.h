@@ -79,7 +79,7 @@ struct EntityInfo {
     DirectX::XMFLOAT4X4 Transform;
     uint MaterialIndex;
     uint ShaderID;
-    uint Padding1;
+    uint QuadType;
     uint Padding2;
 };
 

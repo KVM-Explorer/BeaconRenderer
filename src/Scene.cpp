@@ -270,13 +270,6 @@ void Scene::BuildVertex2Constant(ID3D12Device *device, ID3D12GraphicsCommandList
 
     // ConstantData Common Entity +  Test Entity
     mObjectConstant = std::make_unique<UploadBuffer<EntityInfo>>(device, mEntities.size(), true);
-    for (const auto &item : mEntities) {
-        EntityInfo entityInfo = {};
-        entityInfo.Transform = item.Transform;
-        entityInfo.MaterialIndex = item.MaterialIndex;
-        entityInfo.ShaderID = item.ShaderID;
-        mObjectConstant->copyData(item.EntityIndex, entityInfo);
-    }
 
     // Create Render Item
     for (const auto &item : mEntities) {
@@ -381,6 +374,7 @@ void Scene::UpdateEntityConstant()
         XMStoreFloat4x4(&info.Transform, DirectX::XMMatrixTranspose(transform));
         info.MaterialIndex = entity.MaterialIndex;
         info.ShaderID = static_cast<uint>(ShaderID::Opaque);
+        info.QuadType = static_cast<uint>(QuadShader::MixQuad);
         mObjectConstant->copyData(entity.EntityIndex, info);
     }
     // Sphere
