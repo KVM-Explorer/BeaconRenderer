@@ -18,19 +18,19 @@ RenderItem &RenderItem::SetIndexInfo(uint index, D3D12_GPU_VIRTUAL_ADDRESS base,
 }
 
 RenderItem &RenderItem::SetConstantInfo(uint index,
-                                        D3D12_GPU_VIRTUAL_ADDRESS base,
                                         uint elementSize,
                                         uint rootParameterIndex)
 {
-    elementSize = CalculateConstantBufferByteSize(elementSize);
-    mConstantAddress = base + index * elementSize;
+    mConstantSize = CalculateConstantBufferByteSize(elementSize);
+    mConstantOffset = index;
     mRootParameterIndex = rootParameterIndex;
     return *this;
 }
 
-void RenderItem::DrawItem(ID3D12GraphicsCommandList *commandList)
+void RenderItem::DrawItem(ID3D12GraphicsCommandList *commandList, D3D12_GPU_VIRTUAL_ADDRESS constantAddress)
 {
-    commandList->SetGraphicsRootConstantBufferView(mRootParameterIndex, mConstantAddress);
+    auto address = constantAddress + mConstantOffset * mConstantSize;
+    commandList->SetGraphicsRootConstantBufferView(mRootParameterIndex, address);
     commandList->IASetPrimitiveTopology(mPrimitiveType);
     commandList->IASetVertexBuffers(0, 1, &mVertexBufferView);
     commandList->IASetIndexBuffer(&mIndexBufferView);

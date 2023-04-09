@@ -36,6 +36,10 @@ void Beacon::OnInit()
 
     LoadScene();
 
+    for (auto &item : mFR) {
+        item.CreateConstantBuffer(mDevice.Get(),mScene->GetEntityCount(),1,mScene->GetMaterialCount());
+    }
+
     // Upload Committed Resource 0 - > 1
     mFR.at(0).Signal(mCommandQueue.Get());
     mFR.at(0).Sync();
@@ -89,7 +93,12 @@ void Beacon::OnRender()
 
 void Beacon::OnUpdate()
 {
-    mScene->UpdateScene();
+    uint frameIndex = mSwapChain->GetCurrentBackBufferIndex();
+    mScene->UpdateCamera();
+    mScene->UpdateSceneConstant(mFR.at(frameIndex).SceneConstant.get());
+    mScene->UpdateEntityConstant(mFR.at(frameIndex).EntityConstant.get());
+    mScene->UpdateLightConstant(mFR.at(frameIndex).LightConstant.get());
+    mScene->UpdateMaterialConstant(mFR.at(frameIndex).MaterialConstant.get());
 }
 
 void Beacon::OnDestory()
@@ -226,7 +235,7 @@ void Beacon::CompileShaders()
 void Beacon::CreateSignature2PSO()
 {
     GResource::InputLayout = GpuEntryLayout::CreateInputLayout();
-    
+
     mSignature["Graphic"] = GpuEntryLayout::CreateRenderSignature(mDevice.Get(), GBufferPass::GetTargetCount());
     mSignature["Compute"] = GpuEntryLayout::CreateComputeSignature(mDevice.Get());
 
@@ -280,13 +289,15 @@ void Beacon::SetPass(uint frameIndex)
 }
 void Beacon::ExecutePass(uint frameIndex)
 {
+    auto constantAddress = mFR.at(frameIndex).EntityConstant->resource()->GetGPUVirtualAddress();
     mGBufferPass->BeginPass(mFR.at(frameIndex).CmdList.Get());
-    mScene->RenderScene(mFR.at(frameIndex).CmdList.Get());
-    mScene->RenderSphere(mFR.at(frameIndex).CmdList.Get());
+    mFR.at(frameIndex).SetSceneConstant();
+    mScene->RenderScene(mFR.at(frameIndex).CmdList.Get(), constantAddress);
+    mScene->RenderSphere(mFR.at(frameIndex).CmdList.Get(), constantAddress);
     mGBufferPass->EndPass(mFR.at(frameIndex).CmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
 
     mLightPass->BeginPass(mFR.at(frameIndex).CmdList.Get());
-    mScene->RenderQuad(mFR.at(frameIndex).CmdList.Get());
+    mScene->RenderQuad(mFR.at(frameIndex).CmdList.Get(), constantAddress);
     mLightPass->EndPass(mFR.at(frameIndex).CmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
 
     mSobelPass->BeginPass(mFR.at(frameIndex).CmdList.Get());
@@ -294,6 +305,6 @@ void Beacon::ExecutePass(uint frameIndex)
     mSobelPass->EndPass(mFR.at(frameIndex).CmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
 
     mQuadPass->BeginPass(mFR.at(frameIndex).CmdList.Get());
-    mScene->RenderQuad(mFR.at(frameIndex).CmdList.Get());
+    mScene->RenderQuad(mFR.at(frameIndex).CmdList.Get(), constantAddress);
     mQuadPass->EndPass(mFR.at(frameIndex).CmdList.Get(), D3D12_RESOURCE_STATE_PRESENT);
 }

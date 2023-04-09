@@ -23,18 +23,21 @@ public:
 
 public:
     void Init(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList);
-    void RenderScene(ID3D12GraphicsCommandList *cmdList);
-    void RenderQuad(ID3D12GraphicsCommandList *cmdList);
-    void RenderSphere(ID3D12GraphicsCommandList *cmdList);
-    void UpdateScene();
+    void RenderScene(ID3D12GraphicsCommandList *cmdList,D3D12_GPU_VIRTUAL_ADDRESS constantAddress);
+    void RenderQuad(ID3D12GraphicsCommandList *cmdList,D3D12_GPU_VIRTUAL_ADDRESS constantAddress);
+    void RenderSphere(ID3D12GraphicsCommandList *cmdList,D3D12_GPU_VIRTUAL_ADDRESS constantAddress);
+
+    void UpdateCamera();
+    void UpdateSceneConstant(UploadBuffer<SceneInfo> *uploader);
+    void UpdateEntityConstant(UploadBuffer<EntityInfo> *uploader);
+    void UpdateLightConstant(UploadBuffer<Light> *uploader);
+    void UpdateMaterialConstant(UploadBuffer<MaterialInfo> *uploader);
     void UpdateMouse(float dx, float dy);
 
+    uint GetEntityCount() const { return static_cast<uint>(mEntities.size()); };
+    uint GetMaterialCount() const { return static_cast<uint>(mMaterials.size()); };
+
 private:
-    void CreateRTV(ID3D12Device *device, IDXGISwapChain *swapChain, uint frameCount);
-
-    std::array<CD3DX12_STATIC_SAMPLER_DESC, 7> GetStaticSamplers();
-    void CreateCommonConstant(ID3D12Device *device);
-
     void CreateSphereTest(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList);
     void CreateQuadTest(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList);
 
@@ -44,12 +47,6 @@ private:
     void CreateMaterials(const std::vector<ModelMaterial> &info, ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
     MeshInfo AddMesh(Mesh &mesh, ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
     void CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
-
-    void UpdateSceneConstant();
-    void UpdateEntityConstant();
-    void UpdateCamera();
-    void UpdateLight();
-    void UpdateMaterial();
 
 private:
     std::unordered_map<std::string, Camera> mCamera;
@@ -62,10 +59,6 @@ private:
     std::vector<Material> mMaterials;
     std::unordered_map<std::string, Mesh> mMeshesData;
 
-    std::unique_ptr<UploadBuffer<EntityInfo>> mObjectConstant;
-    std::unique_ptr<UploadBuffer<SceneInfo>> mSceneConstant;
-    std::unique_ptr<UploadBuffer<Light>> mLightConstant;
-    std::unique_ptr<UploadBuffer<MaterialInfo>> mMaterialSR;
     std::vector<Entity> mEntities;
     std::unordered_map<EntityType, std::vector<RenderItem>> mRenderItems;
 

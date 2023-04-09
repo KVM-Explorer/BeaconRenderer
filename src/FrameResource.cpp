@@ -32,9 +32,12 @@ void FrameResource::Release()
     CmdList = nullptr;
     CmdAllocator = nullptr;
     Fence = nullptr;
+    
     SceneConstant = nullptr;
     EntityConstant = nullptr;
     LightConstant = nullptr;
+    MaterialConstant = nullptr;
+
     RtvDescriptorHeap = nullptr;
     DsvDescriptorHeap = nullptr;
     SrvCbvUavDescriptorHeap = nullptr;
@@ -47,14 +50,9 @@ void FrameResource::Init(ID3D12Device *device)
     CmdList->Close();
     ThrowIfFailed(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&Fence)));
 
-    SceneConstant = std::make_unique<UploadBuffer<SceneInfo>>(device, 1, true);
-    EntityConstant = std::make_unique<UploadBuffer<EntityInfo>>(device, 100, true);
-    LightConstant = std::make_unique<UploadBuffer<Light>>(device, 100, true);
-
     RtvDescriptorHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 100);
     DsvDescriptorHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 100);
-    SrvCbvUavDescriptorHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 100 ,true);
-
+    SrvCbvUavDescriptorHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 100, true);
 }
 
 void FrameResource::CreateRenderTarget(ID3D12Device *device, ID3D12Resource *backBuffer)
@@ -70,14 +68,13 @@ void FrameResource::CreateRenderTarget(ID3D12Device *device, ID3D12Resource *bac
         std::string index = "GBuffer" + std::to_string(i);
         ResourceMap[index] = i;
         RenderTargets.push_back(std::move(texture));
-        
     }
     ResourceMap["Depth"] = RenderTargets.size();
     RenderTargets.emplace_back(device,
                                GBufferPass::GetDepthFormat(),
                                backBuffer->GetDesc().Width,
                                backBuffer->GetDesc().Height,
-                               D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL,true);
+                               D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL, true);
 
     // ScreenTexture1
     ResourceMap["ScreenTexture1"] = RenderTargets.size();
@@ -148,6 +145,21 @@ void FrameResource::CreateRenderTarget(ID3D12Device *device, ID3D12Resource *bac
 
     /// ================== Create Depth Stencil View================
     DsvMap["Depth"] = DsvDescriptorHeap->AddDsvDescriptor(device, RenderTargets[ResourceMap["Depth"]].Resource(), &dsvDescriptor);
+}
+
+void FrameResource::CreateConstantBuffer(ID3D12Device *device, uint objectCount, uint materialCount, uint lightCount)
+{
+    SceneConstant = std::make_unique<UploadBuffer<SceneInfo>>(device, 1, true);
+    EntityConstant = std::make_unique<UploadBuffer<EntityInfo>>(device, objectCount, true);
+    LightConstant = std::make_unique<UploadBuffer<Light>>(device, lightCount, false);
+    MaterialConstant = std::make_unique<UploadBuffer<MaterialInfo>>(device, materialCount, false);
+}
+
+void FrameResource::SetSceneConstant()
+{
+    CmdList->SetGraphicsRootConstantBufferView(1, SceneConstant->resource()->GetGPUVirtualAddress());
+    CmdList->SetGraphicsRootShaderResourceView(2, LightConstant->resource()->GetGPUVirtualAddress());
+    CmdList->SetGraphicsRootShaderResourceView(5, MaterialConstant->resource()->GetGPUVirtualAddress());
 }
 
 ID3D12Resource *FrameResource::GetResource(const std::string &name) const

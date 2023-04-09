@@ -13,7 +13,6 @@ Scene::Scene(const std::string &root, const std::string &modelname) :
 
 void Scene::Init(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList)
 {
-    CreateCommonConstant(device);
     CreateSphereTest(device, cmdList);
     CreateQuadTest(device, cmdList);
     mDataLoader = std::make_unique<DataLoader>(mRootPath, mSceneName);
@@ -24,110 +23,29 @@ void Scene::Init(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList)
     mCamera["default"].SetLens(0.25f * MathHelper::Pi, GResource::Width / GResource::Height, 1, 1000);
 }
 
-void Scene::RenderScene(ID3D12GraphicsCommandList *cmdList)
+void Scene::RenderScene(ID3D12GraphicsCommandList *cmdList,D3D12_GPU_VIRTUAL_ADDRESS constantAddress)
 {
-    cmdList->SetGraphicsRootConstantBufferView(1, mSceneConstant->resource()->GetGPUVirtualAddress());
-    cmdList->SetGraphicsRootShaderResourceView(2, mLightConstant->resource()->GetGPUVirtualAddress());
-    cmdList->SetGraphicsRootShaderResourceView(5, mMaterialSR->resource()->GetGPUVirtualAddress());
     if (GResource::GUIManager->State.EnableModel) {
         for (auto &item : mRenderItems[EntityType::Opaque]) {
-            item.DrawItem(cmdList);
+            item.DrawItem(cmdList,constantAddress);
         }
     }
 }
 
-void Scene::RenderQuad(ID3D12GraphicsCommandList *cmdList)
+void Scene::RenderQuad(ID3D12GraphicsCommandList *cmdList,D3D12_GPU_VIRTUAL_ADDRESS constantAddress)
 {
     for (auto &item : mRenderItems[EntityType::Quad]) {
-        item.DrawItem(cmdList);
+        item.DrawItem(cmdList,constantAddress);
     }
 }
 
-void Scene::RenderSphere(ID3D12GraphicsCommandList *cmdList)
+void Scene::RenderSphere(ID3D12GraphicsCommandList *cmdList,D3D12_GPU_VIRTUAL_ADDRESS constantAddress)
 {
-    cmdList->SetGraphicsRootConstantBufferView(1, mSceneConstant->resource()->GetGPUVirtualAddress());
-    cmdList->SetGraphicsRootShaderResourceView(2, mLightConstant->resource()->GetGPUVirtualAddress());
-    cmdList->SetGraphicsRootShaderResourceView(5, mMaterialSR->resource()->GetGPUVirtualAddress());
     if (GResource::GUIManager->State.EnableSphere) {
         for (auto &item : mRenderItems[EntityType::Test]) {
-            item.DrawItem(cmdList);
+            item.DrawItem(cmdList,constantAddress);
         }
     }
-}
-
-void Scene::UpdateScene()
-{
-    UpdateCamera();
-    UpdateSceneConstant();
-    UpdateEntityConstant();
-    UpdateLight();
-    UpdateMaterial();
-}
-
-std::array<CD3DX12_STATIC_SAMPLER_DESC, 7> Scene::GetStaticSamplers()
-{
-    const CD3DX12_STATIC_SAMPLER_DESC pointWrap(
-        0,                                // shaderRegister
-        D3D12_FILTER_MIN_MAG_MIP_POINT,   // filter
-        D3D12_TEXTURE_ADDRESS_MODE_WRAP,  // addressU
-        D3D12_TEXTURE_ADDRESS_MODE_WRAP,  // addressV
-        D3D12_TEXTURE_ADDRESS_MODE_WRAP); // addressW
-
-    const CD3DX12_STATIC_SAMPLER_DESC pointClamp(
-        1,                                 // shaderRegister
-        D3D12_FILTER_MIN_MAG_MIP_POINT,    // filter
-        D3D12_TEXTURE_ADDRESS_MODE_CLAMP,  // addressU
-        D3D12_TEXTURE_ADDRESS_MODE_CLAMP,  // addressV
-        D3D12_TEXTURE_ADDRESS_MODE_CLAMP); // addressW
-
-    const CD3DX12_STATIC_SAMPLER_DESC linearWrap(
-        2,                                // shaderRegister
-        D3D12_FILTER_MIN_MAG_MIP_LINEAR,  // filter
-        D3D12_TEXTURE_ADDRESS_MODE_WRAP,  // addressU
-        D3D12_TEXTURE_ADDRESS_MODE_WRAP,  // addressV
-        D3D12_TEXTURE_ADDRESS_MODE_WRAP); // addressW
-
-    const CD3DX12_STATIC_SAMPLER_DESC linearClamp(
-        3,                                 // shaderRegister
-        D3D12_FILTER_MIN_MAG_MIP_LINEAR,   // filter
-        D3D12_TEXTURE_ADDRESS_MODE_CLAMP,  // addressU
-        D3D12_TEXTURE_ADDRESS_MODE_CLAMP,  // addressV
-        D3D12_TEXTURE_ADDRESS_MODE_CLAMP); // addressW
-
-    const CD3DX12_STATIC_SAMPLER_DESC anisotropicWrap(
-        4,                               // shaderRegister
-        D3D12_FILTER_ANISOTROPIC,        // filter
-        D3D12_TEXTURE_ADDRESS_MODE_WRAP, // addressU
-        D3D12_TEXTURE_ADDRESS_MODE_WRAP, // addressV
-        D3D12_TEXTURE_ADDRESS_MODE_WRAP, // addressW
-        0.0f,                            // mipLODBias
-        8);                              // maxAnisotropy
-
-    const CD3DX12_STATIC_SAMPLER_DESC anisotropicClamp(
-        5,                                // shaderRegister
-        D3D12_FILTER_ANISOTROPIC,         // filter
-        D3D12_TEXTURE_ADDRESS_MODE_CLAMP, // addressU
-        D3D12_TEXTURE_ADDRESS_MODE_CLAMP, // addressV
-        D3D12_TEXTURE_ADDRESS_MODE_CLAMP, // addressW
-        0.0f,                             // mipLODBias
-        8);                               // maxAnisotropy
-
-    const CD3DX12_STATIC_SAMPLER_DESC shadow(
-        6,                                                // shaderRegister
-        D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT, // filter
-        D3D12_TEXTURE_ADDRESS_MODE_BORDER,                // addressU
-        D3D12_TEXTURE_ADDRESS_MODE_BORDER,                // addressV
-        D3D12_TEXTURE_ADDRESS_MODE_BORDER,                // addressW
-        0.0f,                                             // mipLODBias
-        16,                                               // maxAnisotropy
-        D3D12_COMPARISON_FUNC_LESS_EQUAL,
-        D3D12_STATIC_BORDER_COLOR_OPAQUE_BLACK);
-
-    return {
-        pointWrap, pointClamp,
-        linearWrap, linearClamp,
-        anisotropicWrap, anisotropicClamp,
-        shadow};
 }
 
 void Scene::CreateSphereTest(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList)
@@ -185,12 +103,6 @@ void Scene::CreateQuadTest(ID3D12Device *device, ID3D12GraphicsCommandList *cmdL
     entity.EntityIndex = mEntities.size();
     mEntities.push_back(entity);
 }
-void Scene::CreateCommonConstant(ID3D12Device *device)
-{
-    mSceneConstant = std::make_unique<UploadBuffer<SceneInfo>>(device, 1, true);
-    mLightConstant = std::make_unique<UploadBuffer<Light>>(device, 1, false);
-}
-
 
 void Scene::LoadAssets(ID3D12Device *device, ID3D12GraphicsCommandList *commandList)
 {
@@ -226,7 +138,6 @@ void Scene::CreateMaterials(const std::vector<ModelMaterial> &info,
         index++;
     }
     // build Materials Resouce
-    mMaterialSR = std::make_unique<UploadBuffer<MaterialInfo>>(device, mMaterials.size(), false);
 }
 
 MeshInfo Scene::AddMesh(Mesh &mesh, ID3D12Device *device, ID3D12GraphicsCommandList *commandList)
@@ -268,9 +179,6 @@ void Scene::BuildVertex2Constant(ID3D12Device *device, ID3D12GraphicsCommandList
     mVerticesBuffer->copyAllData(mAllVertices.data(), mAllVertices.size());
     mIndicesBuffer->copyAllData(mAllIndices.data(), mAllIndices.size());
 
-    // ConstantData Common Entity +  Test Entity
-    mObjectConstant = std::make_unique<UploadBuffer<EntityInfo>>(device, mEntities.size(), true);
-
     // Create Render Item
     for (const auto &item : mEntities) {
         RenderItem target;
@@ -284,7 +192,6 @@ void Scene::BuildVertex2Constant(ID3D12Device *device, ID3D12GraphicsCommandList
                           sizeof(uint16),
                           item.MeshInfo.IndexCount)
             .SetConstantInfo(item.EntityIndex,
-                             mObjectConstant->resource()->GetGPUVirtualAddress(),
                              sizeof(EntityInfo),
                              0);
         switch (item.Type()) {
@@ -304,7 +211,7 @@ void Scene::BuildVertex2Constant(ID3D12Device *device, ID3D12GraphicsCommandList
     }
 }
 
-void Scene::UpdateSceneConstant()
+void Scene::UpdateSceneConstant(UploadBuffer<SceneInfo> *uploader)
 {
     using DirectX::XMMATRIX;
     using DirectX::XMFLOAT4X4;
@@ -340,20 +247,20 @@ void Scene::UpdateSceneConstant()
 
     sceneInfo.EyePosition = mCamera["default"].GetPosition3f();
 
-    mSceneConstant->copyData(0, sceneInfo);
+    uploader->copyData(0, sceneInfo);
 }
 
-void Scene::UpdateLight()
+void Scene::UpdateLightConstant(UploadBuffer<Light> *uploader)
 {
     Light pointLight;
     pointLight.LightBegin = 0.0F;
     pointLight.LightEnd = 100.0F;
     pointLight.Position = DirectX::XMFLOAT3(3, 3, -5);
     pointLight.LightStrengh = DirectX::XMFLOAT3(1.0, 1.0, 1.0);
-    mLightConstant->copyData(0, pointLight);
+    uploader->copyData(0, pointLight);
 }
 
-void Scene::UpdateMaterial()
+void Scene::UpdateMaterialConstant(UploadBuffer<MaterialInfo> *uploader)
 {
     for (uint i = 0; i < mMaterials.size(); i++) {
         MaterialInfo info = {};
@@ -361,11 +268,11 @@ void Scene::UpdateMaterial()
         // info.Roughness = 1 - mMaterials[i].Shineness; // TODO 默认Roughness是非归一化的数值如32
         info.Roughness = 0.02;
         info.FresnelR0 = DirectX::XMFLOAT3(0.2F, 0.3F, 1.0F);
-        mMaterialSR->copyData(i, info);
+        uploader->copyData(i, info);
     }
 }
 
-void Scene::UpdateEntityConstant()
+void Scene::UpdateEntityConstant(UploadBuffer<EntityInfo> *uploader)
 {
     using namespace DirectX;
     for (auto &entity : mEntities) {
@@ -375,7 +282,7 @@ void Scene::UpdateEntityConstant()
         info.MaterialIndex = entity.MaterialIndex;
         info.ShaderID = static_cast<uint>(ShaderID::Opaque);
         info.QuadType = static_cast<uint>(QuadShader::MixQuad);
-        mObjectConstant->copyData(entity.EntityIndex, info);
+        uploader->copyData(entity.EntityIndex, info);
     }
     // Sphere
     EntityInfo info;
@@ -383,7 +290,7 @@ void Scene::UpdateEntityConstant()
     XMStoreFloat4x4(&info.Transform, DirectX::XMMatrixTranspose(transform));
     info.MaterialIndex = 1; // TODO Model 1# 材质
     info.ShaderID = static_cast<uint>(ShaderID::Opaque);
-    mObjectConstant->copyData(2, info);
+    uploader->copyData(2, info);
 }
 
 void Scene::UpdateCamera()

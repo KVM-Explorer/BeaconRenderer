@@ -18,19 +18,23 @@ public:
     void Release();
     void Init(ID3D12Device *device);
     void CreateRenderTarget(ID3D12Device *device, ID3D12Resource *backBuffer);
-    ID3D12Resource* GetResource(const std::string &name) const;
+
+    void CreateConstantBuffer(ID3D12Device *device, uint entityCount, uint lightCount, uint materialCount);
+    void SetSceneConstant();
+    ID3D12Resource *GetResource(const std::string &name) const;
     CD3DX12_CPU_DESCRIPTOR_HANDLE GetRtv(const std::string &name) const;
     CD3DX12_GPU_DESCRIPTOR_HANDLE GetSrvCbvUav(const std::string &name) const;
     CD3DX12_CPU_DESCRIPTOR_HANDLE GetDsv(const std::string &name) const;
-    
 
     ComPtr<ID3D12CommandAllocator> CmdAllocator;
     ComPtr<ID3D12GraphicsCommandList> CmdList;
     ComPtr<ID3D12Fence> Fence;
+    uint64 FenceValue = 0;
+
     std::unique_ptr<UploadBuffer<SceneInfo>> SceneConstant;
     std::unique_ptr<UploadBuffer<EntityInfo>> EntityConstant;
     std::unique_ptr<UploadBuffer<Light>> LightConstant;
-    uint64 FenceValue = 0;
+    std::unique_ptr<UploadBuffer<MaterialInfo>> MaterialConstant;
 
     // Resource
     std::vector<Texture> RenderTargets; // No SwapChain Buffer
