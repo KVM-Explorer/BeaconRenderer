@@ -1,5 +1,6 @@
 #include "FrameResource.h"
 #include "Pass/GBufferPass.h"
+#include "Framework/GlobalResource.h"
 void FrameResource::Reset() const
 {
     CmdAllocator->Reset();
@@ -40,7 +41,6 @@ void FrameResource::Release()
 
     RtvDescriptorHeap = nullptr;
     DsvDescriptorHeap = nullptr;
-    SrvCbvUavDescriptorHeap = nullptr;
 }
 
 void FrameResource::Init(ID3D12Device *device)
@@ -52,7 +52,6 @@ void FrameResource::Init(ID3D12Device *device)
 
     RtvDescriptorHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 100);
     DsvDescriptorHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 100);
-    SrvCbvUavDescriptorHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 100, true);
 }
 
 void FrameResource::CreateRenderTarget(ID3D12Device *device, ID3D12Resource *backBuffer)
@@ -128,20 +127,20 @@ void FrameResource::CreateRenderTarget(ID3D12Device *device, ID3D12Resource *bac
     // GBuffer Texture Light Input SRV
     for (uint i = 0; i < GBufferPass::GetTargetCount(); i++) {
         std::string index = "GBuffer" + std::to_string(i);
-        SrvCbvUavMap[index] = SrvCbvUavDescriptorHeap->AddSrvDescriptor(device, RenderTargets[i].Resource());
+        SrvCbvUavMap[index] = GResource::SrvCbvUavDescriptorHeap->AddSrvDescriptor(device, RenderTargets[i].Resource());
     }
     // Depth Texture Light Input SRV
     srvDescriptor.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
-    SrvCbvUavMap["Depth"] = SrvCbvUavDescriptorHeap->AddSrvDescriptor(device, RenderTargets[ResourceMap["Depth"]].Resource(), &srvDescriptor);
+    SrvCbvUavMap["Depth"] = GResource::SrvCbvUavDescriptorHeap->AddSrvDescriptor(device, RenderTargets[ResourceMap["Depth"]].Resource(), &srvDescriptor);
     // ScreenTexture1 Sobel Input SRV
-    SrvCbvUavMap["ScreenTexture1"] = SrvCbvUavDescriptorHeap->AddSrvDescriptor(device, RenderTargets[ResourceMap["ScreenTexture1"]].Resource());
+    SrvCbvUavMap["ScreenTexture1"] = GResource::SrvCbvUavDescriptorHeap->AddSrvDescriptor(device, RenderTargets[ResourceMap["ScreenTexture1"]].Resource());
     // ScreenTexture2 Sobel Output SRV
-    SrvCbvUavMap["ScreenTexture2"] = SrvCbvUavDescriptorHeap->AddSrvDescriptor(device, RenderTargets[ResourceMap["ScreenTexture2"]].Resource());
+    SrvCbvUavMap["ScreenTexture2"] = GResource::SrvCbvUavDescriptorHeap->AddSrvDescriptor(device, RenderTargets[ResourceMap["ScreenTexture2"]].Resource());
 
     ///================== Create Unordered Access View================
 
     // ScreenTexture2 Sobel Output UAV
-    SrvCbvUavMap["ScreenTexture2"] = SrvCbvUavDescriptorHeap->AddUavDescriptor(device, RenderTargets[ResourceMap["ScreenTexture2"]].Resource());
+    SrvCbvUavMap["ScreenTexture2"] = GResource::SrvCbvUavDescriptorHeap->AddUavDescriptor(device, RenderTargets[ResourceMap["ScreenTexture2"]].Resource());
 
     /// ================== Create Depth Stencil View================
     DsvMap["Depth"] = DsvDescriptorHeap->AddDsvDescriptor(device, RenderTargets[ResourceMap["Depth"]].Resource(), &dsvDescriptor);
@@ -179,5 +178,5 @@ CD3DX12_CPU_DESCRIPTOR_HANDLE FrameResource::GetDsv(const std::string &name) con
 
 CD3DX12_GPU_DESCRIPTOR_HANDLE FrameResource::GetSrvCbvUav(const std::string &name) const
 {
-    return SrvCbvUavDescriptorHeap->GPUHandle(SrvCbvUavMap.at(name));
+    return GResource::SrvCbvUavDescriptorHeap->GPUHandle(SrvCbvUavMap.at(name));
 }

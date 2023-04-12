@@ -26,6 +26,7 @@ enum class EntityType {
 enum class ShaderID {
     Sky,
     Opaque,
+    OpaqueWithTexture,
     Shadow,
     Test,
 };
@@ -47,9 +48,10 @@ struct Material {
 };
 
 struct MaterialInfo {
-    DirectX::XMFLOAT4 Diffuse;
+    DirectX::XMFLOAT4 BaseColor;
     DirectX::XMFLOAT3 FresnelR0;
     float Roughness;
+    uint DiffuseMapIndex;
 };
 
 struct Light {

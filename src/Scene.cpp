@@ -11,6 +11,11 @@ Scene::Scene(const std::string &root, const std::string &modelname) :
 {
 }
 
+Scene::~Scene()
+{
+    mTextures.clear();
+}
+
 void Scene::Init(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList)
 {
     CreateSphereTest(device, cmdList);
@@ -23,27 +28,27 @@ void Scene::Init(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList)
     mCamera["default"].SetLens(0.25f * MathHelper::Pi, GResource::Width / GResource::Height, 1, 1000);
 }
 
-void Scene::RenderScene(ID3D12GraphicsCommandList *cmdList,D3D12_GPU_VIRTUAL_ADDRESS constantAddress)
+void Scene::RenderScene(ID3D12GraphicsCommandList *cmdList, D3D12_GPU_VIRTUAL_ADDRESS constantAddress)
 {
     if (GResource::GUIManager->State.EnableModel) {
         for (auto &item : mRenderItems[EntityType::Opaque]) {
-            item.DrawItem(cmdList,constantAddress);
+            item.DrawItem(cmdList, constantAddress);
         }
     }
 }
 
-void Scene::RenderQuad(ID3D12GraphicsCommandList *cmdList,D3D12_GPU_VIRTUAL_ADDRESS constantAddress)
+void Scene::RenderQuad(ID3D12GraphicsCommandList *cmdList, D3D12_GPU_VIRTUAL_ADDRESS constantAddress)
 {
     for (auto &item : mRenderItems[EntityType::Quad]) {
-        item.DrawItem(cmdList,constantAddress);
+        item.DrawItem(cmdList, constantAddress);
     }
 }
 
-void Scene::RenderSphere(ID3D12GraphicsCommandList *cmdList,D3D12_GPU_VIRTUAL_ADDRESS constantAddress)
+void Scene::RenderSphere(ID3D12GraphicsCommandList *cmdList, D3D12_GPU_VIRTUAL_ADDRESS constantAddress)
 {
     if (GResource::GUIManager->State.EnableSphere) {
         for (auto &item : mRenderItems[EntityType::Test]) {
-            item.DrawItem(cmdList,constantAddress);
+            item.DrawItem(cmdList, constantAddress);
         }
     }
 }
@@ -133,6 +138,8 @@ void Scene::CreateMaterials(const std::vector<ModelMaterial> &info,
             uint index = GResource::TextureManager->StoreTexture(texture);
             uint srvIndex = GResource::TextureManager->AddSrvDescriptor(index);
             GResource::TextureManager->SetDescriptorName(item.diffuse_map, srvIndex);
+
+            material.DiffuseMapIndex = srvIndex;
         }
         mMaterials.push_back(std::move(material));
         index++;
@@ -164,7 +171,7 @@ void Scene::CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12Gr
         entity.Transform = mTransforms[item.transform];
         entity.MaterialIndex = item.material;
         entity.EntityIndex = mEntities.size();
-        entity.ShaderID = static_cast<uint>(ShaderID::Opaque);
+        entity.ShaderID = static_cast<uint>(ShaderID::OpaqueWithTexture);
         auto meshInfo = AddMesh(mMeshesData[item.mesh], device, commandList);
         entity.MeshInfo = meshInfo;
         mEntities.push_back(entity);
@@ -264,10 +271,11 @@ void Scene::UpdateMaterialConstant(UploadBuffer<MaterialInfo> *uploader)
 {
     for (uint i = 0; i < mMaterials.size(); i++) {
         MaterialInfo info = {};
-        info.Diffuse = mMaterials[i].BaseColor;
+        info.BaseColor = mMaterials[i].BaseColor;
         // info.Roughness = 1 - mMaterials[i].Shineness; // TODO 默认Roughness是非归一化的数值如32
         info.Roughness = 0.02;
         info.FresnelR0 = DirectX::XMFLOAT3(0.2F, 0.3F, 1.0F);
+        info.DiffuseMapIndex = mMaterials[i].DiffuseMapIndex;
         uploader->copyData(i, info);
     }
 }
@@ -280,17 +288,17 @@ void Scene::UpdateEntityConstant(UploadBuffer<EntityInfo> *uploader)
         auto transform = DirectX::XMLoadFloat4x4(&entity.Transform);
         XMStoreFloat4x4(&info.Transform, DirectX::XMMatrixTranspose(transform));
         info.MaterialIndex = entity.MaterialIndex;
-        info.ShaderID = static_cast<uint>(ShaderID::Opaque);
+        info.ShaderID = entity.ShaderID;
         info.QuadType = static_cast<uint>(QuadShader::MixQuad);
         uploader->copyData(entity.EntityIndex, info);
     }
     // Sphere
-    EntityInfo info;
-    auto transform = XMMatrixIdentity();
-    XMStoreFloat4x4(&info.Transform, DirectX::XMMatrixTranspose(transform));
-    info.MaterialIndex = 1; // TODO Model 1# 材质
-    info.ShaderID = static_cast<uint>(ShaderID::Opaque);
-    uploader->copyData(2, info);
+    // EntityInfo info;
+    // auto transform = XMMatrixIdentity();
+    // XMStoreFloat4x4(&info.Transform, DirectX::XMMatrixTranspose(transform));
+    // info.MaterialIndex = 1; // TODO Model 1# 材质
+    // info.ShaderID = static_cast<uint>(ShaderID::Opaque);
+    // uploader->copyData(2, info);
 }
 
 void Scene::UpdateCamera()

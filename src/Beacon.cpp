@@ -26,6 +26,9 @@ void Beacon::OnInit()
     CreatePass();
 
     GResource::TextureManager = std::make_unique<TextureManager>(mDevice.Get(), 1000);
+    GResource::SrvCbvUavDescriptorHeap = std::make_unique<DescriptorHeap>(mDevice.Get(),
+                                                                          D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1000,
+                                                                          true);
     CreateRTV(mDevice.Get(), mSwapChain.Get(), mFrameCount);
     GResource::GUIManager->Init(mDevice.Get());
     GResource::GPUTimer = std::make_unique<D3D12GpuTimer>(mDevice.Get(), mCommandQueue.Get(), static_cast<UINT>(GpuTimers::NumTimers));
@@ -37,7 +40,7 @@ void Beacon::OnInit()
     LoadScene();
 
     for (auto &item : mFR) {
-        item.CreateConstantBuffer(mDevice.Get(),mScene->GetEntityCount(),1,mScene->GetMaterialCount());
+        item.CreateConstantBuffer(mDevice.Get(), mScene->GetEntityCount(), 1, mScene->GetMaterialCount());
     }
 
     // Upload Committed Resource 0 - > 1
@@ -111,10 +114,11 @@ void Beacon::OnDestory()
     mCommandQueue = nullptr;
     mSwapChain = nullptr;
     mDeviceAdapter = nullptr;
-    mDevice = nullptr;
-    mFactory = nullptr;
     mPSO.clear();
     mSignature.clear();
+    mDevice = nullptr;
+    mFactory = nullptr;
+    
 }
 Beacon::~Beacon()
 {
@@ -223,6 +227,10 @@ void Beacon::CompileShaders()
     ThrowIfFailed(D3DCompileFromFile(L"Shaders/LightingPass.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VSMain", "vs_5_1", compileFlags, 0, &GResource::Shaders["LightPassVS"], &error));
     ThrowIfFailed(D3DCompileFromFile(L"Shaders/LightingPass.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PSMain", "ps_5_1", compileFlags, 0, &GResource::Shaders["LightPassPS"], &error));
 
+    if (error != nullptr) {
+        OutputDebugStringA(static_cast<char *>(error->GetBufferPointer()));
+    }
+
     ThrowIfFailed(D3DCompileFromFile(L"Shaders/PostProcess.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "SobelMain", "cs_5_1", compileFlags, 0, &GResource::Shaders["SobelCS"], &error));
 
     ThrowIfFailed(D3DCompileFromFile(L"Shaders/ScreenQuad.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PSMain", "ps_5_1", compileFlags, 0, &GResource::Shaders["ScreenQuadPS"], &error));
@@ -276,7 +284,7 @@ void Beacon::SetPass(uint frameIndex)
     // ================== LightPass ==================
 
     mLightPass->SetRenderTarget(mFR.at(frameIndex).GetResource("ScreenTexture1"), mFR.at(frameIndex).GetRtv("ScreenTexture1"));
-    mLightPass->SetGBuffer(mFR.at(frameIndex).SrvCbvUavDescriptorHeap->Resource(), mFR.at(frameIndex).GetSrvCbvUav("GBuffer0"));
+    mLightPass->SetGBuffer(GResource::SrvCbvUavDescriptorHeap->Resource(), mFR.at(frameIndex).GetSrvCbvUav("GBuffer0"));
 
     // ================== SobelPass ==================
     mSobelPass->SetInput(mFR.at(frameIndex).GetSrvCbvUav("Depth"));

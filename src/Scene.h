@@ -16,6 +16,7 @@
 class Scene {
 public:
     explicit Scene(const std::string &root, const std::string &modelname);
+    ~Scene();
     Scene(const Scene &) = delete;
     Scene(Scene &&) = default;
     Scene &operator=(const Scene &) = delete;
@@ -67,4 +68,7 @@ private:
     std::vector<uint16> mAllIndices;
     std::unique_ptr<UploadBuffer<ModelVertex>> mVerticesBuffer;
     std::unique_ptr<UploadBuffer<uint16>> mIndicesBuffer;
+
+    // Resource
+    std::vector<ComPtr<ID3D12Resource>> mTextures;
 };

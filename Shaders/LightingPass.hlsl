@@ -6,8 +6,16 @@ struct PSInput {
   float2 Texcoord : TEXCOORD;
 };
 
+struct MaterialInfo {
+  float4 BaseColor;
+  float3 FresnelR0;
+  float Roughness;
+  uint DiffuseMap;
+};
+
 StructuredBuffer<Light> PointLights : register(t0, space1);
-StructuredBuffer<Material> Materials : register(t1, space1);
+StructuredBuffer<MaterialInfo> Materials : register(t1, space1);
+Texture2D<float4> gDiffuseMap : register(t0,space2);
 
 Texture2D<float4> gNormalTexture : register(t0);
 Texture2D<float2> gUVTexture : register(t1);
@@ -15,9 +23,10 @@ Texture2D<uint> gMaterialTexture : register(t2);
 Texture2D<uint> gShaderTexure : register(t3); // Skybox == 0, Opaque == 1 , Shadow == 2
 Texture2D gDepth : register(t4);
 
+
 PSInput VSMain(VSInput input) {
   PSInput output;
-  output.Position = float4(input.Position,1.0);
+  output.Position = float4(input.Position, 1.0);
   output.Texcoord = input.Texcoord;
   return output;
 }
@@ -37,10 +46,20 @@ float4 PSMain(PSInput input) : SV_TARGET {
   float3 tmp = gNormalTexture[input.Position.xy].xyz;
   float3 normal = normalize(tmp);
   float3 color = float3(0, 0, 0);
-  Material mat = Materials[materialID];
-
+  Material mat;
+  mat.Diffuse = Materials[materialID].BaseColor;
+  mat.FresnelR0 = Materials[materialID].FresnelR0;
+  mat.Roughness = Materials[materialID].Roughness;
 
   if (gShaderTexure[input.Position.xy] == 1) { // Opaque
+    float4 ambient = gAmbient * mat.Diffuse;
+    color = PointLightColor(PointLights[0], mat, worldPos.xyz, normal,
+                            gEyePosition);
+    color += ambient.rgb;                // 反射光 + 漫反射光
+    return float4(color, mat.Diffuse.a); // 材质提取alpha
+  }
+  if (gShaderTexure[input.Position.xy] == 2) { // Opaque
+    mat.Diffuse = gDiffuseMap.Sample(gSamplerLinearClamp, uv);
     float4 ambient = gAmbient * mat.Diffuse;
     color = PointLightColor(PointLights[0], mat, worldPos.xyz, normal,
                             gEyePosition);

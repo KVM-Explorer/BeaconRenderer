@@ -40,7 +40,6 @@ public:
     std::vector<Texture> RenderTargets; // No SwapChain Buffer
     std::unique_ptr<DescriptorHeap> RtvDescriptorHeap;
     std::unique_ptr<DescriptorHeap> DsvDescriptorHeap;
-    std::unique_ptr<DescriptorHeap> SrvCbvUavDescriptorHeap;
 
 private:
     std::unordered_map<std::string, uint> ResourceMap;
