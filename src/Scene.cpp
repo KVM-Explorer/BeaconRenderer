@@ -131,7 +131,7 @@ void Scene::CreateMaterials(const std::vector<ModelMaterial> &info,
         material.BaseColor = item.basecolor;
         material.Index = index;
         material.Shineness = item.shiniess;
-        if (item.diffuse_map != "null") {
+        if (item.diffuse_map != "null") { // TODO fix null bug
             std::wstring path = string2wstring(mRootPath + "\\" + item.diffuse_map);
             std::replace(path.begin(), path.end(), '/', '\\');
             Texture texture(device, commandList, path);

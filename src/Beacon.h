@@ -26,6 +26,7 @@ public:
     void OnDestory() override;
 
 private:
+    int GetCurrentBackBuffer();
     void CreateDevice(HWND handle);
     void CreateCommandQueue();
     void CompileShaders();
@@ -42,6 +43,7 @@ private:
     CD3DX12_VIEWPORT mViewPort;
     CD3DX12_RECT mScissor;
     static const uint mFrameCount = 3;
+    int mCurrentBackBuffer = 0;
 
     ComPtr<ID3D12Device> mDevice;
     ComPtr<IDXGIFactory6> mFactory;

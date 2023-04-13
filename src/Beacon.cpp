@@ -34,7 +34,8 @@ void Beacon::OnInit()
     GResource::GPUTimer->SetTimerName(static_cast<UINT>(GpuTimers::FPS), "Render ms");
     GResource::GPUTimer->SetTimerName(static_cast<uint>(GpuTimers::GBuffer), "GBuffer ms");
     GResource::GPUTimer->SetTimerName(static_cast<uint>(GpuTimers::LightPass), "LightPass ms");
-    GResource::GPUTimer->SetTimerName(static_cast<uint>(GpuTimers::ComputeShader), "ComputeShader ms");
+    GResource::GPUTimer->SetTimerName(static_cast<uint>(GpuTimers::ComputeShader), "SobelPass ms");
+    GResource::GPUTimer->SetTimerName(static_cast<uint>(GpuTimers::UI), "UI ms");
 
     LoadScene();
 
@@ -51,7 +52,10 @@ void Beacon::OnRender()
 {
     GResource::CPUTimerManager->UpdateTimer("RenderTime");
 
-    int frameIndex = mSwapChain->GetCurrentBackBufferIndex();
+    int frameIndex = mCurrentBackBuffer;
+    int tmp = mSwapChain->GetCurrentBackBufferIndex();
+    int tmp2 = mSwapChain->GetCurrentBackBufferIndex();
+    
     mFR.at(frameIndex).Reset();
 
     // ============================= Init Stage =================================
@@ -63,24 +67,10 @@ void Beacon::OnRender()
     SetPass(frameIndex);
     ExecutePass(frameIndex);
 
-    // ===============================G-Buffer Pass===============================
-    GResource::GPUTimer->BeginTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::GBuffer));
-
-    GResource::GPUTimer->EndTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::GBuffer));
-
-    // ===============================Light Pass =================================
-    GResource::GPUTimer->BeginTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::LightPass));
-
-    GResource::GPUTimer->EndTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::LightPass));
-    // =============================== Sobel Pass ================================
-    GResource::GPUTimer->BeginTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::ComputeShader));
-
-    GResource::GPUTimer->EndTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::ComputeShader));
-    // ============================= Screen Quad Pass ===========================
-
-    // ===============================UI Pass ====================================
-
+    // UI Pass
+    GResource::GPUTimer->BeginTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::UI));
     GResource::GUIManager->DrawUI(mFR.at(frameIndex).CmdList.Get(), mFR.at(frameIndex).GetResource("SwapChain"));
+    GResource::GPUTimer->EndTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::UI));
 
     // ===============================End Stage ==================================
     GResource::CPUTimerManager->EndTimer("DrawCall");
@@ -90,12 +80,16 @@ void Beacon::OnRender()
     mFR.at(frameIndex).Signal(mCommandQueue.Get());
 
     mSwapChain->Present(0, 0);
-    mFR.at(frameIndex).Sync();
+
+    GetCurrentBackBuffer();
 }
 
 void Beacon::OnUpdate()
 {
-    uint frameIndex = mSwapChain->GetCurrentBackBufferIndex();
+    uint frameIndex = mCurrentBackBuffer;
+
+    mFR.at(frameIndex).Sync();
+
     mScene->UpdateCamera();
     mScene->UpdateSceneConstant(mFR.at(frameIndex).SceneConstant.get());
     mScene->UpdateEntityConstant(mFR.at(frameIndex).EntityConstant.get());
@@ -117,7 +111,6 @@ void Beacon::OnDestory()
     mSignature.clear();
     mDevice = nullptr;
     mFactory = nullptr;
-    
 }
 Beacon::~Beacon()
 {
@@ -239,6 +232,11 @@ void Beacon::CompileShaders()
     }
 }
 
+int Beacon::GetCurrentBackBuffer()
+{
+    return mCurrentBackBuffer  = (mCurrentBackBuffer + 1) % mFrameCount;
+}
+
 void Beacon::CreateSignature2PSO()
 {
     GResource::InputLayout = GpuEntryLayout::CreateInputLayout();
@@ -284,7 +282,7 @@ void Beacon::SetPass(uint frameIndex)
 
     mLightPass->SetRenderTarget(mFR.at(frameIndex).GetResource("ScreenTexture1"), mFR.at(frameIndex).GetRtv("ScreenTexture1"));
     mLightPass->SetGBuffer(GResource::SrvCbvUavDescriptorHeap->Resource(), mFR.at(frameIndex).GetSrvCbvUav("GBuffer0"));
-    mLightPass->SetTexture(GResource::SrvCbvUavDescriptorHeap->Resource(),GResource::SrvCbvUavDescriptorHeap->GPUHandle(0));
+    mLightPass->SetTexture(GResource::SrvCbvUavDescriptorHeap->Resource(), GResource::SrvCbvUavDescriptorHeap->GPUHandle(0));
 
     // ================== SobelPass ==================
     mSobelPass->SetInput(mFR.at(frameIndex).GetSrvCbvUav("Depth"));
@@ -298,19 +296,34 @@ void Beacon::SetPass(uint frameIndex)
 void Beacon::ExecutePass(uint frameIndex)
 {
     auto constantAddress = mFR.at(frameIndex).EntityConstant->resource()->GetGPUVirtualAddress();
+    // ===============================G-Buffer Pass===============================
+    GResource::GPUTimer->BeginTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::GBuffer));
+
     mGBufferPass->BeginPass(mFR.at(frameIndex).CmdList.Get());
     mFR.at(frameIndex).SetSceneConstant();
     mScene->RenderScene(mFR.at(frameIndex).CmdList.Get(), constantAddress);
     mScene->RenderSphere(mFR.at(frameIndex).CmdList.Get(), constantAddress);
     mGBufferPass->EndPass(mFR.at(frameIndex).CmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
 
+    GResource::GPUTimer->EndTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::GBuffer));
+
+    // ===============================Light Pass =================================
+    GResource::GPUTimer->BeginTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::LightPass));
+
     mLightPass->BeginPass(mFR.at(frameIndex).CmdList.Get());
     mScene->RenderQuad(mFR.at(frameIndex).CmdList.Get(), constantAddress);
     mLightPass->EndPass(mFR.at(frameIndex).CmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
 
+    GResource::GPUTimer->EndTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::LightPass));
+    // =============================== Sobel Pass ================================
+    GResource::GPUTimer->BeginTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::ComputeShader));
+
     mSobelPass->BeginPass(mFR.at(frameIndex).CmdList.Get());
     mSobelPass->ExecutePass(mFR.at(frameIndex).CmdList.Get());
     mSobelPass->EndPass(mFR.at(frameIndex).CmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
+
+    GResource::GPUTimer->EndTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::ComputeShader));
+    // ============================= Screen Quad Pass ===========================
 
     mQuadPass->BeginPass(mFR.at(frameIndex).CmdList.Get());
     mScene->RenderQuad(mFR.at(frameIndex).CmdList.Get(), constantAddress);

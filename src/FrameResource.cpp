@@ -27,6 +27,7 @@ void FrameResource::Signal(ID3D12CommandQueue *queue)
     queue->Signal(Fence.Get(), ++FenceValue);
 }
 
+
 void FrameResource::Release()
 {
     RenderTargets.clear();

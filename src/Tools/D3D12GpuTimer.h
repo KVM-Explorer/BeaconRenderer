@@ -41,6 +41,7 @@ enum class GpuTimers {
     GBuffer,
     LightPass,
     ComputeShader,
+    UI,
     NumTimers
 };
 
