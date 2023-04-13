@@ -70,5 +70,5 @@ private:
     std::unique_ptr<UploadBuffer<uint16>> mIndicesBuffer;
 
     // Resource
-    std::vector<ComPtr<ID3D12Resource>> mTextures;
+    std::vector<Texture> mTextures;
 };

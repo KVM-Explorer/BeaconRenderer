@@ -1,13 +1,11 @@
 #pragma once
 #include <stdafx.h>
-#include <D3DHelpler/TextureManager.h>
 #include <Framework/ImguiManager.h>
 #include "Tools/CPUTimer.h"
 #include "Tools/D3D12GpuTimer.h"
 
 class GResource {
 public:
-    inline static std::unique_ptr<TextureManager> TextureManager = nullptr;
     inline static std::unique_ptr<DescriptorHeap> SrvCbvUavDescriptorHeap = nullptr;
     inline static std::unique_ptr<ImguiManager> GUIManager = nullptr;
     inline static std::unique_ptr<CPUTimer> CPUTimerManager = nullptr;
@@ -23,7 +21,6 @@ public:
         GPUTimer = nullptr;
         CPUTimerManager = nullptr;
         GUIManager = nullptr;
-        TextureManager = nullptr;
         SrvCbvUavDescriptorHeap = nullptr;
     }
 };

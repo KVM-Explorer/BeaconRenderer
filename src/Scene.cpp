@@ -135,9 +135,9 @@ void Scene::CreateMaterials(const std::vector<ModelMaterial> &info,
             std::wstring path = string2wstring(mRootPath + "\\" + item.diffuse_map);
             std::replace(path.begin(), path.end(), '/', '\\');
             Texture texture(device, commandList, path);
-            uint index = GResource::TextureManager->StoreTexture(texture);
-            uint srvIndex = GResource::TextureManager->AddSrvDescriptor(index);
-            GResource::TextureManager->SetDescriptorName(item.diffuse_map, srvIndex);
+            uint index = mTextures.size();
+            mTextures.push_back(std::move(texture));
+            uint srvIndex = GResource::SrvCbvUavDescriptorHeap->AddSrvDescriptor(device, mTextures[index].Resource());
 
             material.DiffuseMapIndex = srvIndex;
         }
@@ -292,13 +292,6 @@ void Scene::UpdateEntityConstant(UploadBuffer<EntityInfo> *uploader)
         info.QuadType = static_cast<uint>(QuadShader::MixQuad);
         uploader->copyData(entity.EntityIndex, info);
     }
-    // Sphere
-    // EntityInfo info;
-    // auto transform = XMMatrixIdentity();
-    // XMStoreFloat4x4(&info.Transform, DirectX::XMMatrixTranspose(transform));
-    // info.MaterialIndex = 1; // TODO Model 1# 材质
-    // info.ShaderID = static_cast<uint>(ShaderID::Opaque);
-    // uploader->copyData(2, info);
 }
 
 void Scene::UpdateCamera()

@@ -17,7 +17,8 @@ public:
 
 private:
     ID3D12DescriptorHeap *mSrvHeap = nullptr;
-    CD3DX12_GPU_DESCRIPTOR_HANDLE mSrvHandle;
+    CD3DX12_GPU_DESCRIPTOR_HANDLE mGBufferHandle;
     ID3D12Resource *mTarget = nullptr;
     CD3DX12_CPU_DESCRIPTOR_HANDLE mRtvHandle;
+    CD3DX12_GPU_DESCRIPTOR_HANDLE mTextureHandle;
 };

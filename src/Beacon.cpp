@@ -25,7 +25,6 @@ void Beacon::OnInit()
     CreateSignature2PSO();
     CreatePass();
 
-    GResource::TextureManager = std::make_unique<TextureManager>(mDevice.Get(), 1000);
     GResource::SrvCbvUavDescriptorHeap = std::make_unique<DescriptorHeap>(mDevice.Get(),
                                                                           D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1000,
                                                                           true);
@@ -285,6 +284,7 @@ void Beacon::SetPass(uint frameIndex)
 
     mLightPass->SetRenderTarget(mFR.at(frameIndex).GetResource("ScreenTexture1"), mFR.at(frameIndex).GetRtv("ScreenTexture1"));
     mLightPass->SetGBuffer(GResource::SrvCbvUavDescriptorHeap->Resource(), mFR.at(frameIndex).GetSrvCbvUav("GBuffer0"));
+    mLightPass->SetTexture(GResource::SrvCbvUavDescriptorHeap->Resource(),GResource::SrvCbvUavDescriptorHeap->GPUHandle(0));
 
     // ================== SobelPass ==================
     mSobelPass->SetInput(mFR.at(frameIndex).GetSrvCbvUav("Depth"));

@@ -7,7 +7,7 @@ public:
     RenderItem &SetIndexInfo(uint index, D3D12_GPU_VIRTUAL_ADDRESS base, uint elementSize, uint elementNum, bool is32Byte = false);
     RenderItem &SetConstantInfo(uint index, uint elementSize, uint rootParameterIndex);
 
-    void DrawItem(ID3D12GraphicsCommandList *commandList,D3D12_GPU_VIRTUAL_ADDRESS constantAddress);
+    void DrawItem(ID3D12GraphicsCommandList *commandList, D3D12_GPU_VIRTUAL_ADDRESS constantAddress);
 
 private:
     uint mIndexCount;

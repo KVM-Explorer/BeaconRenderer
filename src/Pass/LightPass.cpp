@@ -14,7 +14,13 @@ void LightPass::SetRenderTarget(ID3D12Resource *target, CD3DX12_CPU_DESCRIPTOR_H
 void LightPass::SetGBuffer(ID3D12DescriptorHeap *srvHeap, CD3DX12_GPU_DESCRIPTOR_HANDLE srvHandle)
 {
     mSrvHeap = srvHeap;
-    mSrvHandle = srvHandle;
+    mGBufferHandle = srvHandle;
+}
+
+void LightPass::SetTexture(ID3D12DescriptorHeap *srvHeap, CD3DX12_GPU_DESCRIPTOR_HANDLE srvHandle)
+{
+    mSrvHeap = srvHeap;
+    mTextureHandle = srvHandle;
 }
 
 void LightPass::BeginPass(ID3D12GraphicsCommandList *cmdList)
@@ -32,7 +38,8 @@ void LightPass::BeginPass(ID3D12GraphicsCommandList *cmdList)
     cmdList->ClearRenderTargetView(mRtvHandle, clearValue, 0, nullptr);
 
     cmdList->SetDescriptorHeaps(1, &mSrvHeap);
-    cmdList->SetGraphicsRootDescriptorTable(4, mSrvHandle);
+    cmdList->SetGraphicsRootDescriptorTable(3, mGBufferHandle);
+    cmdList->SetGraphicsRootDescriptorTable(4, mTextureHandle);
 }
 
 void LightPass::EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES resultState)

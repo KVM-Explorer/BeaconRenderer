@@ -15,14 +15,14 @@ struct MaterialInfo {
 
 StructuredBuffer<Light> PointLights : register(t0, space1);
 StructuredBuffer<MaterialInfo> Materials : register(t1, space1);
-Texture2D<float4> gDiffuseMap : register(t0,space2);
+Texture2D<float4> gDiffuseMap[100] : register(t0, space2);
 
 Texture2D<float4> gNormalTexture : register(t0);
 Texture2D<float2> gUVTexture : register(t1);
 Texture2D<uint> gMaterialTexture : register(t2);
-Texture2D<uint> gShaderTexure : register(t3); // Skybox == 0, Opaque == 1 , Shadow == 2
+Texture2D<uint> gShaderTexure
+    : register(t3); // Skybox == 0, Opaque == 1 , Shadow == 2
 Texture2D gDepth : register(t4);
-
 
 PSInput VSMain(VSInput input) {
   PSInput output;
@@ -46,10 +46,12 @@ float4 PSMain(PSInput input) : SV_TARGET {
   float3 tmp = gNormalTexture[input.Position.xy].xyz;
   float3 normal = normalize(tmp);
   float3 color = float3(0, 0, 0);
+
   Material mat;
   mat.Diffuse = Materials[materialID].BaseColor;
   mat.FresnelR0 = Materials[materialID].FresnelR0;
   mat.Roughness = Materials[materialID].Roughness;
+  uint diffuseMap = Materials[materialID].DiffuseMap;
 
   if (gShaderTexure[input.Position.xy] == 1) { // Opaque
     float4 ambient = gAmbient * mat.Diffuse;
@@ -59,7 +61,7 @@ float4 PSMain(PSInput input) : SV_TARGET {
     return float4(color, mat.Diffuse.a); // 材质提取alpha
   }
   if (gShaderTexure[input.Position.xy] == 2) { // Opaque
-    mat.Diffuse = gDiffuseMap.Sample(gSamplerLinearClamp, uv);
+    mat.Diffuse = gDiffuseMap[diffuseMap].Sample(gSamplerLinearClamp, uv);
     float4 ambient = gAmbient * mat.Diffuse;
     color = PointLightColor(PointLights[0], mat, worldPos.xyz, normal,
                             gEyePosition);

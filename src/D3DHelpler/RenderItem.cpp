@@ -27,6 +27,7 @@ RenderItem &RenderItem::SetConstantInfo(uint index,
     return *this;
 }
 
+
 void RenderItem::DrawItem(ID3D12GraphicsCommandList *commandList, D3D12_GPU_VIRTUAL_ADDRESS constantAddress)
 {
     auto address = constantAddress + mConstantOffset * mConstantSize;
