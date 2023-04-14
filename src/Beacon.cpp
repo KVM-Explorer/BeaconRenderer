@@ -3,7 +3,7 @@
 #include "Tools/FrameworkHelper.h"
 #include "DataStruct.h"
 #include "GpuEntryLayout.h"
-
+#include "pix3/pix3.h"
 Beacon::Beacon(uint width, uint height, std::wstring title) :
     RendererBase(width, height, title),
     mViewPort(0.0F, 0.0F, static_cast<float>(width), static_cast<float>(height)),
@@ -55,7 +55,7 @@ void Beacon::OnRender()
     int frameIndex = mCurrentBackBuffer;
     int tmp = mSwapChain->GetCurrentBackBufferIndex();
     int tmp2 = mSwapChain->GetCurrentBackBufferIndex();
-    
+
     mFR.at(frameIndex).Reset();
 
     // ============================= Init Stage =================================
@@ -234,7 +234,7 @@ void Beacon::CompileShaders()
 
 int Beacon::GetCurrentBackBuffer()
 {
-    return mCurrentBackBuffer  = (mCurrentBackBuffer + 1) % mFrameCount;
+    return mCurrentBackBuffer = (mCurrentBackBuffer + 1) % mFrameCount;
 }
 
 void Beacon::CreateSignature2PSO()
@@ -297,15 +297,19 @@ void Beacon::ExecutePass(uint frameIndex)
 {
     auto constantAddress = mFR.at(frameIndex).EntityConstant->resource()->GetGPUVirtualAddress();
     // ===============================G-Buffer Pass===============================
-    GResource::GPUTimer->BeginTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::GBuffer));
+    PIXBeginEvent(mFR.at(frameIndex).CmdList.Get(), 0, L"GBufferPass");
+    {
+        GResource::GPUTimer->BeginTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::GBuffer));
 
-    mGBufferPass->BeginPass(mFR.at(frameIndex).CmdList.Get());
-    mFR.at(frameIndex).SetSceneConstant();
-    mScene->RenderScene(mFR.at(frameIndex).CmdList.Get(), constantAddress);
-    mScene->RenderSphere(mFR.at(frameIndex).CmdList.Get(), constantAddress);
-    mGBufferPass->EndPass(mFR.at(frameIndex).CmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
+        mGBufferPass->BeginPass(mFR.at(frameIndex).CmdList.Get());
+        mFR.at(frameIndex).SetSceneConstant();
+        mScene->RenderScene(mFR.at(frameIndex).CmdList.Get(), constantAddress);
+        mScene->RenderSphere(mFR.at(frameIndex).CmdList.Get(), constantAddress);
+        mGBufferPass->EndPass(mFR.at(frameIndex).CmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
 
-    GResource::GPUTimer->EndTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::GBuffer));
+        GResource::GPUTimer->EndTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::GBuffer));
+    }
+    PIXEndEvent(mFR.at(frameIndex).CmdList.Get());
 
     // ===============================Light Pass =================================
     GResource::GPUTimer->BeginTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::LightPass));
