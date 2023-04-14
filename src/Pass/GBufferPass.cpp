@@ -45,15 +45,17 @@ void GBufferPass::BeginPass(ID3D12GraphicsCommandList *cmdList)
 void GBufferPass::EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES resultState)
 {
     //  GBuffer + Depth -> SRV
-
+    std::array<D3D12_RESOURCE_BARRIER,mTargetCount + 1> rtv2srvs;
     for (uint i = 0; i < mTargets.size(); i++) {
         auto rtv2srv = CD3DX12_RESOURCE_BARRIER::Transition(mTargets.at(i),
                                                             D3D12_RESOURCE_STATE_RENDER_TARGET,
                                                             D3D12_RESOURCE_STATE_GENERIC_READ);
-        cmdList->ResourceBarrier(1, &rtv2srv);
+        rtv2srvs.at(i) = rtv2srv;
     }
+
     auto dsv2srv = CD3DX12_RESOURCE_BARRIER::Transition(mDepthBuffer,
                                                         D3D12_RESOURCE_STATE_DEPTH_WRITE,
                                                         D3D12_RESOURCE_STATE_GENERIC_READ);
-    cmdList->ResourceBarrier(1, &dsv2srv);
+    rtv2srvs.at(mTargetCount) = dsv2srv;
+    cmdList->ResourceBarrier(rtv2srvs.size(), rtv2srvs.data());
 }
