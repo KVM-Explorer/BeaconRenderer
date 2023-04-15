@@ -7,13 +7,14 @@
 
 class FrameResource {
 public:
-    FrameResource(ResourceRegister *resourceRegister, ID3D12Device *device);
+    FrameResource(ResourceRegister *resourceRegister);
     ~FrameResource();
     FrameResource(const FrameResource &) = delete;
     FrameResource &operator=(const FrameResource &) = delete;
     FrameResource(FrameResource &&) = default;
     FrameResource &operator=(FrameResource &&) = default;
 
+    void Init(ID3D12Device *device);
     void Reset() const;
     void Sync() const;
     void Signal(ID3D12CommandQueue *queue);
@@ -27,11 +28,7 @@ public:
     CD3DX12_GPU_DESCRIPTOR_HANDLE GetSrvCbvUav(const std::string &name) const;
     CD3DX12_CPU_DESCRIPTOR_HANDLE GetDsv(const std::string &name) const;
 
-private:
-    void Init(ID3D12Device *device);
-
 public:
-
     ComPtr<ID3D12CommandAllocator> CmdAllocator;
     ComPtr<ID3D12GraphicsCommandList> CmdList;
     ComPtr<ID3D12Fence> Fence;

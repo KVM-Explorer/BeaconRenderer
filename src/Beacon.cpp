@@ -21,7 +21,8 @@ void Beacon::OnInit()
 
     mResourceRegister = std::make_unique<ResourceRegister>(mDevice.Get());
     for (uint i = 0; i < mFrameCount; i++) {
-        FrameResource frameResource(mResourceRegister.get(), mDevice.Get());
+        FrameResource frameResource(mResourceRegister.get());
+        frameResource.Init(mDevice.Get());
         mFR.push_back(std::move(frameResource));
     }
 
@@ -55,8 +56,6 @@ void Beacon::OnRender()
     GResource::CPUTimerManager->UpdateTimer("RenderTime");
 
     int frameIndex = mCurrentBackBuffer;
-    int tmp = mSwapChain->GetCurrentBackBufferIndex();
-    int tmp2 = mSwapChain->GetCurrentBackBufferIndex();
 
     mFR.at(frameIndex).Reset();
 

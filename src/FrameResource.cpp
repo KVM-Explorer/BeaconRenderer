@@ -2,12 +2,11 @@
 #include "Pass/GBufferPass.h"
 #include "Framework/GlobalResource.h"
 
-FrameResource::FrameResource(ResourceRegister *resourceRegister,ID3D12Device *device) :
+FrameResource::FrameResource(ResourceRegister *resourceRegister) :
     RtvDescriptorHeap(resourceRegister->RtvDescriptorHeap),
     DsvDescriptorHeap(resourceRegister->DsvDescriptorHeap),
     SrvCbvUavDescriptorHeap(resourceRegister->SrvCbvUavDescriptorHeap)
 {
-    Init(device);
 }
 
 FrameResource::~FrameResource()
@@ -41,14 +40,13 @@ void FrameResource::Signal(ID3D12CommandQueue *queue)
     queue->Signal(Fence.Get(), ++FenceValue);
 }
 
-
 void FrameResource::Release()
 {
     RenderTargets.clear();
     CmdList = nullptr;
     CmdAllocator = nullptr;
     Fence = nullptr;
-    
+
     SceneConstant = nullptr;
     EntityConstant = nullptr;
     LightConstant = nullptr;
@@ -65,9 +63,6 @@ void FrameResource::Init(ID3D12Device *device)
     ThrowIfFailed(device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, CmdAllocator.Get(), nullptr, IID_PPV_ARGS(&CmdList)));
     CmdList->Close();
     ThrowIfFailed(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&Fence)));
-
-    RtvDescriptorHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 100);
-    DsvDescriptorHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 100);
 }
 
 void FrameResource::CreateRenderTarget(ID3D12Device *device, ID3D12Resource *backBuffer)
@@ -82,6 +77,7 @@ void FrameResource::CreateRenderTarget(ID3D12Device *device, ID3D12Resource *bac
                         D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
         std::string index = "GBuffer" + std::to_string(i);
         ResourceMap[index] = i;
+        texture.Resource()->SetName(std::wstring(index.begin(), index.end()).c_str());
         RenderTargets.push_back(std::move(texture));
     }
     ResourceMap["Depth"] = RenderTargets.size();
@@ -114,8 +110,7 @@ void FrameResource::CreateRenderTarget(ID3D12Device *device, ID3D12Resource *bac
     // Create Render Target View
     for (uint i = 0; i < GBufferPass::GetTargetCount(); i++) {
         std::string index = "GBuffer" + std::to_string(i);
-        RtvMap[index] = i;
-        RtvDescriptorHeap->AddRtvDescriptor(device, RenderTargets[i].Resource());
+        RtvMap[index] = RtvDescriptorHeap->AddRtvDescriptor(device, RenderTargets[i].Resource());
     }
     RtvMap["ScreenTexture1"] = RtvDescriptorHeap->AddRtvDescriptor(device, RenderTargets[ResourceMap["ScreenTexture1"]].Resource());
 
