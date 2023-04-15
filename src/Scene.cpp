@@ -16,12 +16,12 @@ Scene::~Scene()
     mTextures.clear();
 }
 
-void Scene::Init(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList)
+void Scene::Init(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList, DescriptorHeap *descriptorHeap)
 {
     CreateSphereTest(device, cmdList);
     CreateQuadTest(device, cmdList);
     mDataLoader = std::make_unique<DataLoader>(mRootPath, mSceneName);
-    LoadAssets(device, cmdList);
+    LoadAssets(device, cmdList, descriptorHeap);
     BuildVertex2Constant(device, cmdList);
 
     mCamera["default"].SetPosition(0, 0, -10.5F);
@@ -109,19 +109,20 @@ void Scene::CreateQuadTest(ID3D12Device *device, ID3D12GraphicsCommandList *cmdL
     mEntities.push_back(entity);
 }
 
-void Scene::LoadAssets(ID3D12Device *device, ID3D12GraphicsCommandList *commandList)
+void Scene::LoadAssets(ID3D12Device *device, ID3D12GraphicsCommandList *commandList, DescriptorHeap *descriptorHeap)
 {
     // DataLoader light, materials, obj model(vertex index normal)
     mTransforms = mDataLoader->GetTransforms();
     // CreateSceneInfo(mDataLoader->GetLight()); // TODO CreateSceneInfo
-    CreateMaterials(mDataLoader->GetMaterials(), device, commandList);
+    CreateMaterials(mDataLoader->GetMaterials(), device, commandList, descriptorHeap);
     mMeshesData = mDataLoader->GetMeshes();
     CreateModels(mDataLoader->GetModels(), device, commandList);
 }
 
 void Scene::CreateMaterials(const std::vector<ModelMaterial> &info,
                             ID3D12Device *device,
-                            ID3D12GraphicsCommandList *commandList)
+                            ID3D12GraphicsCommandList *commandList,
+                            DescriptorHeap *descriptorHeap)
 {
     int index = 0;
 
@@ -137,7 +138,7 @@ void Scene::CreateMaterials(const std::vector<ModelMaterial> &info,
             Texture texture(device, commandList, path);
             uint index = mTextures.size();
             mTextures.push_back(std::move(texture));
-            uint srvIndex = GResource::SrvCbvUavDescriptorHeap->AddSrvDescriptor(device, mTextures[index].Resource());
+            uint srvIndex = descriptorHeap->AddSrvDescriptor(device, mTextures[index].Resource());
 
             material.DiffuseMapIndex = srvIndex;
         }

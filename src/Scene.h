@@ -23,7 +23,7 @@ public:
     Scene &operator=(Scene &&) = default;
 
 public:
-    void Init(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList);
+    void Init(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList,DescriptorHeap *descriptorHeap);
     void RenderScene(ID3D12GraphicsCommandList *cmdList,D3D12_GPU_VIRTUAL_ADDRESS constantAddress);
     void RenderQuad(ID3D12GraphicsCommandList *cmdList,D3D12_GPU_VIRTUAL_ADDRESS constantAddress);
     void RenderSphere(ID3D12GraphicsCommandList *cmdList,D3D12_GPU_VIRTUAL_ADDRESS constantAddress);
@@ -42,10 +42,10 @@ private:
     void CreateSphereTest(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList);
     void CreateQuadTest(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList);
 
-    void LoadAssets(ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
+    void LoadAssets(ID3D12Device *device, ID3D12GraphicsCommandList *commandList,DescriptorHeap *descriptorHeap);
     void BuildVertex2Constant(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList);
     void CreateSceneInfo(const ModelLight &info);
-    void CreateMaterials(const std::vector<ModelMaterial> &info, ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
+    void CreateMaterials(const std::vector<ModelMaterial> &info, ID3D12Device *device, ID3D12GraphicsCommandList *commandList,DescriptorHeap *descriptorHeap);
     MeshInfo AddMesh(Mesh &mesh, ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
     void CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
 

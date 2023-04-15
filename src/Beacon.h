@@ -7,6 +7,7 @@
 #include "Tools/D3D12GpuTimer.h"
 #include "FrameResource.h"
 #include "Pass/Pass.h"
+#include "D3DHelpler/ResourceRegister.h"
 
 class Beacon : public RendererBase {
 public:
@@ -56,8 +57,10 @@ private:
     std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> mPSO;
     std::unordered_map<std::string, ComPtr<ID3D12RootSignature>> mSignature;
 
+    std::unique_ptr<ResourceRegister> mResourceRegister;
+
     // Multi-Pass
-    std::array<FrameResource, mFrameCount> mFR;
+    std::vector<FrameResource> mFR;
     std::unique_ptr<GBufferPass> mGBufferPass;
     std::unique_ptr<LightPass> mLightPass;
     std::unique_ptr<SobelPass> mSobelPass;

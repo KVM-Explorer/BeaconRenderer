@@ -18,16 +18,18 @@ void Beacon::OnInit()
     CreateDevice(handle);
     CreateCommandQueue();
     CreateSwapChain(handle);
-    for (uint i = 0; i < mFrameCount; i++) { mFR.at(i).Init(mDevice.Get()); }
+
+    mResourceRegister = std::make_unique<ResourceRegister>(mDevice.Get());
+    for (uint i = 0; i < mFrameCount; i++) {
+        FrameResource frameResource(mResourceRegister.get(), mDevice.Get());
+        mFR.push_back(std::move(frameResource));
+    }
 
     mFR.at(0).Reset();
     CompileShaders();
     CreateSignature2PSO();
     CreatePass();
 
-    GResource::SrvCbvUavDescriptorHeap = std::make_unique<DescriptorHeap>(mDevice.Get(),
-                                                                          D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1000,
-                                                                          true);
     CreateRTV(mDevice.Get(), mSwapChain.Get(), mFrameCount);
     GResource::GUIManager->Init(mDevice.Get());
     GResource::GPUTimer = std::make_unique<D3D12GpuTimer>(mDevice.Get(), mCommandQueue.Get(), static_cast<UINT>(GpuTimers::NumTimers));
@@ -100,10 +102,9 @@ void Beacon::OnUpdate()
 void Beacon::OnDestory()
 {
     mScene = nullptr;
-    for (uint i = 0; i < mFrameCount; i++) {
-        mFR.at(i).Release();
-    }
+    mFR.clear();
     mQuadPass = nullptr;
+    mResourceRegister.reset();
     mCommandQueue = nullptr;
     mSwapChain = nullptr;
     mDeviceAdapter = nullptr;
@@ -203,7 +204,7 @@ void Beacon::LoadScene()
     // TODO add read config file
     std::string Path = "./Assets";
     auto scene = std::make_unique<Scene>(Path, "witch");
-    scene->Init(mDevice.Get(), mFR.at(0).CmdList.Get());
+    scene->Init(mDevice.Get(), mFR.at(0).CmdList.Get(), mResourceRegister->SrvCbvUavDescriptorHeap.get());
 
     mScene = std::move(scene);
 }
@@ -281,8 +282,8 @@ void Beacon::SetPass(uint frameIndex)
     // ================== LightPass ==================
 
     mLightPass->SetRenderTarget(mFR.at(frameIndex).GetResource("ScreenTexture1"), mFR.at(frameIndex).GetRtv("ScreenTexture1"));
-    mLightPass->SetGBuffer(GResource::SrvCbvUavDescriptorHeap->Resource(), mFR.at(frameIndex).GetSrvCbvUav("GBuffer0"));
-    mLightPass->SetTexture(GResource::SrvCbvUavDescriptorHeap->Resource(), GResource::SrvCbvUavDescriptorHeap->GPUHandle(0));
+    mLightPass->SetGBuffer(mFR.at(frameIndex).SrvCbvUavDescriptorHeap->Resource(), mFR.at(frameIndex).GetSrvCbvUav("GBuffer0"));
+    mLightPass->SetTexture(mFR.at(frameIndex).SrvCbvUavDescriptorHeap->Resource(), mFR.at(frameIndex).SrvCbvUavDescriptorHeap->GPUHandle(0));
 
     // ================== SobelPass ==================
     mSobelPass->SetInput(mFR.at(frameIndex).GetSrvCbvUav("Depth"));

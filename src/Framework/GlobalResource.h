@@ -6,7 +6,6 @@
 
 class GResource {
 public:
-    inline static std::unique_ptr<DescriptorHeap> SrvCbvUavDescriptorHeap = nullptr;
     inline static std::unique_ptr<ImguiManager> GUIManager = nullptr;
     inline static std::unique_ptr<CPUTimer> CPUTimerManager = nullptr;
     inline static std::unique_ptr<D3D12GpuTimer> GPUTimer = nullptr;
@@ -21,6 +20,5 @@ public:
         GPUTimer = nullptr;
         CPUTimerManager = nullptr;
         GUIManager = nullptr;
-        SrvCbvUavDescriptorHeap = nullptr;
     }
 };
