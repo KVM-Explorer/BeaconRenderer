@@ -2,34 +2,37 @@
 #include "Framework/Application.h"
 #include <pix3/pix3.h>
 #include <iostream>
+#include "Pass/Pass.h"
+#include "GpuEntryLayout.h"
 
 CrossBeacon::CrossBeacon(uint width, uint height, std::wstring title) :
     RendererBase(width, height, title),
     mViewPort(0.0F, 0.0F, static_cast<float>(width), static_cast<float>(height)),
     mScissor(0, 0, static_cast<LONG>(width), static_cast<LONG>(height))
 {
-    mCrossDevice.resize(2);
-    mCrossResourceRegister.resize(2);
-    mCFR.resize(2);
 }
 
 CrossBeacon::~CrossBeacon()
 {
-    mCFR.clear();
-    mCrossResourceRegister.clear();
-    mCrossDevice.clear();
-    mScene = nullptr;
-    mSwapChain = nullptr;
-    mCommandQueue = nullptr;
-    mFactory = nullptr;
-    mPSO.clear();
-    mSignature.clear();
     mInputLayout.clear();
+    mScene = nullptr;
+    mDResource.clear();
+    mFactory = nullptr;
 }
 
 void CrossBeacon::OnUpdate()
 {
-    // TODO update scene constant
+    uint frameIndex = mCurrentBackBuffer;
+
+    auto &localFrameResource = mDResource[Gpu::Discrete]->FR.at(frameIndex).LocalResource;
+
+    localFrameResource->Sync();
+
+    mScene->UpdateCamera();
+    mScene->UpdateSceneConstant(localFrameResource->SceneConstant.get());
+    mScene->UpdateEntityConstant(localFrameResource->EntityConstant.get());
+    mScene->UpdateLightConstant(localFrameResource->LightConstant.get());
+    mScene->UpdateMaterialConstant(localFrameResource->MaterialConstant.get());
 }
 
 void CrossBeacon::OnRender()
@@ -40,26 +43,26 @@ void CrossBeacon::OnRender()
 void CrossBeacon::OnInit()
 {
     HWND handle = Application::GetHandle();
-    CreateDevice(handle);
-    CreateCommandQueue();
-    CreateSwapChain(handle);
+    CreateDeviceResource(handle);
+    CompileShaders();
+    CreateSignature2PSO();
 
-    mCrossResourceRegister[MainGpu] = std::make_unique<ResourceRegister>(mCrossDevice[MainGpu].Get());
-    mCrossResourceRegister[AuxGpu] = std::make_unique<ResourceRegister>(mCrossDevice[AuxGpu].Get());
+    GResource::GUIManager->Init(mDResource[Gpu::Integrated]->Device.Get());
 
-    for (uint i = 0; i < mFrameCount; ++i) {
-        CrossFrameResource resource(mCrossResourceRegister[MainGpu].get(), mCrossDevice[MainGpu].Get());
-        resource.InitByMainGpu(mCrossDevice[MainGpu].Get(), GetWidth(), GetHeight());
-        mCFR[MainGpu].push_back(std::move(resource));
-    }
+    CreateFrameResource();
 
-    for (uint i = 0; i < mFrameCount; ++i) {
-        CrossFrameResource resource(mCrossResourceRegister[AuxGpu].get(), mCrossDevice[AuxGpu].Get());
-        ComPtr<ID3D12Resource> swapChainBuffer;
-        mSwapChain->GetBuffer(i, IID_PPV_ARGS(&swapChainBuffer));
-        resource.InitByAuxGpu(mCrossDevice[AuxGpu].Get(), swapChainBuffer.Get(), mCFR[MainGpu][i].SharedFenceHandle);
-        mCFR[AuxGpu].push_back(std::move(resource));
-    }
+    mDResource[Gpu::Discrete]->CreateRTV(mWidth, mHeight);
+    mDResource[Gpu::Discrete]->CreateRTV(mWidth, mHeight);
+
+    // CreatePass
+    mDResource[Gpu::Discrete]->FR.at(0).Reset3D();
+    CreatePass();
+
+    LoadScene();
+
+    // Sync
+    mDResource[Gpu::Discrete]->FR.at(0).Signal3D(mDResource[Gpu::Discrete]->CmdQueue.Get());
+    mDResource[Gpu::Discrete]->FR.at(0).Sync3D();
 }
 
 void CrossBeacon::OnKeyDown(byte key)
@@ -86,7 +89,7 @@ int CrossBeacon::GetCurrentBackBuffer()
     return mCurrentBackBuffer = (mCurrentBackBuffer + 1) % 3;
 }
 
-void CrossBeacon::CreateDevice(HWND handle)
+void CrossBeacon::CreateDeviceResource(HWND handle)
 {
     ComPtr<ID3D12Debug3> debugController;
     ComPtr<IDXGIAdapter1> adapter;
@@ -106,71 +109,79 @@ void CrossBeacon::CreateDevice(HWND handle)
         adapter->GetDesc1(&adapterDesc);
         if (adapterDesc.Flags & DXGI_ADAPTER_FLAG3_SOFTWARE) continue;
         std::wstring str = adapterDesc.Description;
-        
+
         auto hr = adapter->EnumOutputs(0, &output);
         if (SUCCEEDED(hr) && output != nullptr) {
             auto outputStr = std::format(L"iGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
             OutputDebugStringW(outputStr.c_str());
-            ThrowIfFailed(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&mDevice)));
+            mDResource[Gpu::Integrated] = std::make_unique<DeviceResource>(mFactory.Get(), adapter.Get(), mFrameCount, Gpu::Integrated);
         } else {
             auto outputStr = std::format(L"dGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
             OutputDebugStringW(outputStr.c_str());
-            ThrowIfFailed(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&mCrossDevice[MainGpu])));
+            mDResource[Gpu::Discrete] = std::make_unique<DeviceResource>(mFactory.Get(), adapter.Get(), mFrameCount, Gpu::Discrete);
         }
     }
 
-    ComPtr<ID3D12InfoQueue> infoQueue;
-    if (SUCCEEDED(mCrossDevice[MainGpu]->QueryInterface(IID_PPV_ARGS(&infoQueue)))) {
-        infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
-        infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
-        infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, TRUE);
-        infoQueue->GetMuteDebugOutput();
-    }
-    if (SUCCEEDED(mCrossDevice[AuxGpu]->QueryInterface(IID_PPV_ARGS(&infoQueue)))) {
-        infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
-        infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
-        infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, TRUE);
-        infoQueue->GetMuteDebugOutput();
-    }
+    mDResource[Gpu::Integrated]->CreateSwapChain(handle, GetWidth(), GetHeight(), mFactory.Get());
 }
 
-void CrossBeacon::CreateCommandQueue()
+void CrossBeacon::CreateFrameResource()
 {
-    D3D12_COMMAND_QUEUE_DESC queueDesc = {};
-    queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-    queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
-    ThrowIfFailed(mCrossDevice[MainGpu]->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&mCommandQueue)));
-    ThrowIfFailed(mCrossDevice[AuxGpu]->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&mCommandQueue)));
+    for (uint i = 0; i < mFrameCount; i++) {
+        auto fenceHandle = mDResource[Gpu::Discrete]->InitFrameResource(GetWidth(), GetHeight(), i, nullptr);
+        mDResource[Gpu::Integrated]->InitFrameResource(GetWidth(), GetHeight(), i, fenceHandle);
+    }
 }
 
 void CrossBeacon::CompileShaders()
 {
-}
+    // MainGpu
+    UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+    ComPtr<ID3DBlob> error;
+    ThrowIfFailed(D3DCompileFromFile(L"Shaders/GBuffer.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VSMain", "vs_5_1", compileFlags, 0, &GResource::Shaders["GBufferVS"], &error));
+    ThrowIfFailed(D3DCompileFromFile(L"Shaders/GBuffer.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PSMain", "ps_5_1", compileFlags, 0, &GResource::Shaders["GBufferPS"], &error));
+    ThrowIfFailed(D3DCompileFromFile(L"Shaders/LightingPass.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VSMain", "vs_5_1", compileFlags, 0, &GResource::Shaders["LightPassVS"], &error));
+    ThrowIfFailed(D3DCompileFromFile(L"Shaders/LightingPass.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PSMain", "ps_5_1", compileFlags, 0, &GResource::Shaders["LightPassPS"], &error));
 
-void CrossBeacon::CreateRTV(ID3D12Device *device, IDXGISwapChain4 *swapchain, uint frameCount)
-{
-    // TODO create rtv
-}
+    // AuxGpu
+    ThrowIfFailed(D3DCompileFromFile(L"Shaders/PostProcess.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "SobelMain", "cs_5_1", compileFlags, 0, &GResource::Shaders["SobelCS"], &error));
+    ThrowIfFailed(D3DCompileFromFile(L"Shaders/ScreenQuad.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PSMain", "ps_5_1", compileFlags, 0, &GResource::Shaders["ScreenQuadPS"], &error));
+    ThrowIfFailed(D3DCompileFromFile(L"Shaders/ScreenQuad.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VSMain", "vs_5_1", compileFlags, 0, &GResource::Shaders["ScreenQuadVS"], &error));
 
-void CrossBeacon::CreateSwapChain(HWND handle)
-{
-    ComPtr<IDXGISwapChain1> swapchain1;
-    DXGI_SWAP_CHAIN_DESC1 swapchainDesc = {};
-    swapchainDesc.Width = GetWidth();
-    swapchainDesc.Height = GetHeight();
-    swapchainDesc.BufferCount = mFrameCount;
-    swapchainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    swapchainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    swapchainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-    swapchainDesc.SampleDesc.Count = 1;
-
-    ThrowIfFailed(mFactory->CreateSwapChainForHwnd(mCommandQueue.Get(), handle, &swapchainDesc, nullptr, nullptr, &swapchain1));
-    ThrowIfFailed(swapchain1.As(&mSwapChain));
+    if (error != nullptr) {
+        OutputDebugStringA(static_cast<char *>(error->GetBufferPointer()));
+    }
 }
 
 void CrossBeacon::CreateSignature2PSO()
 {
-    // TODO create signature and pso
+    GResource::InputLayout = GpuEntryLayout::CreateInputLayout();
+
+    // MAinGpu
+    mDResource[Gpu::Discrete]->Signature["Graphic"] =
+        GpuEntryLayout::CreateRenderSignature(mDResource[Gpu::Discrete]->Device.Get(),
+                                              GBufferPass::GetTargetCount());
+    mDResource[Gpu::Discrete]->PSO["GBuffer"] =
+        GpuEntryLayout::CreateGBufferPassPSO(mDResource[Gpu::Discrete]->Device.Get(),
+                                             mDResource[Gpu::Discrete]->Signature["Graphic"].Get(),
+                                             GBufferPass::GetTargetFormat(),
+                                             GBufferPass::GetDepthFormat());
+    mDResource[Gpu::Discrete]->PSO["LightPass"] =
+        GpuEntryLayout::CreateLightPassPSO(mDResource[Gpu::Discrete]->Device.Get(),
+                                           mDResource[Gpu::Discrete]->Signature["Graphic"].Get());
+
+    // AuxGpu
+    mDResource[Gpu::Integrated]->Signature["Graphic"] =
+        GpuEntryLayout::CreateRenderSignature(mDResource[Gpu::Integrated]->Device.Get(),
+                                              GBufferPass::GetTargetCount());
+    mDResource[Gpu::Integrated]->Signature["Compute"] =
+        GpuEntryLayout::CreateComputeSignature(mDResource[Gpu::Integrated]->Device.Get());
+    mDResource[Gpu::Integrated]->PSO["SobelPass"] =
+        GpuEntryLayout::CreateSobelPSO(mDResource[Gpu::Integrated]->Device.Get(),
+                                       mDResource[Gpu::Integrated]->Signature["Compute"].Get());
+    mDResource[Gpu::Integrated]->PSO["QuadPass"] =
+        GpuEntryLayout::CreateQuadPassPSO(mDResource[Gpu::Integrated]->Device.Get(),
+                                          mDResource[Gpu::Integrated]->Signature["Graphic"].Get());
 }
 
 void CrossBeacon::CreatePass()
@@ -180,7 +191,17 @@ void CrossBeacon::CreatePass()
 
 void CrossBeacon::LoadScene()
 {
-    // TODO load scene
+    // TODO add read config file
+    std::string Path = "./Assets";
+    auto scene = std::make_unique<Scene>(Path, "witch");
+    scene->Init(mDResource[Gpu::Discrete]->Device.Get(),
+                mDResource[Gpu::Discrete]->FR.at(0).LocalResource->CmdList.Get(),
+                mDResource[Gpu::Discrete]->mResourceRegister->SrvCbvUavDescriptorHeap.get());
+
+    mScene = std::move(scene);
+    for (auto &item : mDResource[Gpu::Discrete]->FR) {
+        item.CreateConstantBuffer(mDResource[Gpu::Discrete]->Device.Get(), mScene->GetEntityCount(), 1, mScene->GetMaterialCount());
+    }
 }
 
 void CrossBeacon::SetPass(uint frameIndex)

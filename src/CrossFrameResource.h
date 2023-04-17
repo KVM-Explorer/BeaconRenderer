@@ -17,10 +17,12 @@ public:
     CrossFrameResource(CrossFrameResource &&) = default;
     CrossFrameResource &operator=(CrossFrameResource &&) = default;
 
-    void Reset() const;
-    void Sync() const;
-    void CrossSync() const;
-    void Signal(ID3D12CommandQueue *queue);
+    void Reset3D() const;
+    void Sync3D() const;
+    void ResetCopy() const;
+    void SyncCopy() const;
+    void Signal3D(ID3D12CommandQueue *queue);
+    void SignalCopy(ID3D12CommandQueue *queue);
 
     static void CreateSharedFence(ID3D12Device *device, CrossFrameResource *crossFrameResource1, CrossFrameResource *crossFrameResource2);
     void InitByMainGpu(ID3D12Device *device, uint width, uint height);
@@ -29,12 +31,15 @@ public:
     void CreateMainRenderTarget(ID3D12Device *device, uint width, uint height);
     void CreateAuxRenderTarget(ID3D12Device *device, ID3D12Resource *backBuffer);
 
+    void CreateConstantBuffer(ID3D12Device *device, uint entityCount, uint lightCount, uint materialCount);
+
     ID3D12Resource *GetResource(const std::string &name) const;
     CD3DX12_CPU_DESCRIPTOR_HANDLE GetRtv(const std::string &name) const;
     CD3DX12_GPU_DESCRIPTOR_HANDLE GetSrvCbvUav(const std::string &name) const;
     CD3DX12_CPU_DESCRIPTOR_HANDLE GetDsv(const std::string &name) const;
 
-    ComPtr<ID3D12CommandList> CmdListCopy;
+    ComPtr<ID3D12CommandAllocator> CopyCmdAllocator;
+    ComPtr<ID3D12CommandList> CopyCmdList;
     ComPtr<ID3D12Fence> SharedFence;
     HANDLE SharedFenceHandle;
     ComPtr<ID3D12Resource> SharedRenderTarget;

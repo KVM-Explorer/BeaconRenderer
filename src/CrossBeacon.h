@@ -5,8 +5,9 @@
 #include "Scene.h"
 #include "Framework/RendererBase.h"
 #include "Framework/GlobalResource.h"
+#include "DeviceResource.h"
 
-class CrossBeacon :public RendererBase {
+class CrossBeacon : public RendererBase {
 public:
     CrossBeacon(uint width, uint height, std::wstring title);
     CrossBeacon(const CrossBeacon &) = delete;
@@ -16,7 +17,7 @@ public:
     ~CrossBeacon();
 
     void OnUpdate() override;
-    void OnRender()     override;
+    void OnRender() override;
 
     void OnInit() override;
     void OnKeyDown(byte key) override;
@@ -25,11 +26,9 @@ public:
 
 private:
     int GetCurrentBackBuffer();
-    void CreateDevice(HWND handle);
-    void CreateCommandQueue();
+    void CreateDeviceResource(HWND handle);
+    void CreateFrameResource();
     void CompileShaders();
-    void CreateRTV(ID3D12Device *device, IDXGISwapChain4 *swapchain, uint frameCount);
-    void CreateSwapChain(HWND handle);
     void CreateSignature2PSO();
     void CreatePass();
     void LoadScene();
@@ -43,19 +42,9 @@ private:
     static const uint mFrameCount = 3;
     int mCurrentBackBuffer = 0;
 
-    ComPtr<ID3D12Device> mDevice;
-    std::vector<ComPtr<ID3D12Device>> mCrossDevice;
     ComPtr<IDXGIFactory6> mFactory;
-    ComPtr<ID3D12CommandQueue> mCommandQueue;
-    ComPtr<IDXGISwapChain4> mSwapChain;
+    std::unordered_map<Gpu, std::unique_ptr<DeviceResource>> mDResource;
+    
     std::unique_ptr<Scene> mScene;
     std::unordered_map<std::string, std::vector<D3D12_INPUT_ELEMENT_DESC>> mInputLayout;
-
-    std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> mPSO;
-    std::unordered_map<std::string, ComPtr<ID3D12RootSignature>> mSignature;
-
-    std::vector<std::unique_ptr<ResourceRegister>> mCrossResourceRegister;
-    std::vector<std::vector<CrossFrameResource>> mCFR;
-    uint MainGpu; // Main GPU
-    uint AuxGpu;  // Aux GPU
 };

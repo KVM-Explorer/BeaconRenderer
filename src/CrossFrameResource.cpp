@@ -1,10 +1,5 @@
 #include "CrossFrameResource.h"
 #include "Pass/GBufferPass.h"
-CrossFrameResource::~CrossFrameResource()
-{
-    LocalResource->Reset();
-    SharedFence = nullptr;
-}
 
 CrossFrameResource::CrossFrameResource(ResourceRegister *resourceRegister, ID3D12Device *device)
 {
@@ -12,10 +7,61 @@ CrossFrameResource::CrossFrameResource(ResourceRegister *resourceRegister, ID3D1
     LocalResource->Init(device);
 }
 
+CrossFrameResource::~CrossFrameResource()
+{
+    LocalResource.reset();
+    SharedFence = nullptr;
+    SharedFenceHandle = nullptr;
+    SharedRenderTarget = nullptr;
+    CopyCmdAllocator = nullptr;
+    CopyCmdList = nullptr;
+}
+
+void CrossFrameResource::Reset3D() const
+{
+    LocalResource->Reset();
+}
+
+void CrossFrameResource::ResetCopy() const
+{
+    CopyCmdAllocator->Reset();
+}
+
+void CrossFrameResource::Sync3D() const
+{
+    LocalResource->Sync();
+}
+
+void CrossFrameResource::SyncCopy() const
+{
+    if (SharedFence->GetCompletedValue() < LocalResource->FenceValue) {
+        HANDLE fenceEvent = CreateEventEx(nullptr, false, false, EVENT_ALL_ACCESS);
+
+        ThrowIfFailed(SharedFence->SetEventOnCompletion(LocalResource->FenceValue, fenceEvent));
+        WaitForSingleObject(fenceEvent, INFINITE);
+
+        CloseHandle(fenceEvent);
+    }
+}
+
+void CrossFrameResource::Signal3D(ID3D12CommandQueue *cmdQueue)
+{
+    LocalResource->Signal(cmdQueue);
+}
+
+void CrossFrameResource::SignalCopy(ID3D12CommandQueue *cmdQueue)
+{
+    std::array<ID3D12CommandList *, 1> taskList = {CopyCmdList.Get()};
+    cmdQueue->ExecuteCommandLists(taskList.size(), taskList.data());
+    cmdQueue->Signal(SharedFence.Get(), ++LocalResource->FenceValue);
+}
+
+
 void CrossFrameResource::InitByMainGpu(ID3D12Device *device, uint width, uint height)
 {
     ThrowIfFailed(device->CreateFence(0, D3D12_FENCE_FLAG_SHARED | D3D12_FENCE_FLAG_SHARED_CROSS_ADAPTER, IID_PPV_ARGS(&SharedFence)));
-    ThrowIfFailed(device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COPY, LocalResource->CmdAllocator.Get(), nullptr, IID_PPV_ARGS(&CmdListCopy)));
+    ThrowIfFailed(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COPY, IID_PPV_ARGS(&CopyCmdAllocator)));
+    ThrowIfFailed(device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COPY, CopyCmdAllocator.Get(), nullptr, IID_PPV_ARGS(&CopyCmdList)));
 
     ThrowIfFailed(device->CreateSharedHandle(SharedFence.Get(), nullptr, GENERIC_ALL, nullptr, &SharedFenceHandle));
 
@@ -135,4 +181,8 @@ void CrossFrameResource::CreateSharedRenderTarget(ID3D12Device *device, uint wid
                                               D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET,
                                               false,
                                               D3D12_HEAP_FLAG_SHARED | D3D12_HEAP_FLAG_SHARED_CROSS_ADAPTER);
+}
+void CrossFrameResource::CreateConstantBuffer(ID3D12Device *device, uint entityCount, uint lightCount, uint materialCount)
+{
+    LocalResource->CreateConstantBuffer(device, entityCount, lightCount, materialCount);
 }

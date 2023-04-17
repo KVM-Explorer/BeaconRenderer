@@ -90,3 +90,8 @@ enum class QuadShader {
     SimpleQuad,
     MixQuad
 };
+
+enum class Gpu{
+    Integrated, // 集显
+    Discrete, // 独显
+};
