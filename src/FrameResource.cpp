@@ -120,7 +120,7 @@ void FrameResource::CreateRenderTarget(ID3D12Device *device, ID3D12Resource *bac
     dsvDescriptor.Flags = D3D12_DSV_FLAG_NONE;
     dsvDescriptor.Format = GBufferPass::GetDepthFormat();
     dsvDescriptor.Texture2D.MipSlice = 0;
-    DsvDescriptorHeap->AddDsvDescriptor(device, RenderTargets[ResourceMap["Depth"]].Resource(), &dsvDescriptor);
+    DsvMap["Depth"] = DsvDescriptorHeap->AddDsvDescriptor(device, RenderTargets[ResourceMap["Depth"]].Resource(), &dsvDescriptor);
 
     // SwapChain Buffer
     RtvMap["SwapChain"] = RtvDescriptorHeap->AddRtvDescriptor(device, RenderTargets[RenderTargets.size() - 1].Resource());
@@ -152,9 +152,6 @@ void FrameResource::CreateRenderTarget(ID3D12Device *device, ID3D12Resource *bac
 
     // ScreenTexture2 Sobel Output UAV
     SrvCbvUavMap["ScreenTexture2"] = SrvCbvUavDescriptorHeap->AddUavDescriptor(device, RenderTargets[ResourceMap["ScreenTexture2"]].Resource());
-
-    /// ================== Create Depth Stencil View================
-    DsvMap["Depth"] = DsvDescriptorHeap->AddDsvDescriptor(device, RenderTargets[ResourceMap["Depth"]].Resource(), &dsvDescriptor);
 }
 
 void FrameResource::CreateConstantBuffer(ID3D12Device *device, uint objectCount, uint materialCount, uint lightCount)

@@ -5,10 +5,10 @@ class ResourceRegister {
 public:
     ResourceRegister(ID3D12Device *device);
     ~ResourceRegister();
-    ResourceRegister(const ResourceRegister &) = default;
-    ResourceRegister &operator=(const ResourceRegister &) = default;
-    ResourceRegister(ResourceRegister &&) = delete;
-    ResourceRegister &operator=(ResourceRegister &&) = delete;
+    ResourceRegister(const ResourceRegister &) = delete;
+    ResourceRegister &operator=(const ResourceRegister &) = delete;
+    ResourceRegister(ResourceRegister &&) = default;
+    ResourceRegister &operator=(ResourceRegister &&) = default;
 
     std::shared_ptr<DescriptorHeap> RtvDescriptorHeap;
     std::shared_ptr<DescriptorHeap> DsvDescriptorHeap;

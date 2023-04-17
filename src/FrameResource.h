@@ -46,7 +46,7 @@ public:
     std::shared_ptr<DescriptorHeap> DsvDescriptorHeap;
     std::shared_ptr<DescriptorHeap> SrvCbvUavDescriptorHeap;
 
-private:
+    // Resource Map 
     std::unordered_map<std::string, uint> ResourceMap;
     std::unordered_map<std::string, uint> RtvMap;
     std::unordered_map<std::string, uint> SrvCbvUavMap;

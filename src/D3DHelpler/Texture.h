@@ -17,7 +17,8 @@ public:
             DXGI_FORMAT format,
             uint width, uint height,
             D3D12_RESOURCE_FLAGS flags,
-            bool isDepthTexture = false);
+            bool isDepthTexture = false,
+            D3D12_HEAP_FLAGS heapFlags = D3D12_HEAP_FLAG_NONE);
 
     [[nodiscard]] ID3D12Resource *Resource() const
     {
