@@ -25,6 +25,7 @@ void SobelPass::BeginPass(ID3D12GraphicsCommandList *cmdList)
 {
     cmdList->SetComputeRootSignature(mRS);
     cmdList->SetPipelineState(mPSO);
+    cmdList->SetDescriptorHeaps(1, &mSrvHeap);
 
     cmdList->SetComputeRootDescriptorTable(0, mSrcHandle);
     cmdList->SetComputeRootDescriptorTable(1, mDstHandle);
