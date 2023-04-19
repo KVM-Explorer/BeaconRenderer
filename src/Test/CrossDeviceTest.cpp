@@ -13,6 +13,7 @@ ComPtr<ID3D12CommandQueue> dGpu3DQueue;
 ComPtr<ID3D12CommandQueue> dGpuCopyQueue;
 
 ComPtr<ID3D12CommandAllocator> dGpuCmdAllocator;
+ComPtr<ID3D12CommandAllocator> dGpuCopyCmdAllocator;
 ComPtr<ID3D12GraphicsCommandList> dGpuCmdList;
 ComPtr<ID3D12GraphicsCommandList> dGpuCopyCmdList;
 ComPtr<ID3D12CommandAllocator> iGpuCmdAllocator;
@@ -23,7 +24,6 @@ ComPtr<IDXGISwapChain4> SwapChain;
 ComPtr<ID3D12DescriptorHeap> iGpuRtvHeap;
 ComPtr<ID3D12DescriptorHeap> dGpuRtvHeap;
 ComPtr<ID3D12DescriptorHeap> iGpuSrvHeap;
-ComPtr<ID3D12DescriptorHeap> dGpuSrvHeap;
 
 std::unordered_map<std::string, ComPtr<ID3D12Resource>> iGpuResourceMap;
 std::unordered_map<std::string, ComPtr<ID3D12Resource>> dGpuResourceMap;
@@ -53,10 +53,24 @@ const uint mFrameCount = 3;
 const uint mWidth = 600;
 const uint mHeight = 600;
 
+D3D12_VIEWPORT ViewPort = {0.0f, 0.0f, static_cast<float>(mWidth), static_cast<float>(mHeight)};
+D3D12_RECT ScissorRect = {0, 0, static_cast<LONG>(mWidth), static_cast<LONG>(mHeight)};
+
 HWND WindowHandle;
 
 LRESULT CALLBACK WindowProc(HWND hWnd, uint32_t message, WPARAM wParam, LPARAM lParam);
 void OnRender();
+
+void FlushCommandQueue(ID3D12CommandQueue *commandQueue, ID3D12Fence *fence, uint64_t &fenceValue)
+{
+    auto tmp = fence->GetCompletedValue();
+    if (fence->GetCompletedValue() < fenceValue) {
+        HANDLE fenceEvent = CreateEventEx(nullptr, false, false, EVENT_ALL_ACCESS);
+        ThrowIfFailed(fence->SetEventOnCompletion(fenceValue, fenceEvent));
+        WaitForSingleObject(fenceEvent, INFINITE);
+        CloseHandle(fenceEvent);
+    }
+}
 
 int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow)
 {
@@ -67,15 +81,16 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
     {
         WNDCLASSEX wcex = {};
         wcex.cbSize = sizeof(WNDCLASSEX);
-        wcex.style = CS_HREDRAW | CS_VREDRAW;
-        wcex.lpfnWndProc = DefWindowProc;
-        wcex.hInstance = GetModuleHandle(nullptr);
+        wcex.style = CS_GLOBALCLASS;
+        wcex.lpfnWndProc = WindowProc;
+        wcex.hInstance = hInstance;
         wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
         wcex.lpszClassName = L"CrossDeviceTest";
+        wcex.hbrBackground = static_cast<HBRUSH>(GetStockObject(NULL_BRUSH));
         RegisterClassEx(&wcex);
 
         RECT windowRect = {0, 0, static_cast<LONG>(mWidth), static_cast<LONG>(mHeight)};
-        AdjustWindowRect(&windowRect, WS_OVERLAPPEDWINDOW, FALSE);
+        AdjustWindowRect(&windowRect, WS_OVERLAPPED | WS_SYSMENU, FALSE);
 
         WindowHandle = CreateWindow(
             wcex.lpszClassName,
@@ -89,9 +104,6 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
             nullptr,
             wcex.hInstance,
             nullptr);
-
-        ShowWindow(WindowHandle, nCmdShow);
-        UpdateWindow(WindowHandle);
     }
 
     // 1. Create Device
@@ -138,13 +150,28 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
         ThrowIfFailed(dGPU->CreateCommandQueue(&desc, IID_PPV_ARGS(&dGpu3DQueue)));
         desc.Type = D3D12_COMMAND_LIST_TYPE_COPY;
         ThrowIfFailed(dGPU->CreateCommandQueue(&desc, IID_PPV_ARGS(&dGpuCopyQueue)));
+
+        ComPtr<ID3D12InfoQueue> infoQueue;
+        if (SUCCEEDED(dGPU->QueryInterface(IID_PPV_ARGS(&infoQueue)))) {
+            infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
+            infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
+            infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, TRUE);
+            infoQueue->GetMuteDebugOutput();
+        }
+        if (SUCCEEDED(iGPU->QueryInterface(IID_PPV_ARGS(&infoQueue)))) {
+            infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
+            infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
+            infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, TRUE);
+            infoQueue->GetMuteDebugOutput();
+        }
     }
     // 3. Create CommandList
     {
         ThrowIfFailed(dGPU->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&dGpuCmdAllocator)));
         ThrowIfFailed(dGPU->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, dGpuCmdAllocator.Get(), nullptr, IID_PPV_ARGS(&dGpuCmdList)));
-        ThrowIfFailed(dGPU->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COPY, IID_PPV_ARGS(&dGpuCmdAllocator)));
-        ThrowIfFailed(dGPU->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COPY, dGpuCmdAllocator.Get(), nullptr, IID_PPV_ARGS(&dGpuCopyCmdList)));
+
+        ThrowIfFailed(dGPU->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COPY, IID_PPV_ARGS(&dGpuCopyCmdAllocator)));
+        ThrowIfFailed(dGPU->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COPY, dGpuCopyCmdAllocator.Get(), nullptr, IID_PPV_ARGS(&dGpuCopyCmdList)));
 
         ThrowIfFailed(iGPU->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&iGpuCmdAllocator)));
         ThrowIfFailed(iGPU->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, iGpuCmdAllocator.Get(), nullptr, IID_PPV_ARGS(&iGpuCmdList)));
@@ -177,10 +204,9 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
         dGpuRtvDescriptorSize = dGPU->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
         desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+        desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
         ThrowIfFailed(iGPU->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&iGpuSrvHeap)));
-        ThrowIfFailed(dGPU->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&dGpuSrvHeap)));
         iGpuSrvDescriptorSize = iGPU->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-        dGpuSrvDescriptorSize = dGPU->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     }
     // 6. Create Texture
     {
@@ -197,14 +223,15 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
 
         D3D12_CLEAR_VALUE clearValue = {};
         clearValue.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-        clearValue.Color[0] = 0.0f;
-        clearValue.Color[1] = 0.0f;
-        clearValue.Color[2] = 0.0f;
-        clearValue.Color[3] = 1.0f;
+        clearValue.Color[0] = DirectX::Colors::LightSteelBlue[0];
+        clearValue.Color[1] = DirectX::Colors::LightSteelBlue[1];
+        clearValue.Color[2] = DirectX::Colors::LightSteelBlue[2];
+        clearValue.Color[3] = DirectX::Colors::LightSteelBlue[3];
 
         auto heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
 
         ThrowIfFailed(dGPU->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_GENERIC_READ, &clearValue, IID_PPV_ARGS(&dGpuResourceMap["Render"])));
+        dGpuResourceMap["Render"]->SetName(L"dGpuRender");
 
         desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_CROSS_ADAPTER;
         desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
@@ -214,6 +241,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
                                                     D3D12_RESOURCE_STATE_COPY_DEST,
                                                     nullptr,
                                                     IID_PPV_ARGS(&dGpuResourceMap["Copy"])));
+        dGpuResourceMap["Copy"]->SetName(L"dGpuCopy");
 
         ThrowIfFailed(iGPU->CreateCommittedResource(&heapProps,
                                                     D3D12_HEAP_FLAG_SHARED_CROSS_ADAPTER | D3D12_HEAP_FLAG_SHARED,
@@ -221,6 +249,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
                                                     D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
                                                     nullptr,
                                                     IID_PPV_ARGS(&iGpuResourceMap["Copy"])));
+        iGpuResourceMap["Copy"]->SetName(L"iGpuCopy");
     }
 
     // 7. Create Render Target View
@@ -241,7 +270,6 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
     // 8. Create Shader Resource View
     {
         D3D12_CPU_DESCRIPTOR_HANDLE iGpuSrvHandle = iGpuSrvHeap->GetCPUDescriptorHandleForHeapStart();
-        D3D12_CPU_DESCRIPTOR_HANDLE dGpuSrvHandle = dGpuSrvHeap->GetCPUDescriptorHandleForHeapStart();
 
         D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
         desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -302,7 +330,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
         samplers.Init(0, D3D12_FILTER_MIN_MAG_MIP_LINEAR);
 
         CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
-        rootSignatureDesc.Init_1_1(_countof(rootParameters), rootParameters, 1,&samplers , D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+        rootSignatureDesc.Init_1_1(_countof(rootParameters), rootParameters, 1, &samplers, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
         ComPtr<ID3DBlob> signature;
         ComPtr<ID3DBlob> error;
@@ -356,7 +384,11 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
         ::CloseHandle(iGpuSharedFenceEvent);
         ThrowIfFailed(hrOpenSharedHandleResult);
     }
-
+    // Convert Resource State
+    {
+        auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(dGpuResourceMap["Render"].Get(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_COMMON);
+        dGpuCmdList->ResourceBarrier(1, &barrier);
+    }
     // 12. Sync
     {
         dGpuCmdList->Close();
@@ -383,6 +415,9 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
             CloseHandle(fenceEvent);
         }
     }
+
+    ShowWindow(WindowHandle, nCmdShow);
+    UpdateWindow(WindowHandle);
     MSG msg = {};
     while (msg.message != WM_QUIT) {
         // Process any messages in the queue.
@@ -391,11 +426,94 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
             DispatchMessage(&msg);
         }
     }
+    FlushCommandQueue(iGpu3DQueue.Get(), iGpuFence.Get(), mFenceValue);
 
     return static_cast<char>(msg.wParam);
 }
+
+
+
 void OnRender()
 {
+    uint frameIndex = SwapChain->GetCurrentBackBufferIndex();
+    auto swapChainName = "SwapChain" + std::to_string(frameIndex);
+
+    dGpuCmdAllocator->Reset();
+    dGpuCmdList->Reset(dGpuCmdAllocator.Get(), nullptr);
+    dGpuCmdList->RSSetViewports(1, &ViewPort);
+    dGpuCmdList->RSSetScissorRects(1, &ScissorRect);
+
+    // ======================================= Render =======================================
+    auto read2rtv = CD3DX12_RESOURCE_BARRIER::Transition(dGpuResourceMap["Render"].Get(), D3D12_RESOURCE_STATE_COMMON,
+                                                         D3D12_RESOURCE_STATE_RENDER_TARGET);
+    dGpuCmdList->ResourceBarrier(1, &read2rtv);
+    auto dGpuRtvHandle = dGpuRtvHeap->GetCPUDescriptorHandleForHeapStart();
+    dGpuCmdList->OMSetRenderTargets(1, &dGpuRtvHandle, FALSE, nullptr);
+    dGpuCmdList->ClearRenderTargetView(dGpuRtvHandle, DirectX::Colors::LightSteelBlue, 0, nullptr);
+
+    auto rtv2read = CD3DX12_RESOURCE_BARRIER::Transition(dGpuResourceMap["Render"].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET,
+                                                         D3D12_RESOURCE_STATE_COMMON);
+    dGpuCmdList->ResourceBarrier(1, &rtv2read);
+    dGpuCmdList->Close();
+
+    // ========================================= Copy ========================================
+    dGpuCopyCmdAllocator->Reset();
+    dGpuCopyCmdList->Reset(dGpuCopyCmdAllocator.Get(), nullptr);
+    dGpuCopyCmdList->CopyResource(dGpuResourceMap["Copy"].Get(), dGpuResourceMap["Render"].Get());
+    dGpuCopyCmdList->Close();
+
+    // ======================================= Present =======================================
+    iGpuCmdAllocator->Reset();
+    iGpuCmdList->Reset(iGpuCmdAllocator.Get(), nullptr);
+    iGpuCmdList->RSSetViewports(1, &ViewPort);
+    iGpuCmdList->RSSetScissorRects(1, &ScissorRect);
+
+    
+    auto present2rtv = CD3DX12_RESOURCE_BARRIER::Transition(iGpuResourceMap[swapChainName].Get(), D3D12_RESOURCE_STATE_PRESENT,
+                                                            D3D12_RESOURCE_STATE_RENDER_TARGET);
+    iGpuCmdList->ResourceBarrier(1, &present2rtv);
+
+    auto iGpuRtvHandle = iGpuRtvHeap->GetCPUDescriptorHandleForHeapStart();
+    iGpuRtvHandle.ptr += frameIndex * iGpuRtvDescriptorSize;
+    iGpuCmdList->OMSetRenderTargets(1, &iGpuRtvHandle, FALSE, nullptr);
+    iGpuCmdList->ClearRenderTargetView(iGpuRtvHandle, DirectX::Colors::LightYellow, 0, nullptr);
+    iGpuCmdList->SetGraphicsRootSignature(iGpuRootSignature.Get());
+    iGpuCmdList->SetPipelineState(iGpuPSO.Get());
+    std::array<ID3D12DescriptorHeap *, 1> iGpuDescriptorHeaps = {iGpuSrvHeap.Get()};
+    iGpuCmdList->SetDescriptorHeaps(static_cast<UINT>(iGpuDescriptorHeaps.size()), iGpuDescriptorHeaps.data());
+    auto iGpuSrvHandle = iGpuSrvHeap->GetGPUDescriptorHandleForHeapStart();
+    iGpuCmdList->SetGraphicsRootDescriptorTable(0, iGpuSrvHandle);
+
+    iGpuCmdList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+    iGpuCmdList->IASetVertexBuffers(0, 1, &iGpuVertexBufferView);
+    iGpuCmdList->DrawInstanced(4, 1, 0, 0);
+
+    auto rtv2present = CD3DX12_RESOURCE_BARRIER::Transition(iGpuResourceMap[swapChainName].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET,
+                                                            D3D12_RESOURCE_STATE_PRESENT);
+    iGpuCmdList->ResourceBarrier(1, &rtv2present);
+    iGpuCmdList->Close();
+
+    // ======================================= Execute =======================================
+    std::array<ID3D12CommandList *, 1>
+        dGpuRenderCommandLists = {dGpuCmdList.Get()};
+    dGpu3DQueue->ExecuteCommandLists(1, dGpuRenderCommandLists.data());
+    dGpu3DQueue->Signal(dGpuFence.Get(), ++mFenceValue);
+
+    dGpuCopyQueue->Wait(dGpuFence.Get(), mFenceValue);
+    std::array<ID3D12CommandList *, 1>
+        dGpuCopyCommandLists = {dGpuCopyCmdList.Get()};
+    dGpuCopyQueue->ExecuteCommandLists(1, dGpuCopyCommandLists.data());
+    dGpuCopyQueue->Signal(dGpuSharedFence.Get(), ++mFenceValue);
+
+    iGpu3DQueue->Wait(iGpuSharedFence.Get(), mFenceValue);
+    std::array<ID3D12CommandList *, 1>
+        iGpuCommandLists = {iGpuCmdList.Get()};
+    iGpu3DQueue->ExecuteCommandLists(1, iGpuCommandLists.data());
+    iGpu3DQueue->Signal(iGpuFence.Get(), ++mFenceValue);
+
+    SwapChain->Present(1, 0);
+    FlushCommandQueue(iGpu3DQueue.Get(), iGpuFence.Get(), mFenceValue);
+    // FlushCommandQueue(dGpu3DQueue.Get(),dGpuFence.Get(),mFenceValue);
 }
 LRESULT CALLBACK WindowProc(HWND hWnd, uint32_t message, WPARAM wParam, LPARAM lParam)
 {
@@ -406,11 +524,9 @@ LRESULT CALLBACK WindowProc(HWND hWnd, uint32_t message, WPARAM wParam, LPARAM l
         SetWindowLongPtr(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(pCreateStruct->lpCreateParams));
     }
         return 0;
-
     case WM_PAINT:
         OnRender();
         return 0;
-
     case WM_DESTROY:
         PostQuitMessage(0);
         return 0;
