@@ -6,7 +6,7 @@ add_rules("mode.debug", "mode.release")
 set_languages("cxx20")
 includes("**/xmake.lua")
 
-after_build(
+before_build(
     function (target)
         os.trycp("$(projectdir)/lib/*.dll", "$(buildir)/$(plat)/$(arch)/$(mode)")
         os.trycp("$(projectdir)/Shaders/","$(buildir)/$(plat)/$(arch)/$(mode)")

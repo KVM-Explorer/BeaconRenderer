@@ -13,6 +13,8 @@ Scene::Scene(const std::string &root, const std::string &modelname) :
 
 Scene::~Scene()
 {
+    mVerticesBuffer.reset();
+    mIndicesBuffer.reset();
     mTextures.clear();
 }
 
@@ -184,6 +186,9 @@ void Scene::BuildVertex2Constant(ID3D12Device *device, ID3D12GraphicsCommandList
     // Upload Vertex Index Data
     mVerticesBuffer = std::make_unique<UploadBuffer<ModelVertex>>(device, mAllVertices.size(), false);
     mIndicesBuffer = std::make_unique<UploadBuffer<UINT16>>(device, mAllIndices.size(), false);
+    mVerticesBuffer->resource()->SetName(L"Scene Vertex Buffer");
+    mIndicesBuffer->resource()->SetName(L"Scene Index Buffer");
+
     mVerticesBuffer->copyAllData(mAllVertices.data(), mAllVertices.size());
     mIndicesBuffer->copyAllData(mAllIndices.data(), mAllIndices.size());
 

@@ -20,14 +20,6 @@ CrossFrameResource::CrossFrameResource(ResourceRegister *resourceRegister, ID3D1
 
 CrossFrameResource::~CrossFrameResource()
 {
-    CmdAllocator3D = nullptr;
-    CmdList3D = nullptr;
-    Fence = nullptr;
-    SharedFence = nullptr;
-    SharedFenceHandle = nullptr;
-    CopyCmdAllocator = nullptr;
-    CopyCmdList = nullptr;
-    
     mRtvHeap.reset();
     mDsvHeap.reset();
     mSrvCbvUavHeap.reset();
@@ -37,6 +29,14 @@ CrossFrameResource::~CrossFrameResource()
     EntityConstant.reset();
     MaterialConstant.reset();
     LightConstant.reset();
+
+    CmdAllocator3D = nullptr;
+    CmdList3D = nullptr;
+    Fence = nullptr;
+    SharedFence = nullptr;
+    SharedFenceHandle = nullptr;
+    CopyCmdAllocator = nullptr;
+    CopyCmdList = nullptr;
 }
 
 void CrossFrameResource::Reset3D() const
@@ -125,7 +125,6 @@ void CrossFrameResource::InitByAuxGpu(ID3D12Device *device, ID3D12Resource *back
     HRESULT hrOpenSharedHandleResult = device->OpenSharedHandle(sharedHandle, IID_PPV_ARGS(&SharedFence));
     ::CloseHandle(sharedHandle);
     ThrowIfFailed(hrOpenSharedHandleResult);
-
 }
 
 HANDLE CrossFrameResource::CreateMainRenderTarget(ID3D12Device *device, uint width, uint height)
@@ -140,6 +139,7 @@ HANDLE CrossFrameResource::CreateMainRenderTarget(ID3D12Device *device, uint wid
                         D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
         std::string index = "GBuffer" + std::to_string(mRenderTargets.size());
         mResourceMap[index] = i;
+        texture.Resource()->SetName(std::wstring(index.begin(), index.end()).c_str());
         mRenderTargets.push_back(std::move(texture));
     }
 
@@ -158,6 +158,8 @@ HANDLE CrossFrameResource::CreateMainRenderTarget(ID3D12Device *device, uint wid
                                 height,
                                 D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL,
                                 true);
+    GetResource("Depth")->SetName(L"Depth");
+
     // Create Depth Stencil View
     D3D12_DEPTH_STENCIL_VIEW_DESC dsvDescriptor = {};
     dsvDescriptor.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
@@ -204,7 +206,7 @@ HANDLE CrossFrameResource::CreateMainRenderTarget(ID3D12Device *device, uint wid
     return sharedHandle;
 }
 
-void CrossFrameResource::CreateAuxRenderTarget(ID3D12Device *device, ID3D12Resource *backBuffer,HANDLE sharedHandle)
+void CrossFrameResource::CreateAuxRenderTarget(ID3D12Device *device, ID3D12Resource *backBuffer, HANDLE sharedHandle)
 {
     // Screen Texture1 Shared Texture
     mResourceMap["CScreenTexture1"] = mRenderTargets.size();
@@ -223,6 +225,7 @@ void CrossFrameResource::CreateAuxRenderTarget(ID3D12Device *device, ID3D12Resou
                                 backBuffer->GetDesc().Width,
                                 backBuffer->GetDesc().Height,
                                 D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+    GetResource("ScreenTexture2")->SetName(L"ScreenTexture2");
     mSrvCbvUavMap["ScreenTexture2"] = mSrvCbvUavHeap->AddSrvDescriptor(device, GetResource("ScreenTexture2"));
     mSrvCbvUavMap["ScreenTexture2"] = mSrvCbvUavHeap->AddUavDescriptor(device, GetResource("ScreenTexture2"));
 
@@ -230,6 +233,7 @@ void CrossFrameResource::CreateAuxRenderTarget(ID3D12Device *device, ID3D12Resou
     mRenderTargets.push_back(std::move(Texture(backBuffer)));
     mResourceMap["SwapChain"] = mRenderTargets.size() - 1;
     mRtvMap["SwapChain"] = mRtvHeap->AddRtvDescriptor(device, GetResource("SwapChain"));
+    GetResource("SwapChain")->SetName(L"SwapChain");
 }
 
 void CrossFrameResource::CreateConstantBuffer(ID3D12Device *device, uint entityCount, uint lightCount, uint materialCount)

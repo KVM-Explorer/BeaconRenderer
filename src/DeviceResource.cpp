@@ -5,16 +5,19 @@ DeviceResource::DeviceResource(IDXGIFactory6 *factory, IDXGIAdapter1 *adapter, u
     mDeviceType(type),
     mFrameCount(frameCount)
 {
+    std::wstring name = type == Gpu::Discrete ? L"Discrete" : L"Integrated";
     ThrowIfFailed(D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&Device)));
 
     D3D12_COMMAND_QUEUE_DESC queueDesc = {};
     queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
     queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
     ThrowIfFailed(Device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&CmdQueue)));
-    CmdQueue->SetName(L"Main Command Queue");
+    auto cmdQueueName = name + L" Command Queue";
+    CmdQueue->SetName(cmdQueueName.c_str());
     queueDesc.Type = D3D12_COMMAND_LIST_TYPE_COPY;
     ThrowIfFailed(Device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&CopyQueue)));
-    CopyQueue->SetName(L"Copy Command Queue");
+    auto copyQueueName = name + L" Copy Command Queue";
+    CopyQueue->SetName(copyQueueName.c_str());
 
     mRTVDescriptorSize = Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
     mDSVDescriptorSize = Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
