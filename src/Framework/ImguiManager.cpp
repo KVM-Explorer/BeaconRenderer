@@ -55,9 +55,9 @@ void ImguiManager::DrawUI(ID3D12GraphicsCommandList *cmdList, ID3D12Resource *ta
     ImGui::Text("Rendering FPS: %.3f ", 1000.0F/State.RenderTime);
     ImGui::Text("Draw Call with UI: %.2f ms", State.DrawCallTime);
 
-    for (auto &timer : GResource::GPUTimer->GetTimes()) {
-        ImGui::Text("%s %f", timer.second.c_str(), timer.first * 1000.0F);
-    }
+    // for (auto &timer : GResource::GPUTimer->GetTimes()) {
+    //     ImGui::Text("%s %f", timer.second.c_str(), timer.first * 1000.0F);
+    // }
 
     ImGui::End();
 

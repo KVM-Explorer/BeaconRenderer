@@ -34,6 +34,7 @@ private:
     void CreatePass();
     void LoadScene();
     void CreateQuad();
+    void CreateRtv();
 
     void SetPass(uint frameIndex);
     void ExecutePass(uint frameIndex);

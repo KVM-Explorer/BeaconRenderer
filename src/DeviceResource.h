@@ -14,7 +14,6 @@ public:
 
     void CreateSwapChain(HWND handle, uint width, uint height, IDXGIFactory6 *factory);
     HANDLE InitFrameResource(uint width, uint height, uint frameIndex, HANDLE fenceHandle);
-    void CreateRTV(uint width, uint height);
 
     ComPtr<ID3D12Device> Device;
     ComPtr<ID3D12CommandQueue> CmdQueue;

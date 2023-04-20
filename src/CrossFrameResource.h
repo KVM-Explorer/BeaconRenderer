@@ -29,8 +29,8 @@ public:
     void InitByMainGpu(ID3D12Device *device, uint width, uint height);
     void InitByAuxGpu(ID3D12Device *device, ID3D12Resource *backBuffer, HANDLE sharedHandle);
 
-    void CreateMainRenderTarget(ID3D12Device *device, uint width, uint height);
-    void CreateAuxRenderTarget(ID3D12Device *device, ID3D12Resource *backBuffer);
+    HANDLE CreateMainRenderTarget(ID3D12Device *device, uint width, uint height);
+    void CreateAuxRenderTarget(ID3D12Device *device, ID3D12Resource *backBuffer,HANDLE sharedHandle);
 
     void CreateConstantBuffer(ID3D12Device *device, uint entityCount, uint lightCount, uint materialCount);
     void SetSceneConstant();

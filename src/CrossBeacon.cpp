@@ -39,8 +39,12 @@ void CrossBeacon::OnUpdate()
 void CrossBeacon::OnRender()
 {
     uint frameIndex = mCurrentBackBuffer;
+    GResource::CPUTimerManager->UpdateTimer("RenderTime");
 
+
+    GResource::CPUTimerManager->BeginTimer("DrawCall");
     ExecutePass(frameIndex);
+    GResource::CPUTimerManager->EndTimer("DrawCall");
 
     GetCurrentBackBuffer();
 }
@@ -53,11 +57,9 @@ void CrossBeacon::OnInit()
     CreateSignature2PSO();
 
     GResource::GUIManager->Init(mDResource[Gpu::Integrated]->Device.Get());
-
     CreateFrameResource();
 
-    mDResource[Gpu::Discrete]->CreateRTV(mWidth, mHeight);
-    mDResource[Gpu::Discrete]->CreateRTV(mWidth, mHeight);
+    CreateRtv();
 
     // CreatePass
     mDResource[Gpu::Discrete]->FR.at(0).Reset3D();
@@ -82,13 +84,6 @@ void CrossBeacon::OnInit()
         std::array<D3D12_RESOURCE_BARRIER, 2> barriers = {barrier1, barrier2};
         frameResource.CmdList3D->ResourceBarrier(barriers.size(), barriers.data());
         frameResource.Signal3D(mDResource[Gpu::Discrete]->CmdQueue.Get());
-        frameResource.Sync3D();
-    }
-    for (auto &frameResource : mDResource[Gpu::Integrated]->FR) {
-        frameResource.Reset3D();
-        auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(frameResource.GetResource("CScreenTexture1"), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-        frameResource.CmdList3D->ResourceBarrier(1, &barrier);
-        frameResource.Signal3D(mDResource[Gpu::Integrated]->CmdQueue.Get());
         frameResource.Sync3D();
     }
 }
@@ -176,6 +171,22 @@ void CrossBeacon::CreateQuad()
     mIGpuQuadVBView.SizeInBytes = static_cast<UINT>(sizeof(ModelVertex) * vertices.size());
     mIGpuQuadVBView.StrideInBytes = sizeof(ModelVertex);
 }
+
+void CrossBeacon::CreateRtv()
+{
+    for (uint i = 0; i < mFrameCount; i++) {
+        auto &dFR = mDResource[Gpu::Discrete]->FR.at(i);
+        auto &iFR = mDResource[Gpu::Integrated]->FR.at(i);
+        ComPtr<ID3D12Resource> swapChainBuffer;
+        mDResource[Gpu::Integrated]->SwapChain4->GetBuffer(i, IID_PPV_ARGS(&swapChainBuffer));
+        HANDLE sharedResourceHandle = nullptr;
+
+        sharedResourceHandle =
+            dFR.CreateMainRenderTarget(mDResource[Gpu::Discrete]->Device.Get(), GetWidth(), GetHeight());
+        iFR.CreateAuxRenderTarget(mDResource[Gpu::Integrated]->Device.Get(), swapChainBuffer.Get(), sharedResourceHandle);
+    }
+}
+
 
 void CrossBeacon::CompileShaders()
 {
@@ -317,7 +328,7 @@ void CrossBeacon::ExecutePass(uint frameIndex)
     PIXBeginEvent(dFR.CmdList3D.Get(), PIX_COLOR_DEFAULT, L"LightPass");
     {
         mLightPass->BeginPass(dFR.CmdList3D.Get());
-        mScene->RenderQuad(dFR.CmdList3D.Get(), dConstantAddr); 
+        mScene->RenderQuad(dFR.CmdList3D.Get(), dConstantAddr);
         mLightPass->EndPass(dFR.CmdList3D.Get(), D3D12_RESOURCE_STATE_COMMON);
     }
     PIXEndEvent(dFR.CmdList3D.Get());
@@ -359,11 +370,11 @@ void CrossBeacon::ExecutePass(uint frameIndex)
     }
     PIXEndEvent(iFR.CmdList3D.Get());
 
-    auto rtv2presentBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
-        iFR.GetResource("SwapChain"),
-        D3D12_RESOURCE_STATE_RENDER_TARGET,
-        D3D12_RESOURCE_STATE_PRESENT);
-    iFR.CmdList3D->ResourceBarrier(1, &rtv2presentBarrier);
+    PIXBeginEvent(iFR.CmdList3D.Get(), PIX_COLOR_DEFAULT, L"GUI");
+    {
+        GResource::GUIManager->DrawUI(iFR.CmdList3D.Get(), iFR.GetResource("SwapChain"));
+    }
+    PIXEndEvent(iFR.CmdList3D.Get());
 
     iFR.Signal3D(mDResource[Gpu::Integrated]->CmdQueue.Get());
     mDResource[Gpu::Integrated]->SwapChain4->Present(1, 0);

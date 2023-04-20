@@ -125,11 +125,9 @@ void CrossFrameResource::InitByAuxGpu(ID3D12Device *device, ID3D12Resource *back
     ::CloseHandle(sharedHandle);
     ThrowIfFailed(hrOpenSharedHandleResult);
 
-    // Create Render Target
-    CreateAuxRenderTarget(device, backBuffer);
 }
 
-void CrossFrameResource::CreateMainRenderTarget(ID3D12Device *device, uint width, uint height)
+HANDLE CrossFrameResource::CreateMainRenderTarget(ID3D12Device *device, uint width, uint height)
 {
     ///================== Create Render Target Resource ================
     // Render Target Resource GBuffer*4
@@ -200,19 +198,21 @@ void CrossFrameResource::CreateMainRenderTarget(ID3D12Device *device, uint width
                                 false,
                                 D3D12_HEAP_FLAG_SHARED_CROSS_ADAPTER | D3D12_HEAP_FLAG_SHARED);
     GetResource("CScreenTexture1")->SetName(L"CScreenTexture1");
+    HANDLE sharedHandle = nullptr;
+    device->CreateSharedHandle(GetResource("CScreenTexture1"), nullptr, GENERIC_ALL, nullptr, &sharedHandle);
+    return sharedHandle;
 }
 
-void CrossFrameResource::CreateAuxRenderTarget(ID3D12Device *device, ID3D12Resource *backBuffer)
+void CrossFrameResource::CreateAuxRenderTarget(ID3D12Device *device, ID3D12Resource *backBuffer,HANDLE sharedHandle)
 {
     // Screen Texture1 Shared Texture
     mResourceMap["CScreenTexture1"] = mRenderTargets.size();
-    mRenderTargets.emplace_back(device,
-                                DXGI_FORMAT_R8G8B8A8_UNORM,
-                                backBuffer->GetDesc().Width,
-                                backBuffer->GetDesc().Height,
-                                D3D12_RESOURCE_FLAG_ALLOW_CROSS_ADAPTER,
-                                false,
-                                D3D12_HEAP_FLAG_SHARED_CROSS_ADAPTER | D3D12_HEAP_FLAG_SHARED);
+    ComPtr<ID3D12Resource> resource;
+    auto result = device->OpenSharedHandle(sharedHandle, IID_PPV_ARGS(&resource));
+    ::CloseHandle(sharedHandle);
+    ThrowIfFailed(result);
+    mRenderTargets.push_back(std::move(Texture(resource.Get())));
+    GetResource("CScreenTexture1")->SetName(L"CScreenTexture1");
     mSrvCbvUavMap["CScreenTexture1"] = mSrvCbvUavHeap->AddSrvDescriptor(device, GetResource("CScreenTexture1"));
 
     // ScreenTexture2

@@ -83,15 +83,4 @@ HANDLE DeviceResource::InitFrameResource(uint width, uint height, uint frameInde
     return nullptr;
 }
 
-void DeviceResource::CreateRTV(uint width, uint height)
-{
-    for (uint i = 0; i < mFrameCount; i++) {
-        if (mDeviceType == Gpu::Integrated) {
-            ComPtr<ID3D12Resource> buffer;
-            ThrowIfFailed(SwapChain4->GetBuffer(i, IID_PPV_ARGS(&buffer)));
-            FR.at(i).CreateAuxRenderTarget(Device.Get(), buffer.Get());
-        } else {
-            FR.at(i).CreateMainRenderTarget(Device.Get(), width, height);
-        }
-    }
-}
+
