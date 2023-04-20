@@ -286,6 +286,7 @@ void Beacon::SetPass(uint frameIndex)
 
     // ================== SobelPass ==================
     mSobelPass->SetInput(mFR.at(frameIndex).GetSrvCbvUav("Depth"));
+    mSobelPass->SetSrvHeap(mFR.at(frameIndex).SrvCbvUavDescriptorHeap->Resource());
     mSobelPass->SetTarget(mFR.at(frameIndex).GetResource("ScreenTexture2"), mFR.at(frameIndex).GetSrvCbvUav("ScreenTexture2"));
 
     // ================== QuadPass ===================

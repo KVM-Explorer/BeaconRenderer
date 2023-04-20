@@ -6,6 +6,7 @@
 #include "Framework/RendererBase.h"
 #include "Framework/GlobalResource.h"
 #include "DeviceResource.h"
+#include "Pass/Pass.h"
 
 class CrossBeacon : public RendererBase {
 public:
@@ -32,6 +33,7 @@ private:
     void CreateSignature2PSO();
     void CreatePass();
     void LoadScene();
+    void CreateQuad();
 
     void SetPass(uint frameIndex);
     void ExecutePass(uint frameIndex);
@@ -44,7 +46,18 @@ private:
 
     ComPtr<IDXGIFactory6> mFactory;
     std::unordered_map<Gpu, std::unique_ptr<DeviceResource>> mDResource;
-    
+
     std::unique_ptr<Scene> mScene;
     std::unordered_map<std::string, std::vector<D3D12_INPUT_ELEMENT_DESC>> mInputLayout;
+
+    // Temporary Vertex Buffer
+    std::unique_ptr<UploadBuffer<ModelVertex>> mIGpuQuadVB;
+    D3D12_VERTEX_BUFFER_VIEW mIGpuQuadVBView;
+
+    
+    // Pass
+    std::unique_ptr<GBufferPass> mGBufferPass;
+    std::unique_ptr<LightPass> mLightPass;
+    std::unique_ptr<SobelPass> mSobelPass;
+    std::unique_ptr<QuadPass> mQuadPass;
 };

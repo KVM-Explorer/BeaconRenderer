@@ -54,7 +54,8 @@ Texture::Texture(ID3D12Device *device,
                                                                       1,
                                                                       0,
                                                                       flags);
-
+    if (flags & D3D12_RESOURCE_FLAG_ALLOW_CROSS_ADAPTER)
+        resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
     float clearColor[4] = {0, 0, 0, 1.0F};
     D3D12_CLEAR_VALUE clearValue;
     clearValue.Format = format;

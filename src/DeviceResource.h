@@ -18,11 +18,16 @@ public:
 
     ComPtr<ID3D12Device> Device;
     ComPtr<ID3D12CommandQueue> CmdQueue;
+    ComPtr<ID3D12CommandQueue> CopyQueue;
     ComPtr<IDXGISwapChain4> SwapChain4;
 
     std::unique_ptr<ResourceRegister> mResourceRegister;
     std::vector<CrossFrameResource> FR;
 
+    uint mRTVDescriptorSize;
+    uint mDSVDescriptorSize;
+    uint mSRVDescriptorSize;
+    
     std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> PSO;
     std::unordered_map<std::string, ComPtr<ID3D12RootSignature>> Signature;
 

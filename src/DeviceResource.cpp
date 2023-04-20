@@ -11,6 +11,14 @@ DeviceResource::DeviceResource(IDXGIFactory6 *factory, IDXGIAdapter1 *adapter, u
     queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
     queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
     ThrowIfFailed(Device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&CmdQueue)));
+    CmdQueue->SetName(L"Main Command Queue");
+    queueDesc.Type = D3D12_COMMAND_LIST_TYPE_COPY;
+    ThrowIfFailed(Device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&CopyQueue)));
+    CopyQueue->SetName(L"Copy Command Queue");
+
+    mRTVDescriptorSize = Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+    mDSVDescriptorSize = Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+    mSRVDescriptorSize = Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
     ComPtr<ID3D12InfoQueue> infoQueue;
     if (SUCCEEDED(Device->QueryInterface(IID_PPV_ARGS(&infoQueue)))) {
@@ -30,6 +38,7 @@ DeviceResource::~DeviceResource()
     FR.clear();
     mResourceRegister.reset();
     SwapChain4.Reset();
+    CopyQueue.Reset();
     CmdQueue.Reset();
     Device.Reset();
 }
