@@ -27,7 +27,7 @@ CrossFrameResource::~CrossFrameResource()
     SharedFenceHandle = nullptr;
     CopyCmdAllocator = nullptr;
     CopyCmdList = nullptr;
-
+    
     mRtvHeap.reset();
     mDsvHeap.reset();
     mSrvCbvUavHeap.reset();
@@ -53,6 +53,7 @@ void CrossFrameResource::ResetCopy() const
 
 void CrossFrameResource::Sync3D() const
 {
+    auto tmp = Fence->GetCompletedValue();
     if (Fence->GetCompletedValue() < FenceValue) {
         HANDLE fenceEvent = CreateEventEx(nullptr, false, false, EVENT_ALL_ACCESS);
 

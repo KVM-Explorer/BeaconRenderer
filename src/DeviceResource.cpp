@@ -33,9 +33,9 @@ DeviceResource::DeviceResource(IDXGIFactory6 *factory, IDXGIAdapter1 *adapter, u
 
 DeviceResource::~DeviceResource()
 {
+    FR.clear();
     Signature.clear();
     PSO.clear();
-    FR.clear();
     mResourceRegister.reset();
     SwapChain4.Reset();
     CopyQueue.Reset();
@@ -82,5 +82,3 @@ HANDLE DeviceResource::InitFrameResource(uint width, uint height, uint frameInde
     if (mDeviceType == Gpu::Discrete) return FR.back().SharedFenceHandle;
     return nullptr;
 }
-
-

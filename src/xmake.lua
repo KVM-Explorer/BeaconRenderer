@@ -4,7 +4,6 @@ target("Beacon")
     remove_files("Test/*.cpp")
     remove_files("CrossMain.cpp")
     add_syslinks("User32", "kernel32", "Gdi32", "Shell32", "DXGI", "D3D12", "D3DCompiler","dxguid")
-    add_links("WinPixEventRuntime")
     add_linkdirs("$(projectdir)/lib")
     add_includedirs("./")
     set_pcxxheader("./stdafx.h")
@@ -13,7 +12,7 @@ target("Beacon")
     add_packages("assimp")
     if is_mode("debug") then
         add_defines("USE_PIX")
-        
+        add_links("WinPixEventRuntime")
     end
 
 target("CrossBeacon")
@@ -21,7 +20,6 @@ target("CrossBeacon")
     remove_files("Test/*.cpp")
     remove_files("main.cpp")
     add_syslinks("User32", "kernel32", "Gdi32", "Shell32", "DXGI", "D3D12", "D3DCompiler","dxguid")
-    add_links("WinPixEventRuntime")
     add_linkdirs("$(projectdir)/lib")
     add_includedirs("./")
     set_pcxxheader("./stdafx.h")
@@ -30,7 +28,7 @@ target("CrossBeacon")
     add_packages("assimp")
     if is_mode("debug") then
         add_defines("USE_PIX")
-        
+        add_links("WinPixEventRuntime")
     end
 
 target("UnitTest")
@@ -38,7 +36,6 @@ target("UnitTest")
     remove_files("main.cpp")
     remove_files("CrossMain.cpp")
     add_syslinks("User32", "kernel32", "Gdi32", "Shell32", "DXGI", "D3D12", "D3DCompiler","dxguid")
-    add_links("WinPixEventRuntime")
     add_linkdirs("$(projectdir)/lib")
     add_includedirs("./")
     set_pcxxheader("./stdafx.h")
@@ -47,5 +44,5 @@ target("UnitTest")
     add_packages("assimp")
     if is_mode("debug") then
         add_defines("USE_PIX")
-        
+        add_links("WinPixEventRuntime")
     end

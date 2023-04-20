@@ -14,10 +14,6 @@ CrossBeacon::CrossBeacon(uint width, uint height, std::wstring title) :
 
 CrossBeacon::~CrossBeacon()
 {
-    mInputLayout.clear();
-    mScene = nullptr;
-    mDResource.clear();
-    mFactory = nullptr;
 }
 
 void CrossBeacon::OnUpdate()
@@ -40,7 +36,6 @@ void CrossBeacon::OnRender()
 {
     uint frameIndex = mCurrentBackBuffer;
     GResource::CPUTimerManager->UpdateTimer("RenderTime");
-
 
     GResource::CPUTimerManager->BeginTimer("DrawCall");
     ExecutePass(frameIndex);
@@ -105,7 +100,17 @@ void CrossBeacon::OnMouseDown(WPARAM btnState, int x, int y)
 }
 
 void CrossBeacon::OnDestory()
-{}
+{
+    uint frameIndex = mCurrentBackBuffer;
+    mDResource[Gpu::Discrete]->FR.at(frameIndex).Sync3D();
+    
+
+    mIGpuQuadVB.reset();
+    mInputLayout.clear();
+    mScene = nullptr;
+    mDResource.clear();
+    mFactory = nullptr;
+}
 
 int CrossBeacon::GetCurrentBackBuffer()
 {
@@ -186,7 +191,6 @@ void CrossBeacon::CreateRtv()
         iFR.CreateAuxRenderTarget(mDResource[Gpu::Integrated]->Device.Get(), swapChainBuffer.Get(), sharedResourceHandle);
     }
 }
-
 
 void CrossBeacon::CompileShaders()
 {
