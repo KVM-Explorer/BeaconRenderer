@@ -54,6 +54,7 @@ public:
     ComPtr<ID3D12Fence> Fence;
     HANDLE SharedFenceHandle;
     uint64 FenceValue;
+    uint64 SharedFenceValue;
 
     std::unique_ptr<UploadBuffer<SceneInfo>> SceneConstant;
     std::unique_ptr<UploadBuffer<EntityInfo>> EntityConstant;

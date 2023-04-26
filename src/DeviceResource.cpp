@@ -36,6 +36,13 @@ DeviceResource::DeviceResource(IDXGIFactory6 *factory, IDXGIAdapter1 *adapter, u
 
 DeviceResource::~DeviceResource()
 {
+    for (auto &frameResource : FR) {
+        if (mDeviceType == Gpu::Discrete) {
+            frameResource.SyncCopy(frameResource.SharedFenceValue);
+        }
+        frameResource.Sync3D();
+    }
+
     FR.clear();
     Signature.clear();
     PSO.clear();

@@ -101,10 +101,6 @@ void CrossBeacon::OnMouseDown(WPARAM btnState, int x, int y)
 
 void CrossBeacon::OnDestory()
 {
-    uint frameIndex = mCurrentBackBuffer;
-    mDResource[Gpu::Discrete]->FR.at(frameIndex).Sync3D();
-    
-
     mIGpuQuadVB.reset();
     mInputLayout.clear();
     mScene = nullptr;
@@ -310,7 +306,9 @@ void CrossBeacon::SetPass(uint frameIndex)
 void CrossBeacon::ExecutePass(uint frameIndex)
 {
     auto &dFR = mDResource[Gpu::Discrete]->FR.at(frameIndex);
+    auto &iFR = mDResource[Gpu::Integrated]->FR.at(frameIndex);
 
+    iFR.Sync3D();
     dFR.Reset3D();
     dFR.CmdList3D->RSSetViewports(1, &mViewPort);
     dFR.CmdList3D->RSSetScissorRects(1, &mScissor);
@@ -348,11 +346,11 @@ void CrossBeacon::ExecutePass(uint frameIndex)
     }
     PIXEndEvent(mDResource[Gpu::Discrete]->CopyQueue.Get());
     dFR.SignalCopy(mDResource[Gpu::Discrete]->CopyQueue.Get());
-    // dFR.SyncCopy(dFR.FenceValue);
+    // dFR.SyncCopy(dFR.SharedFenceValue);
 
     // ===================== Integrated GPU 3D Stage =====================
-    auto &iFR = mDResource[Gpu::Integrated]->FR.at(frameIndex);
-    iFR.WaitCopy(mDResource[Gpu::Integrated]->CmdQueue.Get(), dFR.FenceValue);
+
+    iFR.WaitCopy(mDResource[Gpu::Integrated]->CmdQueue.Get(), dFR.SharedFenceValue);
     iFR.Reset3D();
     iFR.CmdList3D->RSSetViewports(1, &mViewPort);
     iFR.CmdList3D->RSSetScissorRects(1, &mScissor);
@@ -370,7 +368,7 @@ void CrossBeacon::ExecutePass(uint frameIndex)
         iFR.CmdList3D->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
         iFR.CmdList3D->IASetVertexBuffers(0, 1, &mIGpuQuadVBView);
         iFR.CmdList3D->DrawInstanced(4, 1, 0, 0);
-        mQuadPass->EndPass(iFR.CmdList3D.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET); // empty no use
+        mQuadPass->EndPass(iFR.CmdList3D.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET); // resource state no use
     }
     PIXEndEvent(iFR.CmdList3D.Get());
 
@@ -379,8 +377,12 @@ void CrossBeacon::ExecutePass(uint frameIndex)
         GResource::GUIManager->DrawUI(iFR.CmdList3D.Get(), iFR.GetResource("SwapChain"));
     }
     PIXEndEvent(iFR.CmdList3D.Get());
+    auto rtv2present = CD3DX12_RESOURCE_BARRIER::Transition(iFR.GetResource("SwapChain"),
+                                                            D3D12_RESOURCE_STATE_RENDER_TARGET,
+                                                            D3D12_RESOURCE_STATE_PRESENT);
+    // iFR.CmdList3D->ResourceBarrier(1, &rtv2present);
 
     iFR.Signal3D(mDResource[Gpu::Integrated]->CmdQueue.Get());
-    mDResource[Gpu::Integrated]->SwapChain4->Present(1, 0);
-    iFR.Sync3D();
+    mDResource[Gpu::Integrated]->SwapChain4->Present(0, 0);
+    // iFR.Sync3D();
 }

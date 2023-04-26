@@ -65,6 +65,7 @@ void CrossFrameResource::Sync3D() const
 }
 void CrossFrameResource::SyncCopy(uint value) const
 {
+    auto tmp = SharedFence->GetCompletedValue();
     if (SharedFence->GetCompletedValue() < value) {
         HANDLE fenceEvent = CreateEventEx(nullptr, false, false, EVENT_ALL_ACCESS);
 
@@ -89,7 +90,7 @@ void CrossFrameResource::SignalCopy(ID3D12CommandQueue *cmdQueue)
     CopyCmdList->Close();
     std::array<ID3D12CommandList *, 1> taskList = {CopyCmdList.Get()};
     cmdQueue->ExecuteCommandLists(taskList.size(), taskList.data());
-    cmdQueue->Signal(SharedFence.Get(), ++FenceValue);
+    cmdQueue->Signal(SharedFence.Get(), ++SharedFenceValue);
 }
 
 void CrossFrameResource::Wait3D(ID3D12CommandQueue *queue) const
