@@ -1,11 +1,11 @@
 #pragma once
 #include <stdafx.h>
 #include "D3DHelpler/ResourceRegister.h"
-#include "CrossFrameResource.h"
+#include "Resource/CrossFrameResource.h"
 #include "Scene.h"
 #include "Framework/RendererBase.h"
 #include "Framework/GlobalResource.h"
-#include "DeviceResource.h"
+#include "Resource/DeviceResource.h"
 #include "Pass/Pass.h"
 
 class CrossBeacon : public RendererBase {

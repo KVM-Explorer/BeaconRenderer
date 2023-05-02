@@ -30,6 +30,10 @@ public:
     std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> PSO;
     std::unordered_map<std::string, ComPtr<ID3D12RootSignature>> Signature;
 
+    std::unique_ptr<UploadBuffer<ModelVertex>> mQuadVB;
+    std::unique_ptr<UploadBuffer<uint16> > mQuadIB;
+
+
 private:
     Gpu mDeviceType;
     uint mFrameCount;

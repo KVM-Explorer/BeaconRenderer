@@ -5,7 +5,7 @@
 #include "Framework/ImguiManager.h"
 #include "Framework/GlobalResource.h"
 #include "Tools/D3D12GpuTimer.h"
-#include "FrameResource.h"
+#include "Resource/FrameResource.h"
 #include "Pass/Pass.h"
 #include "D3DHelpler/ResourceRegister.h"
 
