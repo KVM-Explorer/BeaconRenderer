@@ -329,7 +329,7 @@ void CrossBeacon::ExecutePass(uint frameIndex)
     PIXEndEvent(dFR.CmdList3D.Get());
     PIXBeginEvent(dFR.CmdList3D.Get(), PIX_COLOR_DEFAULT, L"LightPass");
     {
-        mLightPass->BeginPass(dFR.CmdList3D.Get());
+        mLightPass->BeginPass(dFR.CmdList3D.Get(),D3D12_RESOURCE_STATE_COMMON);
         mScene->RenderQuad(dFR.CmdList3D.Get(), dConstantAddr);
         mLightPass->EndPass(dFR.CmdList3D.Get(), D3D12_RESOURCE_STATE_COMMON);
     }

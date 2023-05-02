@@ -1,7 +1,7 @@
 #pragma once
-#include "Framework/PassBase.h"
+#include <stdafx.h>
 
-class GBufferPass : public PassBase {
+class GBufferPass {
 public:
     GBufferPass(ID3D12PipelineState *pso, ID3D12RootSignature *rs);
     GBufferPass(const GBufferPass &) = delete;
@@ -13,8 +13,8 @@ public:
     void SetDepthBuffer(ID3D12Resource *depthBuffer, CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle);
     void SetRTVDescriptorSize(uint size) { mRTVDescriptorSize = size; }
 
-    void BeginPass(ID3D12GraphicsCommandList *cmdList) override;
-    void EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES resultState) override;
+    void BeginPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES beforeState = D3D12_RESOURCE_STATE_GENERIC_READ);
+    void EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES resultState);
 
     static std::vector<DXGI_FORMAT> GetTargetFormat() { return mTargetFormats; }
     static uint GetTargetCount() { return mTargetCount; }
@@ -22,7 +22,7 @@ public:
 
 private:
     std::vector<ID3D12Resource *> mTargets;
-    ID3D12Resource * mDepthBuffer;
+    ID3D12Resource *mDepthBuffer;
     static const uint mTargetCount = 4;
     inline static const std::vector<DXGI_FORMAT> mTargetFormats{
         DXGI_FORMAT_R8G8B8A8_SNORM, // NORMAL
@@ -35,4 +35,6 @@ private:
     uint mRTVDescriptorSize;
     CD3DX12_CPU_DESCRIPTOR_HANDLE mRtvHandle;
     CD3DX12_CPU_DESCRIPTOR_HANDLE mDsvHandle;
+    ID3D12RootSignature* mRS;
+    ID3D12PipelineState* mPSO;
 };

@@ -2,7 +2,7 @@
 #include "Framework/GlobalResource.h"
 
 SobelPass::SobelPass(ID3D12PipelineState *pso, ID3D12RootSignature *rs) :
-    PassBase(pso, rs)
+    mPSO(pso),mRS(rs)
 {
 }
 

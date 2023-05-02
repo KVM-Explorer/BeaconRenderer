@@ -2,7 +2,7 @@
 #include "Framework/GlobalResource.h"
 
 GBufferPass::GBufferPass(ID3D12PipelineState *pso, ID3D12RootSignature *rs) :
-    PassBase(pso, rs)
+    mPSO(pso),mRS(rs)
 {
 }
 
@@ -17,7 +17,7 @@ void GBufferPass::SetDepthBuffer(ID3D12Resource *depthBuffer, CD3DX12_CPU_DESCRI
     mDsvHandle = dsvHandle;
 }
 
-void GBufferPass::BeginPass(ID3D12GraphicsCommandList *cmdList)
+void GBufferPass::BeginPass(ID3D12GraphicsCommandList *cmdList,D3D12_RESOURCE_STATES beforeState)
 {
     cmdList->SetGraphicsRootSignature(mRS);
     cmdList->SetPipelineState(mPSO);
@@ -28,7 +28,7 @@ void GBufferPass::BeginPass(ID3D12GraphicsCommandList *cmdList)
     CD3DX12_CPU_DESCRIPTOR_HANDLE targetRtvHandle = mRtvHandle;
     for (uint i = 0; i < mTargets.size(); i++) {
         auto srv2rtv = CD3DX12_RESOURCE_BARRIER::Transition(mTargets.at(i),
-                                                            D3D12_RESOURCE_STATE_GENERIC_READ,
+                                                            beforeState,
                                                             D3D12_RESOURCE_STATE_RENDER_TARGET);
         cmdList->ResourceBarrier(1, &srv2rtv);
         cmdList->ClearRenderTargetView(targetRtvHandle, clearColor, 0, nullptr);

@@ -1,7 +1,7 @@
 #include "QuadPass.h"
 
 QuadPass::QuadPass(ID3D12PipelineState *pso, ID3D12RootSignature *rs) :
-    PassBase(pso, rs)
+    mPSO(pso),mRS(rs)
 {
 }
 
@@ -21,10 +21,10 @@ void QuadPass::SetSrvHandle(CD3DX12_GPU_DESCRIPTOR_HANDLE srvHandle)
     mSrvHandle = srvHandle;
 }
 
-void QuadPass::BeginPass(ID3D12GraphicsCommandList *cmdList)
+void QuadPass::BeginPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES beforeState)
 {
     auto present2rtv = CD3DX12_RESOURCE_BARRIER::Transition(mTarget,
-                                                            D3D12_RESOURCE_STATE_PRESENT,
+                                                            beforeState,
                                                             D3D12_RESOURCE_STATE_RENDER_TARGET);
     uint renderType = static_cast<uint>(mRenderType);
 

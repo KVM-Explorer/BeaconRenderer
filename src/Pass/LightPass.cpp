@@ -1,7 +1,7 @@
 #include "LightPass.h"
 
 LightPass::LightPass(ID3D12PipelineState *pso, ID3D12RootSignature *rs) :
-    PassBase(pso, rs)
+    mPSO(pso),mRS(rs)
 {
 }
 
@@ -23,14 +23,11 @@ void LightPass::SetTexture(ID3D12DescriptorHeap *srvHeap, CD3DX12_GPU_DESCRIPTOR
     mTextureHandle = srvHandle;
 }
 
-void LightPass::BeginPass(ID3D12GraphicsCommandList *cmdList)
+void LightPass::BeginPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES beforeState)
 {
     const float clearValue[] = {0, 0, 0, 1.0F};
-    // auto srv2rtv = CD3DX12_RESOURCE_BARRIER::Transition(mTarget,
-    //                                                     D3D12_RESOURCE_STATE_GENERIC_READ,
-    //                                                     D3D12_RESOURCE_STATE_RENDER_TARGET);
     auto srv2rtv = CD3DX12_RESOURCE_BARRIER::Transition(mTarget,
-                                                        D3D12_RESOURCE_STATE_COMMON,
+                                                        beforeState,
                                                         D3D12_RESOURCE_STATE_RENDER_TARGET);
     cmdList->SetGraphicsRootSignature(mRS); 
     cmdList->SetPipelineState(mPSO);
