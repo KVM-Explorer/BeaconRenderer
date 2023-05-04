@@ -4,6 +4,6 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
 {
     GResource::Width = 640;
     GResource::Height = 640;
-    StageBeacon *renderer = new StageBeacon(GResource::Width, GResource::Height, L"Beacon Renderer");
+    auto *renderer = new StageBeacon(GResource::Width, GResource::Height, L"Beacon Renderer");
     Application::Run(renderer, hInstance, nCmdShow);
 }

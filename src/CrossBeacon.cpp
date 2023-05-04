@@ -102,7 +102,6 @@ void CrossBeacon::OnMouseDown(WPARAM btnState, int x, int y)
 void CrossBeacon::OnDestory()
 {
     mIGpuQuadVB.reset();
-    mInputLayout.clear();
     mScene = nullptr;
     mDResource.clear();
     mFactory = nullptr;

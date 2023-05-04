@@ -49,7 +49,6 @@ private:
     std::unordered_map<Gpu, std::unique_ptr<DeviceResource>> mDResource;
 
     std::unique_ptr<Scene> mScene;
-    std::unordered_map<std::string, std::vector<D3D12_INPUT_ELEMENT_DESC>> mInputLayout;
 
     // Temporary Vertex Buffer
     std::unique_ptr<UploadBuffer<ModelVertex>> mIGpuQuadVB;

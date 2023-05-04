@@ -6,6 +6,8 @@
 #include "Framework/RendererBase.h"
 #include "Framework/GlobalResource.h"
 #include "Pass/Pass.h"
+#include "Resource/BackendResource.h"
+#include "Resource/DisplayResource.h"
 class StageBeacon : public RendererBase {
 public:
     StageBeacon(uint width, uint height, std::wstring title);
@@ -25,6 +27,7 @@ public:
 
 private:
     void LoadAssets();
+    void CreateQuad();
     void PopulateCommandList();
     void CreateDeviceResource(HWND handle);
     void AddDisplayDevice(ID3D12Device *device);
@@ -36,18 +39,9 @@ private:
 
     CD3DX12_VIEWPORT mViewPort;
     CD3DX12_RECT mScissor;
-    static const uint mSwapBufferCount = 3;
-    int mCurrentBackBuffer = 0;
 
     ComPtr<IDXGIFactory6> mFactory;
-    std::unordered_map<Gpu, std::unique_ptr<DeviceResource>> mDResource;
 
-    std::unique_ptr<Scene> mScene;
-    std::unordered_map<std::string, std::vector<D3D12_INPUT_ELEMENT_DESC>> mInputLayout;
-
-    // Pass
-    std::unique_ptr<GBufferPass> mGBufferPass;
-    std::unique_ptr<LightPass> mLightPass;
-    std::unique_ptr<SobelPass> mSobelPass;
-    std::unique_ptr<QuadPass> mQuadPass;
+    std::unique_ptr<DisplayResource> mDisplayResource;
+    std::vector<std::unique_ptr<BackendResource>> mBackendResource;
 };
