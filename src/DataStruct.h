@@ -1,7 +1,7 @@
 #pragma once
 #include <stdafx.h>
 #include "D3DHelpler/Texture.h"
-
+#include "D3DHelpler/UploadBuffer.h"
 // Test Triangle
 struct Vertex {
     DirectX::XMFLOAT3 Position;
@@ -91,7 +91,33 @@ enum class QuadShader {
     MixQuad
 };
 
-enum class Gpu{
+enum class Gpu {
     Integrated, // 集显
-    Discrete, // 独显
+    Discrete,   // 独显
+};
+
+enum class RESOURCE {
+    DISPLAY,
+    BACKEND,
+};
+
+struct DescriptorMap {
+    std::unordered_map<std::string, uint> CBVSRVUAV;
+    std::unordered_map<std::string, uint> Sampler;
+    std::unordered_map<std::string, uint> RTV;
+    std::unordered_map<std::string, uint> DSV;
+};
+
+struct SceneCB{
+    std::unique_ptr<UploadBuffer<SceneInfo>> SceneCB;
+    std::unique_ptr<UploadBuffer<Light>> LightCB;
+    std::unique_ptr<UploadBuffer<EntityInfo>> EntityCB;
+    std::unique_ptr<UploadBuffer<MaterialInfo>> MaterialCB;
+};
+enum class Stage {
+    GBuffer,
+    Light,
+    Copy,
+    Sobel,
+    Quad,
 };

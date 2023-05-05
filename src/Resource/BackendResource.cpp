@@ -1,13 +1,16 @@
 #include "BackendResource.h"
 
-BackendResource::BackendResource(IDXGIFactory *factory, IDXGIAdapter1 *adapter)
+BackendResource::BackendResource(IDXGIFactory *factory, IDXGIAdapter1 *adapter, uint frameCount) :
+    mFrameCount(frameCount)
 {
+    static uint deviceID = 0;
+    DeviceID = deviceID++;
     ThrowIfFailed(D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&Device)));
 
     D3D12_COMMAND_QUEUE_DESC queueDesc = {};
     queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
     queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
-    ThrowIfFailed(Device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&RenderQueue)));
+    ThrowIfFailed(Device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&DirectQueue)));
     queueDesc.Type = D3D12_COMMAND_LIST_TYPE_COPY;
     ThrowIfFailed(Device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&CopyQueue)));
 
@@ -31,7 +34,13 @@ BackendResource::~BackendResource()
     mSceneIB = nullptr;
     mSceneVB = nullptr;
     mResourceRegister.reset();
-    RenderQueue.Reset();
+    DirectQueue.Reset();
     CopyQueue.Reset();
     Device.Reset();
+}
+
+void BackendResource::CreateRenderTargets(uint width, uint height)
+{
+    StageFrameResource frameResource(Device.Get(), mResourceRegister.get());
+    frameResource.CreateGBuffer(Device.Get(), width, height,GBufferPass::GetTargetFormat(),GBufferPass::GetDepthFormat());
 }

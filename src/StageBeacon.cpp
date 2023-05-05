@@ -2,10 +2,11 @@
 #include "Framework/Application.h"
 #include "GpuEntryLayout.h"
 
-StageBeacon::StageBeacon(uint width, uint height, std::wstring title) :
+StageBeacon::StageBeacon(uint width, uint height, std::wstring title, uint frameCount) :
     RendererBase(width, height, title),
     mViewPort(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height)),
-    mScissor(0, 0, static_cast<LONG>(width), static_cast<LONG>(height))
+    mScissor(0, 0, static_cast<LONG>(width), static_cast<LONG>(height)),
+    FrameCount(frameCount)
 {
 }
 
@@ -22,7 +23,7 @@ void StageBeacon::OnInit()
 
     GResource::GUIManager->Init(mDisplayResource->Device.Get());
 
-    CreateRtv();
+    CreateRtv(handle);
     // Pass
 
     LoadAssets(); // Backend GPU
@@ -47,7 +48,6 @@ void StageBeacon::OnMouseDown(WPARAM btnState, int x, int y)
 
 void StageBeacon::OnDestory()
 {
-
     mBackendResource.clear();
     mDisplayResource = nullptr;
     mFactory = nullptr;
@@ -78,18 +78,17 @@ void StageBeacon::CreateDeviceResource(HWND handle)
         if (SUCCEEDED(hr) && output != nullptr) {
             auto outputStr = std::format(L"iGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
             OutputDebugStringW(outputStr.c_str());
-            mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get());
+            mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
         } else {
             auto outputStr = std::format(L"dGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
             OutputDebugStringW(outputStr.c_str());
-            auto backendResource = std::make_unique<BackendResource>(mFactory.Get(), adapter.Get());
+            auto backendResource = std::make_unique<BackendResource>(mFactory.Get(), adapter.Get(), FrameCount);
             mBackendResource.push_back(std::move(backendResource));
         }
     }
     if (mBackendResource.empty()) {
         throw std::runtime_error("No backend device found");
     }
-    mDisplayResource->CreateSwapChain(mFactory.Get(), handle, GetWidth(), GetHeight(), mBackendResource.size());
 }
 
 void StageBeacon::CompileShaders()
@@ -137,7 +136,21 @@ void StageBeacon::CreateSignature2PSO()
     mDisplayResource->PSO["Sobel"] = GpuEntryLayout::CreateSobelPSO(device, mDisplayResource->Signature["Compute"].Get());
 }
 
-void StageBeacon::CreateRtv()
+void StageBeacon::CreateRtv(HWND handle)
+{
+    // Display SwapChain
+    mDisplayResource->CreateSwapChain(mFactory.Get(), handle, GetWidth(), GetHeight(), mBackendResource.size());
+
+    // Display Device Local FrameBuffer
+    mDisplayResource->CreateRenderTargets(GetWidth(), GetHeight(), mBackendResource.size());
+
+    // Backend Device Local FrameBuffer
+    for (const auto &backendResource : mBackendResource) {
+        backendResource->CreateRenderTargets(GetWidth(), GetHeight());
+    }
+}
+
+void StageBeacon::CreateSharedResource()
 {
 }
 

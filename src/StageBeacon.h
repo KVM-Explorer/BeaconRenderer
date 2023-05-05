@@ -10,7 +10,7 @@
 #include "Resource/DisplayResource.h"
 class StageBeacon : public RendererBase {
 public:
-    StageBeacon(uint width, uint height, std::wstring title);
+    StageBeacon(uint width, uint height, std::wstring title, uint frameCount);
     StageBeacon(const StageBeacon &) = delete;
     StageBeacon(StageBeacon &&) = default;
     StageBeacon &operator=(const StageBeacon &) = delete;
@@ -34,13 +34,16 @@ private:
     void AddBackendDevice(ID3D12Device *device);
     void CompileShaders();
     void CreateSignature2PSO();
-    void CreateRtv();
+    void CreateRtv(HWND handle);
+    void CreateSharedResource();
     // =================== Property ===================
 
     CD3DX12_VIEWPORT mViewPort;
     CD3DX12_RECT mScissor;
 
     ComPtr<IDXGIFactory6> mFactory;
+
+    const uint FrameCount;
 
     std::unique_ptr<DisplayResource> mDisplayResource;
     std::vector<std::unique_ptr<BackendResource>> mBackendResource;
