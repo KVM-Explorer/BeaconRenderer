@@ -11,6 +11,7 @@ public:
     ~DisplayResource();
     void CreateSwapChain(IDXGIFactory6 *factory, HWND handle, uint width, uint height, size_t backendCount);
     void CreateRenderTargets(uint width, uint height, size_t backendCount);
+    std::vector<HANDLE> CreateSharedTexture(uint width,uint height, size_t backendCount);
 
     ComPtr<ID3D12Device> Device;
     ComPtr<IDXGISwapChain4> SwapChain;

@@ -13,6 +13,7 @@ public:
     ~BackendResource();
 
     void CreateRenderTargets(uint width, uint height);
+    void CreateSharedTexture(uint width, uint height,std::vector<HANDLE> &handle);
     uint GetDeviceID() const { return DeviceID; }
 
     ComPtr<ID3D12Device> Device;

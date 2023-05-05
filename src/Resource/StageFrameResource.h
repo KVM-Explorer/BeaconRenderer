@@ -12,8 +12,8 @@ struct StageFrameResource {
     StageFrameResource &operator=(StageFrameResource &&) = default;
 
     void CreateGBuffer(ID3D12Device *device,uint width,uint height,std::vector<DXGI_FORMAT> targetFormat,DXGI_FORMAT depthFormat);
-    HWND CreateLightBuffer(ID3D12Device *device);
-    void CreateLightCopyBuffer(HWND handle);
+    void CreateLightBuffer(ID3D12Device *device,HANDLE handle,uint width,uint height);
+    HANDLE CreateLightCopyBuffer(ID3D12Device *device, uint width, uint height);
     void CreateSobelBuffer(ID3D12Device *device, UINT width, UINT height);
     void CreateSwapChain(ID3D12Resource *resource);
 

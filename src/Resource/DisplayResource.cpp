@@ -68,3 +68,17 @@ void DisplayResource::CreateRenderTargets(uint width, uint height, size_t backen
         mSFR.push_back(std::move(deviceFrames));
     }
 }
+
+std::vector<HANDLE> DisplayResource::CreateSharedTexture(uint width, uint height, size_t backendCount)
+{
+    if(mSFR.empty()) throw std::runtime_error("Render targets must be created before shared textures");
+    std::vector<HANDLE> handles;
+    for (uint i = 0; i < backendCount; i++) {
+        for (uint j = 0; j < mFrameCount; j++) {
+            auto &frameResource = mSFR[i][j];
+            HANDLE handle = frameResource.CreateLightCopyBuffer(Device.Get(), width, height);
+            handles.push_back(handle);
+        }
+    }
+    return handles;
+}

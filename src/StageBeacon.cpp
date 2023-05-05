@@ -24,6 +24,7 @@ void StageBeacon::OnInit()
     GResource::GUIManager->Init(mDisplayResource->Device.Get());
 
     CreateRtv(handle);
+    CreateSharedResource();
     // Pass
 
     LoadAssets(); // Backend GPU
@@ -152,10 +153,16 @@ void StageBeacon::CreateRtv(HWND handle)
 
 void StageBeacon::CreateSharedResource()
 {
+    auto handles = mDisplayResource->CreateSharedTexture(GetWidth(), GetHeight(), mBackendResource.size());
+    for (size_t i = 0; i < mBackendResource.size(); i++) {
+        std::vector<HANDLE> frameHandles(handles.begin() + i * FrameCount, handles.begin() + (i + 1) * FrameCount);
+        mBackendResource[i]->CreateSharedTexture(GetWidth(), GetHeight(), frameHandles);
+    }
 }
 
 void StageBeacon::LoadAssets()
 {
+    // Backend Device VB IB
 }
 
 void StageBeacon::CreateQuad()
