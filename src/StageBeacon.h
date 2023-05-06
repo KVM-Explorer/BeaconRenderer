@@ -36,6 +36,11 @@ private:
     void CreateSignature2PSO();
     void CreateRtv(HWND handle);
     void CreateSharedResource();
+    void ResetResourceState();
+    void InitSceneCB();
+
+    std::tuple<BackendResource *,uint> GetCurrentBackend() const;
+    void IncrementBackendIndex();
     // =================== Property ===================
 
     CD3DX12_VIEWPORT mViewPort;
@@ -49,4 +54,6 @@ private:
 
     std::unique_ptr<DisplayResource> mDisplayResource;
     std::vector<std::unique_ptr<BackendResource>> mBackendResource;
+
+    uint CurrentBackendIndex;
 };

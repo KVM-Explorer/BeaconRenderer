@@ -85,3 +85,13 @@ std::vector<HANDLE> DisplayResource::CreateSharedTexture(uint width, uint height
     }
     return handles;
 }
+
+std::tuple<StageFrameResource *, uint> DisplayResource::GetCurrentFrame(uint backendIndex, Stage stage)
+{
+    switch (stage) {
+    case Stage::PostProcess:
+        return {&(mSFR[backendIndex][mCurrentFrameIndex]), mCurrentFrameIndex};
+    default:
+        throw std::runtime_error("Invalid stage");
+    }
+}

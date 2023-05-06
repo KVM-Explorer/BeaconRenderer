@@ -38,6 +38,7 @@ struct StageFrameResource {
     std::unordered_map<std::string, uint> mResourceMap;
 
     SceneCB mSceneCB;
+    bool mSceneCBDirty;
 
     std::shared_ptr<DescriptorHeap> mRtvHeap;
     std::shared_ptr<DescriptorHeap> mDsvHeap;

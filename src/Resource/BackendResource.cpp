@@ -1,10 +1,10 @@
 #include "BackendResource.h"
 
 BackendResource::BackendResource(IDXGIFactory *factory, IDXGIAdapter1 *adapter, uint frameCount) :
-    mFrameCount(frameCount)
+    mFrameCount(frameCount),
+    mCurrentFrameIndex(0)
 {
     static uint deviceID = 0;
-    DeviceID = deviceID++;
     ThrowIfFailed(D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&Device)));
 
     D3D12_COMMAND_QUEUE_DESC queueDesc = {};
@@ -56,5 +56,17 @@ void BackendResource::CreateSharedTexture(uint width, uint height, std::vector<H
     if (mSFR.empty()) std::runtime_error("CreateSharedTexture must be called after CreateRenderTargets");
     for (uint i = 0; i < mFrameCount; i++) {
         mSFR[i].CreateLightBuffer(Device.Get(), handle[i], width, height);
+    }
+}
+
+std::tuple<StageFrameResource *, uint> BackendResource::GetCurrentFrame(Stage stage)
+{
+    switch (stage) {
+    case Stage::DeferredRendering:
+        return {&mSFR[mCurrentFrameIndex], mCurrentFrameIndex};
+    case Stage::CopyTexture:
+        return {&mSFR[(mCurrentFrameIndex + 1) % mFrameCount], (mCurrentFrameIndex + 1) % mFrameCount};
+    default:
+        throw std::runtime_error("Stage not supported");
     }
 }

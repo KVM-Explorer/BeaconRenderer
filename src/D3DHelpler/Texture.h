@@ -18,7 +18,8 @@ public:
             uint width, uint height,
             D3D12_RESOURCE_FLAGS flags,
             bool isDepthTexture = false,
-            D3D12_HEAP_FLAGS heapFlags = D3D12_HEAP_FLAG_NONE);
+            D3D12_HEAP_FLAGS heapFlags = D3D12_HEAP_FLAG_NONE,
+            D3D12_RESOURCE_STATES initState = D3D12_RESOURCE_STATE_GENERIC_READ);
 
     [[nodiscard]] ID3D12Resource *Resource() const
     {

@@ -15,7 +15,8 @@ public:
 
     void CreateRenderTargets(uint width, uint height);
     void CreateSharedTexture(uint width, uint height, std::vector<HANDLE> &handle);
-    uint GetDeviceID() const { return DeviceID; }
+    std::tuple<StageFrameResource *, uint> GetCurrentFrame(Stage stage);
+    void IncrementFrameIndex(){ mCurrentFrameIndex = (mCurrentFrameIndex + 1) % mFrameCount;};
 
     ComPtr<ID3D12Device> Device;
     ComPtr<ID3D12CommandQueue> DirectQueue;
@@ -42,5 +43,5 @@ public:
     std::vector<StageFrameResource> mSFR; // Frame Count
 
 private:
-    uint DeviceID;
+    uint mCurrentFrameIndex;
 };

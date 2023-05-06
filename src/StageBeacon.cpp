@@ -6,7 +6,8 @@ StageBeacon::StageBeacon(uint width, uint height, std::wstring title, uint frame
     RendererBase(width, height, title),
     mViewPort(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height)),
     mScissor(0, 0, static_cast<LONG>(width), static_cast<LONG>(height)),
-    FrameCount(frameCount)
+    FrameCount(frameCount),
+    CurrentBackendIndex(0)
 {
 }
 
@@ -27,18 +28,22 @@ void StageBeacon::OnInit()
     CreateSharedResource();
     // Pass
 
+    CreateQuad(); // Display GPU
     LoadAssets(); // Backend GPU
-    // CreateQuad(); // Display GPU
 
-    // init Resource State (Resource init State is D3D12_RESOURCE_STATE_GENERIC_READ)
+    InitSceneCB();
 }
 
 void StageBeacon::OnUpdate()
 {
+    auto [backend, deviceIndex] = GetCurrentBackend();
+    auto [frameResource, frameIndex] = backend->GetCurrentFrame(Stage::DeferredRendering);
+    mScene->UpdateSceneConstant(frameResource->mSceneCB.SceneCB.get());
 }
 
 void StageBeacon::OnRender()
 {
+
 }
 
 void StageBeacon::OnKeyDown(byte key)
@@ -178,12 +183,12 @@ void StageBeacon::LoadAssets()
                                backend->mSceneIB,
                                backend->mSceneTextures);
         // Frame CB
-        // for (auto &fr : backend->mSFR) {
-        //     fr.CreateConstantBuffer(device,
-        //                             scene->GetEntityCount(),
-        //                             1,
-        //                             scene->GetMaterialCount());
-        // }
+        for (auto &fr : backend->mSFR) {
+            fr.CreateConstantBuffer(device,
+                                    scene->GetEntityCount(),
+                                    1,
+                                    scene->GetMaterialCount());
+        }
         backend->mRenderItems = scene->GetRenderItems();
         frameResource.SubmitDirect(backend->DirectQueue.Get());
         frameResource.SignalDirect(backend->DirectQueue.Get());
@@ -196,7 +201,7 @@ void StageBeacon::CreateQuad()
 {
     auto *device = mDisplayResource->Device.Get();
     auto &frameResource = mDisplayResource->mSFR.at(0).at(0);
-
+    mScene = std::make_unique<Scene>("Assets", "lighthouse");
     frameResource.ResetDirect();
     mScene->InitWithDisplay(device,
                             frameResource.DirectCmdList.Get(),
@@ -206,4 +211,29 @@ void StageBeacon::CreateQuad()
     frameResource.SubmitDirect(mDisplayResource->DirectQueue.Get());
     frameResource.SignalDirect(mDisplayResource->DirectQueue.Get());
     frameResource.FlushDirect();
+}
+void StageBeacon::InitSceneCB()
+{
+    // Backend Device Local FrameBuffer
+    for (const auto &backendResource : mBackendResource) {
+        auto *device = backendResource->Device.Get();
+        auto &frameResource = backendResource->mSFR.at(0);
+        // Frame CB
+        for (auto &fr : backendResource->mSFR) {
+            mScene->UpdateSceneConstant(fr.mSceneCB.SceneCB.get());
+            mScene->UpdateEntityConstant(fr.mSceneCB.EntityCB.get());
+            mScene->UpdateLightConstant(fr.mSceneCB.LightCB.get());
+            mScene->UpdateMaterialConstant(fr.mSceneCB.MaterialCB.get());
+        }
+    }
+}
+
+std::tuple<BackendResource *, uint> StageBeacon::GetCurrentBackend() const
+{
+    return {mBackendResource[CurrentBackendIndex].get(), CurrentBackendIndex};
+}
+
+void StageBeacon::IncrementBackendIndex()
+{
+    CurrentBackendIndex = (CurrentBackendIndex + 1) % mBackendResource.size();
 }

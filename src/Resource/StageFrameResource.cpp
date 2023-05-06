@@ -74,7 +74,13 @@ void StageFrameResource::CreateLightBuffer(ID3D12Device *device, HANDLE handle, 
     mTexture.push_back(std::move(texture));
     mResourceMap["LightCopy"] = mTexture.size() - 1;
 
-    Texture lightTexture(device, DXGI_FORMAT_R8G8B8A8_UNORM, width, height, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
+    Texture lightTexture(device,
+                         DXGI_FORMAT_R8G8B8A8_UNORM,
+                         width, height,
+                         D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET,
+                         false,
+                         D3D12_HEAP_FLAG_NONE,
+                         D3D12_RESOURCE_STATE_COMMON);
     mTexture.push_back(std::move(lightTexture));
     mResourceMap["Light"] = mTexture.size() - 1;
 }
@@ -82,7 +88,12 @@ void StageFrameResource::CreateLightBuffer(ID3D12Device *device, HANDLE handle, 
 HANDLE StageFrameResource::CreateLightCopyBuffer(ID3D12Device *device, uint width, uint height)
 {
     HANDLE handle;
-    Texture texture(device, DXGI_FORMAT_R8G8B8A8_UNORM, width, height, D3D12_RESOURCE_FLAG_ALLOW_CROSS_ADAPTER, false, D3D12_HEAP_FLAG_SHARED_CROSS_ADAPTER | D3D12_HEAP_FLAG_SHARED);
+    Texture texture(device, DXGI_FORMAT_R8G8B8A8_UNORM,
+                    width, height,
+                    D3D12_RESOURCE_FLAG_ALLOW_CROSS_ADAPTER,
+                    false,
+                    D3D12_HEAP_FLAG_SHARED_CROSS_ADAPTER | D3D12_HEAP_FLAG_SHARED,
+                    D3D12_RESOURCE_STATE_COMMON);
     mTexture.push_back(std::move(texture));
     mResourceMap["LightCopy"] = mTexture.size() - 1;
 

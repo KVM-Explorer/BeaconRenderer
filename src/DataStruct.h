@@ -115,9 +115,7 @@ struct SceneCB{
     std::unique_ptr<UploadBuffer<MaterialInfo>> MaterialCB;
 };
 enum class Stage {
-    GBuffer,
-    Light,
-    Copy,
-    Sobel,
-    Quad,
+    DeferredRendering,
+    CopyTexture,
+    PostProcess,
 };
