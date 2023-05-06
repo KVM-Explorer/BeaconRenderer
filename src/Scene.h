@@ -23,10 +23,11 @@ public:
     Scene &operator=(Scene &&) = default;
 
 public:
-    void Init(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList,DescriptorHeap *descriptorHeap);
-    void RenderScene(ID3D12GraphicsCommandList *cmdList,D3D12_GPU_VIRTUAL_ADDRESS constantAddress);
-    void RenderQuad(ID3D12GraphicsCommandList *cmdList,D3D12_GPU_VIRTUAL_ADDRESS constantAddress);
-    void RenderSphere(ID3D12GraphicsCommandList *cmdList,D3D12_GPU_VIRTUAL_ADDRESS constantAddress);
+    void Init(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList, DescriptorHeap *srvDescriptorHeap);
+    void InitWithDevice(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList, DescriptorHeap *srvDescriptorHeap, std::unique_ptr<UploadBuffer<ModelVertex>> &verticesBuffer, std::unique_ptr<UploadBuffer<uint16>> &indicesBuffer, std::vector<Texture> &textures);
+    void RenderScene(ID3D12GraphicsCommandList *cmdList, D3D12_GPU_VIRTUAL_ADDRESS constantAddress);
+    void RenderQuad(ID3D12GraphicsCommandList *cmdList, D3D12_GPU_VIRTUAL_ADDRESS constantAddress);
+    void RenderSphere(ID3D12GraphicsCommandList *cmdList, D3D12_GPU_VIRTUAL_ADDRESS constantAddress);
 
     void UpdateCamera();
     void UpdateSceneConstant(UploadBuffer<SceneInfo> *uploader);
@@ -38,23 +39,21 @@ public:
     uint GetEntityCount() const { return static_cast<uint>(mEntities.size()); };
     uint GetMaterialCount() const { return static_cast<uint>(mMaterials.size()); };
 
-private:
     void CreateSphereTest(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList);
     void CreateQuadTest(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList);
 
-    void LoadAssets(ID3D12Device *device, ID3D12GraphicsCommandList *commandList,DescriptorHeap *descriptorHeap);
-    void BuildVertex2Constant(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList);
+    void LoadAssets(ID3D12Device *device, ID3D12GraphicsCommandList *commandList, DescriptorHeap *descriptorHeap, DataLoader *dataLoader, std::vector<Texture> &textures);
+    void BuildVertex2Constant(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList, UploadBuffer<ModelVertex> *verticesBuffer, UploadBuffer<uint16> *indicesBuffer);
     void CreateSceneInfo(const ModelLight &info);
-    void CreateMaterials(const std::vector<ModelMaterial> &info, ID3D12Device *device, ID3D12GraphicsCommandList *commandList,DescriptorHeap *descriptorHeap);
+    void CreateMaterials(const std::vector<ModelMaterial> &info, ID3D12Device *device, ID3D12GraphicsCommandList *commandList, DescriptorHeap *descriptorHeap, std::vector<Texture> &textures);
     MeshInfo AddMesh(Mesh &mesh, ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
     void CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
+    void Reset();
 
 private:
     std::unordered_map<std::string, Camera> mCamera;
     std::string mRootPath;
     std::string mSceneName;
-
-    std::unique_ptr<DataLoader> mDataLoader;
 
     std::vector<DirectX::XMFLOAT4X4> mTransforms;
     std::vector<Material> mMaterials;

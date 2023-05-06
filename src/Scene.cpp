@@ -22,14 +22,35 @@ void Scene::Init(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList, Descr
 {
     CreateSphereTest(device, cmdList);
     CreateQuadTest(device, cmdList);
-    mDataLoader = std::make_unique<DataLoader>(mRootPath, mSceneName);
-    LoadAssets(device, cmdList, descriptorHeap);
-    BuildVertex2Constant(device, cmdList);
+    auto dataLoader = std::make_unique<DataLoader>(mRootPath, mSceneName);
+    LoadAssets(device, cmdList, descriptorHeap, dataLoader.get(), mTextures);
+    mVerticesBuffer = std::make_unique<UploadBuffer<ModelVertex>>(device, mAllVertices.size(), false);
+    mIndicesBuffer = std::make_unique<UploadBuffer<UINT16>>(device, mAllIndices.size(), false);
+    BuildVertex2Constant(device, cmdList, mVerticesBuffer.get(), mIndicesBuffer.get());
 
     mCamera["default"].SetPosition(0, 0, -10.5F);
     mCamera["default"].SetLens(0.25f * MathHelper::Pi, GResource::Width / GResource::Height, 1, 1000);
 }
 
+void Scene::InitWithDevice(ID3D12Device *device,
+                           ID3D12GraphicsCommandList *cmdList,
+                           DescriptorHeap *srvDescriptorHeap,
+                           std::unique_ptr<UploadBuffer<ModelVertex>> &verticesBuffer,
+                           std::unique_ptr<UploadBuffer<uint16>> &indicesBuffer,
+                           std::vector<Texture> &textures)
+{
+    Reset();
+    CreateSphereTest(device, cmdList);
+    CreateQuadTest(device, cmdList);
+    auto dataLoader = std::make_unique<DataLoader>(mRootPath, mSceneName);
+    LoadAssets(device, cmdList, srvDescriptorHeap, dataLoader.get(), mTextures);
+    verticesBuffer = std::make_unique<UploadBuffer<ModelVertex>>(device, mAllVertices.size(), false);
+    indicesBuffer = std::make_unique<UploadBuffer<UINT16>>(device, mAllIndices.size(), false);
+    BuildVertex2Constant(device, cmdList, verticesBuffer.get(), indicesBuffer.get());
+
+    mCamera["default"].SetPosition(0, 0, -10.5F);
+    mCamera["default"].SetLens(0.25f * MathHelper::Pi, GResource::Width / GResource::Height, 1, 1000);
+}
 void Scene::RenderScene(ID3D12GraphicsCommandList *cmdList, D3D12_GPU_VIRTUAL_ADDRESS constantAddress)
 {
     if (GResource::GUIManager->State.EnableModel) {
@@ -111,20 +132,21 @@ void Scene::CreateQuadTest(ID3D12Device *device, ID3D12GraphicsCommandList *cmdL
     mEntities.push_back(entity);
 }
 
-void Scene::LoadAssets(ID3D12Device *device, ID3D12GraphicsCommandList *commandList, DescriptorHeap *descriptorHeap)
+void Scene::LoadAssets(ID3D12Device *device, ID3D12GraphicsCommandList *commandList, DescriptorHeap *descriptorHeap, DataLoader *dataLoader, std::vector<Texture> &textures)
 {
     // DataLoader light, materials, obj model(vertex index normal)
-    mTransforms = mDataLoader->GetTransforms();
-    // CreateSceneInfo(mDataLoader->GetLight()); // TODO CreateSceneInfo
-    CreateMaterials(mDataLoader->GetMaterials(), device, commandList, descriptorHeap);
-    mMeshesData = mDataLoader->GetMeshes();
-    CreateModels(mDataLoader->GetModels(), device, commandList);
+    mTransforms = dataLoader->GetTransforms();
+    // CreateSceneInfo(dataLoader->GetLight()); // TODO CreateSceneInfo
+    CreateMaterials(dataLoader->GetMaterials(), device, commandList, descriptorHeap, textures);
+    mMeshesData = dataLoader->GetMeshes();
+    CreateModels(dataLoader->GetModels(), device, commandList);
 }
 
 void Scene::CreateMaterials(const std::vector<ModelMaterial> &info,
                             ID3D12Device *device,
                             ID3D12GraphicsCommandList *commandList,
-                            DescriptorHeap *descriptorHeap)
+                            DescriptorHeap *descriptorHeap,
+                            std::vector<Texture> &textures)
 {
     int index = 0;
 
@@ -138,9 +160,9 @@ void Scene::CreateMaterials(const std::vector<ModelMaterial> &info,
             std::wstring path = string2wstring(mRootPath + "\\" + item.diffuse_map);
             std::replace(path.begin(), path.end(), '/', '\\');
             Texture texture(device, commandList, path);
-            uint index = mTextures.size();
-            mTextures.push_back(std::move(texture));
-            uint srvIndex = descriptorHeap->AddSrvDescriptor(device, mTextures[index].Resource());
+            uint index = textures.size();
+            textures.push_back(std::move(texture));
+            uint srvIndex = descriptorHeap->AddSrvDescriptor(device, textures[index].Resource());
 
             material.DiffuseMapIndex = srvIndex;
         }
@@ -181,27 +203,26 @@ void Scene::CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12Gr
     }
 }
 
-void Scene::BuildVertex2Constant(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList)
+void Scene::BuildVertex2Constant(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList, UploadBuffer<ModelVertex> *verticesBuffer, UploadBuffer<uint16> *indicesBuffer)
 {
     // Upload Vertex Index Data
-    mVerticesBuffer = std::make_unique<UploadBuffer<ModelVertex>>(device, mAllVertices.size(), false);
-    mIndicesBuffer = std::make_unique<UploadBuffer<UINT16>>(device, mAllIndices.size(), false);
-    mVerticesBuffer->resource()->SetName(L"Scene Vertex Buffer");
-    mIndicesBuffer->resource()->SetName(L"Scene Index Buffer");
 
-    mVerticesBuffer->copyAllData(mAllVertices.data(), mAllVertices.size());
-    mIndicesBuffer->copyAllData(mAllIndices.data(), mAllIndices.size());
+    verticesBuffer->resource()->SetName(L"Scene Vertex Buffer");
+    indicesBuffer->resource()->SetName(L"Scene Index Buffer");
+
+    verticesBuffer->copyAllData(mAllVertices.data(), mAllVertices.size());
+    indicesBuffer->copyAllData(mAllIndices.data(), mAllIndices.size());
 
     // Create Render Item
     for (const auto &item : mEntities) {
         RenderItem target;
         target
             .SetVertexInfo(item.MeshInfo.VertexOffset,
-                           mVerticesBuffer->resource()->GetGPUVirtualAddress(),
+                           verticesBuffer->resource()->GetGPUVirtualAddress(),
                            sizeof(ModelVertex),
                            item.MeshInfo.VertexCount)
             .SetIndexInfo(item.MeshInfo.IndexOffset,
-                          mIndicesBuffer->resource()->GetGPUVirtualAddress(),
+                          indicesBuffer->resource()->GetGPUVirtualAddress(),
                           sizeof(uint16),
                           item.MeshInfo.IndexCount)
             .SetConstantInfo(item.EntityIndex,
@@ -326,4 +347,13 @@ void Scene::UpdateMouse(float dx, float dy)
 {
     mCamera["default"].Pitch(dy);
     mCamera["default"].RotateY(dx);
+}
+void Scene::Reset()
+{
+    mTransforms.clear();
+    mEntities.clear();
+    mMaterials.clear();
+    mRenderItems.clear();
+    mAllVertices.clear();
+    mAllIndices.clear();
 }

@@ -58,7 +58,7 @@ void StageFrameResource::CreateGBuffer(ID3D12Device *device, uint width, uint he
     mDescriptorMap.CBVSRVUAV["Depth"] = mSrvCbvUavHeap->AddSrvDescriptor(device, mTexture.back().Resource(), &srvDescriptor);
 }
 
-void StageFrameResource::CreateLightBuffer(ID3D12Device *device, HANDLE handle,uint width,uint height)
+void StageFrameResource::CreateLightBuffer(ID3D12Device *device, HANDLE handle, uint width, uint height)
 {
     ComPtr<ID3D12Resource> resource;
     auto hr = device->OpenSharedHandle(handle, IID_PPV_ARGS(&resource));
@@ -77,7 +77,7 @@ void StageFrameResource::CreateLightBuffer(ID3D12Device *device, HANDLE handle,u
 HANDLE StageFrameResource::CreateLightCopyBuffer(ID3D12Device *device, uint width, uint height)
 {
     HANDLE handle;
-    Texture texture(device, DXGI_FORMAT_R8G8B8A8_UNORM, width, height, D3D12_RESOURCE_FLAG_ALLOW_CROSS_ADAPTER,false,D3D12_HEAP_FLAG_SHARED_CROSS_ADAPTER | D3D12_HEAP_FLAG_SHARED);
+    Texture texture(device, DXGI_FORMAT_R8G8B8A8_UNORM, width, height, D3D12_RESOURCE_FLAG_ALLOW_CROSS_ADAPTER, false, D3D12_HEAP_FLAG_SHARED_CROSS_ADAPTER | D3D12_HEAP_FLAG_SHARED);
     mTexture.push_back(std::move(texture));
     mResourceMap["LightCopy"] = mTexture.size() - 1;
 
@@ -107,4 +107,40 @@ void StageFrameResource::CreateSwapChain(ID3D12Resource *resource)
     mResourceMap["SwapChain"] = mTexture.size() - 1;
 
     mDescriptorMap.RTV["SwapChain"] = mRtvHeap->AddRtvDescriptor(device.Get(), mTexture.back().Resource());
+}
+
+void StageFrameResource::CreateConstantBuffer(ID3D12Device *device, uint entityCount, uint lightCount, uint materialCount)
+{
+    mSceneCB.EntityCB = std::make_unique<UploadBuffer<EntityInfo>>(device, entityCount, true);
+    mSceneCB.LightCB = std::make_unique<UploadBuffer<Light>>(device, lightCount, false);
+    mSceneCB.MaterialCB = std::make_unique<UploadBuffer<MaterialInfo>>(device, materialCount, false);
+    mSceneCB.SceneCB = std::make_unique<UploadBuffer<SceneInfo>>(device, 1, true);
+}
+
+void StageFrameResource::ResetDirect()
+{
+    DirectCmdAllocator->Reset();
+    DirectCmdList->Reset(DirectCmdAllocator.Get(), nullptr);
+}
+
+void StageFrameResource::SubmitDirect(ID3D12CommandQueue *queue)
+{
+    DirectCmdList->Close();
+    ID3D12CommandList *cmdLists[] = {DirectCmdList.Get()};
+    queue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
+}
+
+void StageFrameResource::SignalDirect(ID3D12CommandQueue *queue)
+{
+    queue->Signal(Fence.Get(), ++FenceValue);
+}
+
+void StageFrameResource::FlushDirect()
+{
+    if (Fence->GetCompletedValue() < FenceValue) {
+        HANDLE eventHandle = CreateEventEx(nullptr, nullptr, false, EVENT_ALL_ACCESS);
+        ThrowIfFailed(Fence->SetEventOnCompletion(FenceValue, eventHandle));
+        WaitForSingleObject(eventHandle, INFINITE);
+        CloseHandle(eventHandle);
+    }
 }

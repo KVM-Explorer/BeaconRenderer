@@ -29,6 +29,7 @@ public:
     
     std::unique_ptr<UploadBuffer<ModelVertex>> mSceneVB;
     std::unique_ptr<UploadBuffer<uint16_t>> mSceneIB;
+    std::vector<Texture> mSceneTextures;
 
     std::unique_ptr<ResourceRegister> mResourceRegister;
 

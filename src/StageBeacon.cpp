@@ -163,6 +163,30 @@ void StageBeacon::CreateSharedResource()
 void StageBeacon::LoadAssets()
 {
     // Backend Device VB IB
+    std::string assetsPath = "Assets";
+    auto scene = std::make_unique<Scene>(assetsPath, "lighthouse");
+    for (const auto &backend : mBackendResource) {
+        auto *device = backend->Device.Get();
+        auto &frameResource = backend->mSFR.at(0);
+        frameResource.ResetDirect();
+        // VB IB
+        scene->InitWithDevice(device,
+                              frameResource.DirectCmdList.Get(),
+                              backend->mResourceRegister->SrvCbvUavDescriptorHeap.get(),
+                              backend->mSceneVB,
+                              backend->mSceneIB,
+                              backend->mSceneTextures);
+        // Frame CB
+        for (auto &fr : backend->mSFR) {
+            fr.CreateConstantBuffer(device,
+                                    scene->GetEntityCount(),
+                                    1,
+                                    scene->GetMaterialCount());
+        }
+        frameResource.SubmitDirect(backend->DirectQueue.Get());
+        frameResource.SignalDirect(backend->DirectQueue.Get());
+        frameResource.FlushDirect();
+    }
 }
 
 void StageBeacon::CreateQuad()
