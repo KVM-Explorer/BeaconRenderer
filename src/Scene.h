@@ -21,13 +21,17 @@ public:
     Scene(Scene &&) = default;
     Scene &operator=(const Scene &) = delete;
     Scene &operator=(Scene &&) = default;
+    using RenderItemsMap = std::unordered_map<EntityType, std::vector<RenderItem>>;
 
 public:
     void Init(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList, DescriptorHeap *srvDescriptorHeap);
-    void InitWithDevice(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList, DescriptorHeap *srvDescriptorHeap, std::unique_ptr<UploadBuffer<ModelVertex>> &verticesBuffer, std::unique_ptr<UploadBuffer<uint16>> &indicesBuffer, std::vector<Texture> &textures);
-    void RenderScene(ID3D12GraphicsCommandList *cmdList, D3D12_GPU_VIRTUAL_ADDRESS constantAddress);
-    void RenderQuad(ID3D12GraphicsCommandList *cmdList, D3D12_GPU_VIRTUAL_ADDRESS constantAddress);
-    void RenderSphere(ID3D12GraphicsCommandList *cmdList, D3D12_GPU_VIRTUAL_ADDRESS constantAddress);
+    void InitWithBackend(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList, DescriptorHeap *srvDescriptorHeap, std::unique_ptr<UploadBuffer<ModelVertex>> &verticesBuffer, std::unique_ptr<UploadBuffer<uint16>> &indicesBuffer, std::vector<Texture> &textures);
+    void InitWithDisplay(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList, std::unique_ptr<UploadBuffer<ModelVertex>> &verticesBuffer, std::unique_ptr<UploadBuffer<UINT16>> &indicesBuffer);
+    void Reset();
+    std::unordered_map<EntityType, std::vector<RenderItem>> GetRenderItems() const { return mRenderItems; };
+    void RenderScene(ID3D12GraphicsCommandList *cmdList, D3D12_GPU_VIRTUAL_ADDRESS constantAddress, RenderItemsMap *renderItems = nullptr);
+    void RenderQuad(ID3D12GraphicsCommandList *cmdList, D3D12_GPU_VIRTUAL_ADDRESS constantAddress, RenderItemsMap *renderItems = nullptr);
+    void RenderSphere(ID3D12GraphicsCommandList *cmdList, D3D12_GPU_VIRTUAL_ADDRESS constantAddress, RenderItemsMap *renderItems = nullptr);
 
     void UpdateCamera();
     void UpdateSceneConstant(UploadBuffer<SceneInfo> *uploader);
@@ -48,7 +52,6 @@ public:
     void CreateMaterials(const std::vector<ModelMaterial> &info, ID3D12Device *device, ID3D12GraphicsCommandList *commandList, DescriptorHeap *descriptorHeap, std::vector<Texture> &textures);
     MeshInfo AddMesh(Mesh &mesh, ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
     void CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
-    void Reset();
 
 private:
     std::unordered_map<std::string, Camera> mCamera;

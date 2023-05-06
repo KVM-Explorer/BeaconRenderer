@@ -27,6 +27,9 @@ DisplayResource::DisplayResource(IDXGIFactory *factory, IDXGIAdapter1 *adapter, 
 
 DisplayResource::~DisplayResource()
 {
+    for (auto &deviceFrames : mSFR) deviceFrames.clear();
+    mSFR.clear();
+    mRenderItems.clear();
     mQuadIB = nullptr;
     mQuadVB = nullptr;
     mResourceRegister.reset();
@@ -71,7 +74,7 @@ void DisplayResource::CreateRenderTargets(uint width, uint height, size_t backen
 
 std::vector<HANDLE> DisplayResource::CreateSharedTexture(uint width, uint height, size_t backendCount)
 {
-    if(mSFR.empty()) throw std::runtime_error("Render targets must be created before shared textures");
+    if (mSFR.empty()) throw std::runtime_error("Render targets must be created before shared textures");
     std::vector<HANDLE> handles;
     for (uint i = 0; i < backendCount; i++) {
         for (uint j = 0; j < mFrameCount; j++) {

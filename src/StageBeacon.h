@@ -45,6 +45,8 @@ private:
 
     const uint FrameCount;
 
+    std::unique_ptr<Scene> mScene;
+
     std::unique_ptr<DisplayResource> mDisplayResource;
     std::vector<std::unique_ptr<BackendResource>> mBackendResource;
 };

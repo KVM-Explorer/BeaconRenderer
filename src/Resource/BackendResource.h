@@ -6,14 +6,15 @@
 #include "DataStruct.h"
 #include "D3DHelpler/ResourceRegister.h"
 #include "StageFrameResource.h"
+#include "Scene.h"
 
 struct BackendResource {
 public:
-    BackendResource(IDXGIFactory *factory, IDXGIAdapter1 *adapter,uint frameCount);
+    BackendResource(IDXGIFactory *factory, IDXGIAdapter1 *adapter, uint frameCount);
     ~BackendResource();
 
     void CreateRenderTargets(uint width, uint height);
-    void CreateSharedTexture(uint width, uint height,std::vector<HANDLE> &handle);
+    void CreateSharedTexture(uint width, uint height, std::vector<HANDLE> &handle);
     uint GetDeviceID() const { return DeviceID; }
 
     ComPtr<ID3D12Device> Device;
@@ -26,10 +27,11 @@ public:
     std::unique_ptr<LightPass> mLightPass;
 
     const uint mFrameCount;
-    
+
     std::unique_ptr<UploadBuffer<ModelVertex>> mSceneVB;
     std::unique_ptr<UploadBuffer<uint16_t>> mSceneIB;
     std::vector<Texture> mSceneTextures;
+    Scene::RenderItemsMap mRenderItems;
 
     std::unique_ptr<ResourceRegister> mResourceRegister;
 

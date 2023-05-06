@@ -28,7 +28,7 @@ void StageBeacon::OnInit()
     // Pass
 
     LoadAssets(); // Backend GPU
-    CreateQuad(); // Display GPU
+    // CreateQuad(); // Display GPU
 
     // init Resource State (Resource init State is D3D12_RESOURCE_STATE_GENERIC_READ)
 }
@@ -49,6 +49,7 @@ void StageBeacon::OnMouseDown(WPARAM btnState, int x, int y)
 
 void StageBeacon::OnDestory()
 {
+    mScene = nullptr;
     mBackendResource.clear();
     mDisplayResource = nullptr;
     mFactory = nullptr;
@@ -170,25 +171,39 @@ void StageBeacon::LoadAssets()
         auto &frameResource = backend->mSFR.at(0);
         frameResource.ResetDirect();
         // VB IB
-        scene->InitWithDevice(device,
-                              frameResource.DirectCmdList.Get(),
-                              backend->mResourceRegister->SrvCbvUavDescriptorHeap.get(),
-                              backend->mSceneVB,
-                              backend->mSceneIB,
-                              backend->mSceneTextures);
+        scene->InitWithBackend(device,
+                               frameResource.DirectCmdList.Get(),
+                               backend->mResourceRegister->SrvCbvUavDescriptorHeap.get(),
+                               backend->mSceneVB,
+                               backend->mSceneIB,
+                               backend->mSceneTextures);
         // Frame CB
-        for (auto &fr : backend->mSFR) {
-            fr.CreateConstantBuffer(device,
-                                    scene->GetEntityCount(),
-                                    1,
-                                    scene->GetMaterialCount());
-        }
+        // for (auto &fr : backend->mSFR) {
+        //     fr.CreateConstantBuffer(device,
+        //                             scene->GetEntityCount(),
+        //                             1,
+        //                             scene->GetMaterialCount());
+        // }
+        backend->mRenderItems = scene->GetRenderItems();
         frameResource.SubmitDirect(backend->DirectQueue.Get());
         frameResource.SignalDirect(backend->DirectQueue.Get());
         frameResource.FlushDirect();
     }
+    mScene = std::move(scene);
 }
 
 void StageBeacon::CreateQuad()
 {
+    auto *device = mDisplayResource->Device.Get();
+    auto &frameResource = mDisplayResource->mSFR.at(0).at(0);
+
+    frameResource.ResetDirect();
+    mScene->InitWithDisplay(device,
+                            frameResource.DirectCmdList.Get(),
+                            mDisplayResource->mQuadVB,
+                            mDisplayResource->mQuadIB);
+    mDisplayResource->mRenderItems = mScene->GetRenderItems();
+    frameResource.SubmitDirect(mDisplayResource->DirectQueue.Get());
+    frameResource.SignalDirect(mDisplayResource->DirectQueue.Get());
+    frameResource.FlushDirect();
 }

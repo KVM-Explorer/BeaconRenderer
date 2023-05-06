@@ -32,18 +32,18 @@ void Scene::Init(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList, Descr
     mCamera["default"].SetLens(0.25f * MathHelper::Pi, GResource::Width / GResource::Height, 1, 1000);
 }
 
-void Scene::InitWithDevice(ID3D12Device *device,
-                           ID3D12GraphicsCommandList *cmdList,
-                           DescriptorHeap *srvDescriptorHeap,
-                           std::unique_ptr<UploadBuffer<ModelVertex>> &verticesBuffer,
-                           std::unique_ptr<UploadBuffer<uint16>> &indicesBuffer,
-                           std::vector<Texture> &textures)
+void Scene::InitWithBackend(ID3D12Device *device,
+                            ID3D12GraphicsCommandList *cmdList,
+                            DescriptorHeap *srvDescriptorHeap,
+                            std::unique_ptr<UploadBuffer<ModelVertex>> &verticesBuffer,
+                            std::unique_ptr<UploadBuffer<uint16>> &indicesBuffer,
+                            std::vector<Texture> &textures)
 {
     Reset();
     CreateSphereTest(device, cmdList);
     CreateQuadTest(device, cmdList);
     auto dataLoader = std::make_unique<DataLoader>(mRootPath, mSceneName);
-    LoadAssets(device, cmdList, srvDescriptorHeap, dataLoader.get(), mTextures);
+    LoadAssets(device, cmdList, srvDescriptorHeap, dataLoader.get(), textures);
     verticesBuffer = std::make_unique<UploadBuffer<ModelVertex>>(device, mAllVertices.size(), false);
     indicesBuffer = std::make_unique<UploadBuffer<UINT16>>(device, mAllIndices.size(), false);
     BuildVertex2Constant(device, cmdList, verticesBuffer.get(), indicesBuffer.get());
@@ -51,26 +51,43 @@ void Scene::InitWithDevice(ID3D12Device *device,
     mCamera["default"].SetPosition(0, 0, -10.5F);
     mCamera["default"].SetLens(0.25f * MathHelper::Pi, GResource::Width / GResource::Height, 1, 1000);
 }
-void Scene::RenderScene(ID3D12GraphicsCommandList *cmdList, D3D12_GPU_VIRTUAL_ADDRESS constantAddress)
+
+void Scene::InitWithDisplay(ID3D12Device *device,
+                            ID3D12GraphicsCommandList *cmdList,
+                            std::unique_ptr<UploadBuffer<ModelVertex>> &verticesBuffer,
+                            std::unique_ptr<UploadBuffer<UINT16>> &indicesBuffer)
 {
+    Reset();
+    CreateQuadTest(device, cmdList);
+    verticesBuffer = std::make_unique<UploadBuffer<ModelVertex>>(device, mAllVertices.size(), false);
+    indicesBuffer = std::make_unique<UploadBuffer<UINT16>>(device, mAllIndices.size(), false);
+    BuildVertex2Constant(device, cmdList, verticesBuffer.get(), indicesBuffer.get());
+}
+
+void Scene::RenderScene(ID3D12GraphicsCommandList *cmdList, D3D12_GPU_VIRTUAL_ADDRESS constantAddress, RenderItemsMap *renderItems)
+{
+    if (renderItems == nullptr) renderItems = &mRenderItems;
+
     if (GResource::GUIManager->State.EnableModel) {
-        for (auto &item : mRenderItems[EntityType::Opaque]) {
+        for (auto &item : renderItems->at(EntityType::Opaque)) {
             item.DrawItem(cmdList, constantAddress);
         }
     }
 }
 
-void Scene::RenderQuad(ID3D12GraphicsCommandList *cmdList, D3D12_GPU_VIRTUAL_ADDRESS constantAddress)
+void Scene::RenderQuad(ID3D12GraphicsCommandList *cmdList, D3D12_GPU_VIRTUAL_ADDRESS constantAddress, RenderItemsMap *renderItems)
 {
-    for (auto &item : mRenderItems[EntityType::Quad]) {
+    if (renderItems == nullptr) renderItems = &mRenderItems;
+    for (auto &item : renderItems->at(EntityType::Quad)) {
         item.DrawItem(cmdList, constantAddress);
     }
 }
 
-void Scene::RenderSphere(ID3D12GraphicsCommandList *cmdList, D3D12_GPU_VIRTUAL_ADDRESS constantAddress)
+void Scene::RenderSphere(ID3D12GraphicsCommandList *cmdList, D3D12_GPU_VIRTUAL_ADDRESS constantAddress, RenderItemsMap *renderItems)
 {
+    if (renderItems == nullptr) renderItems = &mRenderItems;
     if (GResource::GUIManager->State.EnableSphere) {
-        for (auto &item : mRenderItems[EntityType::Test]) {
+        for (auto &item : renderItems->at(EntityType::Test)) {
             item.DrawItem(cmdList, constantAddress);
         }
     }

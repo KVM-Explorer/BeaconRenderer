@@ -31,6 +31,9 @@ BackendResource::BackendResource(IDXGIFactory *factory, IDXGIAdapter1 *adapter, 
 
 BackendResource::~BackendResource()
 {
+    mSFR.clear();
+    mRenderItems.clear();
+    mSceneTextures.clear();
     mSceneIB = nullptr;
     mSceneVB = nullptr;
     mResourceRegister.reset();

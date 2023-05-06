@@ -20,7 +20,12 @@ StageFrameResource::StageFrameResource(ID3D12Device *device, ResourceRegister *r
 
 StageFrameResource::~StageFrameResource()
 {
-    mTexture.clear();
+    mSceneCB.SceneCB = nullptr;
+    mSceneCB.EntityCB = nullptr;
+    mSceneCB.MaterialCB = nullptr;
+    mSceneCB.LightCB = nullptr;
+
+    mTexture.clear(); // Custom Render Tagrets
     mDescriptorMap.RTV.clear();
     mDescriptorMap.DSV.clear();
     mDescriptorMap.CBVSRVUAV.clear();
