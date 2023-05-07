@@ -32,6 +32,8 @@ struct StageFrameResource {
     void SignalCopy(ID3D12CommandQueue *queue);
     void FlushCopy();
 
+    void SetCurrentFrameCB();
+
     ID3D12Resource *GetResource(std::string name);
     CD3DX12_CPU_DESCRIPTOR_HANDLE GetRtv(std::string name);
     CD3DX12_CPU_DESCRIPTOR_HANDLE GetDsv(std::string name);

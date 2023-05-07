@@ -30,6 +30,7 @@ RenderItem &RenderItem::SetConstantInfo(uint index,
 
 void RenderItem::DrawItem(ID3D12GraphicsCommandList *commandList, D3D12_GPU_VIRTUAL_ADDRESS constantAddress)
 {
+    // Entity Constant address
     auto address = constantAddress + mConstantOffset * mConstantSize;
     commandList->SetGraphicsRootConstantBufferView(mRootParameterIndex, address);
     commandList->IASetPrimitiveTopology(mPrimitiveType);

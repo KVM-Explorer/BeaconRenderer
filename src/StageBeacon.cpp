@@ -187,7 +187,7 @@ void StageBeacon::LoadAssets()
 {
     // Backend Device VB IB
     std::string assetsPath = "Assets";
-    auto scene = std::make_unique<Scene>(assetsPath, "lighthouse");
+    auto scene = std::make_unique<Scene>(assetsPath, "witch");
     for (const auto &backend : mBackendResource) {
         auto *device = backend->Device.Get();
         auto &frameResource = backend->mSFR.at(0);
@@ -199,10 +199,10 @@ void StageBeacon::LoadAssets()
                                backend->mSceneVB,
                                backend->mSceneIB,
                                backend->mSceneTextures);
-        uint sceneTextureBase = backend->mResourceRegister->SrvCbvUavDescriptorHeap->Length();
+
         // Frame CB
         for (auto &fr : backend->mSFR) {
-            fr.SetSceneTextureBase(sceneTextureBase);
+            fr.SetSceneTextureBase(0); // DiffuseMap取的是所有SRV中的ID因而Texture的基准应该从第0个开始
             fr.CreateConstantBuffer(device,
                                     scene->GetEntityCount(),
                                     1,
@@ -235,8 +235,6 @@ void StageBeacon::InitSceneCB()
 {
     // Backend Device Local FrameBuffer
     for (const auto &backendResource : mBackendResource) {
-        auto *device = backendResource->Device.Get();
-        auto &frameResource = backendResource->mSFR.at(0);
         // Frame CB
         for (auto &fr : backendResource->mSFR) {
             mScene->UpdateSceneConstant(fr.mSceneCB.SceneCB.get());
@@ -317,7 +315,7 @@ void StageBeacon::ExecutePass(BackendResource *backend, uint backendIndex)
 {
     auto [stage1, stage1Index] = backend->GetCurrentFrame(Stage::DeferredRendering);
     auto [stage2, stage2Index] = backend->GetCurrentFrame(Stage::CopyTexture);
-    auto [stage3pre,stage3preIndex] = backend->GetCurrentFrame(Stage::PostProcess);
+    auto [stage3pre, stage3preIndex] = backend->GetCurrentFrame(Stage::PostProcess);
     auto [stage3, stage3Index] = mDisplayResource->GetCurrentFrame(backendIndex, Stage::PostProcess, stage1Index);
 
     // =============================== Stage 1 DeferredRendering ===============================
@@ -330,17 +328,18 @@ void StageBeacon::ExecutePass(BackendResource *backend, uint backendIndex)
     auto &gbufferPass = *(backend->mGBufferPass);
     {
         gbufferPass.BeginPass(stage1->DirectCmdList.Get());
+        stage1->SetCurrentFrameCB();
         mScene->RenderScene(stage1->DirectCmdList.Get(), entitiesCB, &backend->mRenderItems);
         mScene->RenderSphere(stage1->DirectCmdList.Get(), entitiesCB, &backend->mRenderItems);
         gbufferPass.EndPass(stage1->DirectCmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
     }
 
-    // auto &lightPass = *(backend->mLightPass);
-    // {
-    //     lightPass.BeginPass(stage1->DirectCmdList.Get(), D3D12_RESOURCE_STATE_COMMON);
-    //     mScene->RenderQuad(stage1->DirectCmdList.Get(), entitiesCB, &backend->mRenderItems);
-    //     lightPass.EndPass(stage1->DirectCmdList.Get(), D3D12_RESOURCE_STATE_COMMON);
-    // }
+    auto &lightPass = *(backend->mLightPass);
+    {
+        lightPass.BeginPass(stage1->DirectCmdList.Get(), D3D12_RESOURCE_STATE_COMMON);
+        mScene->RenderQuad(stage1->DirectCmdList.Get(), entitiesCB, &backend->mRenderItems);
+        lightPass.EndPass(stage1->DirectCmdList.Get(), D3D12_RESOURCE_STATE_COMMON);
+    }
     stage1->SubmitDirect(backend->DirectQueue.Get());
     stage1->SignalDirect(backend->DirectQueue.Get());
 

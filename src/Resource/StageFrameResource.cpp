@@ -51,6 +51,7 @@ void StageFrameResource::CreateGBuffer(ID3D12Device *device, uint width, uint he
     }
     Texture texture(device, depthFormat, width, height, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL, true);
     mTexture.push_back(std::move(texture));
+
     mResourceMap["Depth"] = mTexture.size() - 1;
     mDescriptorMap.DSV["Depth"] = mDsvHeap->AddDsvDescriptor(device, mTexture.back().Resource());
 
@@ -230,4 +231,12 @@ CD3DX12_CPU_DESCRIPTOR_HANDLE StageFrameResource::GetDsv(std::string name)
 CD3DX12_GPU_DESCRIPTOR_HANDLE StageFrameResource::GetSrvCbvUav(std::string name)
 {
     return mSrvCbvUavHeap->GPUHandle(mDescriptorMap.CBVSRVUAV.at(name));
+}
+
+
+void StageFrameResource::SetCurrentFrameCB()
+{
+    DirectCmdList->SetGraphicsRootConstantBufferView(1, mSceneCB.SceneCB->resource()->GetGPUVirtualAddress());
+    DirectCmdList->SetGraphicsRootShaderResourceView(2, mSceneCB.LightCB->resource()->GetGPUVirtualAddress());
+    DirectCmdList->SetGraphicsRootShaderResourceView(5, mSceneCB.MaterialCB->resource()->GetGPUVirtualAddress());
 }
