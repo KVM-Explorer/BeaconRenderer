@@ -11,8 +11,10 @@ BackendResource::BackendResource(IDXGIFactory *factory, IDXGIAdapter1 *adapter, 
     queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
     queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
     ThrowIfFailed(Device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&DirectQueue)));
+    DirectQueue->SetName(L"Backend DirectQueue");
     queueDesc.Type = D3D12_COMMAND_LIST_TYPE_COPY;
     ThrowIfFailed(Device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&CopyQueue)));
+    CopyQueue->SetName(L"Backend CopyQueue");
 
     mRTVDescriptorSize = Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
     mDSVDescriptorSize = Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);

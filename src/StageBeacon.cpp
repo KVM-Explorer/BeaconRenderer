@@ -321,6 +321,7 @@ void StageBeacon::ExecutePass(BackendResource *backend, uint backendIndex)
     // =============================== Stage 1 DeferredRendering ===============================
     stage1->FlushDirect();
     stage1->ResetDirect();
+    backend->DirectQueue->Wait(stage1->SharedFence.Get(), stage1->SharedFenceValue);
     stage1->DirectCmdList->RSSetViewports(1, &mViewPort);
     stage1->DirectCmdList->RSSetScissorRects(1, &mScissor);
 
@@ -344,15 +345,15 @@ void StageBeacon::ExecutePass(BackendResource *backend, uint backendIndex)
     stage1->SignalDirect(backend->DirectQueue.Get());
 
     // ========================Stage 2 Copy Texture ========================
-    // stage2->FlushCopy(); // 等待上一帧拷贝完毕
-    // stage2->ResetCopy();
-    // backend->CopyQueue->Wait(stage2->Fence.Get(), stage2->FenceValue); // 等待上一帧渲染完毕
+    stage2->FlushCopy(); // 等待上一帧拷贝完毕
+    stage2->ResetCopy();
+    backend->CopyQueue->Wait(stage2->Fence.Get(), stage2->FenceValue); // 等待上一帧渲染完毕
 
-    // {
-    //     // stage2->CopyCmdList->CopyResource(stage2->GetResource("LightCopy"), stage1->GetResource("Light"));
-    // }
-    // stage2->SubmitCopy(backend->CopyQueue.Get());
-    // stage2->SignalCopy(backend->CopyQueue.Get());
+    {
+        stage2->CopyCmdList->CopyResource(stage2->GetResource("LightCopy"), stage2->GetResource("Light"));
+    }
+    stage2->SubmitCopy(backend->CopyQueue.Get());
+    stage2->SignalCopy(backend->CopyQueue.Get());
 
     // ========================Stage 3 PostProcess ========================
     // stage3->FlushDirect();

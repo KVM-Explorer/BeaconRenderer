@@ -87,6 +87,7 @@ void StageFrameResource::CreateLightBuffer(ID3D12Device *device, HANDLE handle, 
     mTexture.push_back(std::move(lightTexture));
     mResourceMap["Light"] = mTexture.size() - 1;
     mDescriptorMap.RTV["Light"] = mRtvHeap->AddRtvDescriptor(device, mTexture.back().Resource());
+    mTexture.back().Resource()->SetName(L"Light");
 }
 
 HANDLE StageFrameResource::CreateLightCopyBuffer(ID3D12Device *device, uint width, uint height)
