@@ -59,13 +59,26 @@ void BackendResource::CreateSharedTexture(uint width, uint height, std::vector<H
     }
 }
 
+void BackendResource::CreateSharedFence(std::vector<HANDLE>& handle)
+{
+    if (mSFR.empty()) std::runtime_error("CreateSharedFence must be called after CreateRenderTargets");
+    for (uint i = 0; i < mFrameCount; i++) {
+        mSFR[i].CreateSharedFence(Device.Get(), handle[i]);
+    }
+}
+
 std::tuple<StageFrameResource *, uint> BackendResource::GetCurrentFrame(Stage stage)
 {
+    uint frameIndex = 0;
     switch (stage) {
     case Stage::DeferredRendering:
         return {&mSFR[mCurrentFrameIndex], mCurrentFrameIndex};
     case Stage::CopyTexture:
-        return {&mSFR[(mCurrentFrameIndex + 1) % mFrameCount], (mCurrentFrameIndex + 1) % mFrameCount};
+        frameIndex = (mCurrentFrameIndex - 1 + mFrameCount) % mFrameCount;
+        return {&mSFR[frameIndex], frameIndex};
+    case Stage::PostProcess:
+        frameIndex = (mCurrentFrameIndex - 2 + mFrameCount) % mFrameCount;
+        return {&mSFR[frameIndex], frameIndex};
     default:
         throw std::runtime_error("Stage not supported");
     }

@@ -36,11 +36,16 @@ private:
     void CreateSignature2PSO();
     void CreateRtv(HWND handle);
     void CreateSharedResource();
+    void CreateSharedFence();
     void ResetResourceState();
     void InitSceneCB();
+    void InitPass();
 
     std::tuple<BackendResource *,uint> GetCurrentBackend() const;
     void IncrementBackendIndex();
+
+    void SetPass(BackendResource *backend, uint index);
+    void ExecutePass(BackendResource *backend, uint index);
     // =================== Property ===================
 
     CD3DX12_VIEWPORT mViewPort;

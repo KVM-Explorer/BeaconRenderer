@@ -86,11 +86,26 @@ std::vector<HANDLE> DisplayResource::CreateSharedTexture(uint width, uint height
     return handles;
 }
 
-std::tuple<StageFrameResource *, uint> DisplayResource::GetCurrentFrame(uint backendIndex, Stage stage)
+std::vector<HANDLE> DisplayResource::CreateSharedFence(size_t backendCount)
+{
+    std::vector<HANDLE> handles;
+    for (uint i = 0; i < backendCount; i++) {
+        for (uint j = 0; j < mFrameCount; j++) {
+            auto &frameResource = mSFR[i][j];
+            HANDLE handle = frameResource.CreateSharedFence(Device.Get());
+            handles.push_back(handle);
+        }
+    }
+    return handles;
+}
+
+std::tuple<StageFrameResource *, uint> DisplayResource::GetCurrentFrame(uint backendIndex, Stage stage, uint currentBackendIndex)
 {
     switch (stage) {
-    case Stage::PostProcess:
-        return {&(mSFR[backendIndex][mCurrentFrameIndex]), mCurrentFrameIndex};
+    case Stage::PostProcess: {
+        auto index = (currentBackendIndex - 2 + mFrameCount) % mFrameCount;
+        return {&(mSFR[backendIndex][index]), index};
+    }
     default:
         throw std::runtime_error("Invalid stage");
     }

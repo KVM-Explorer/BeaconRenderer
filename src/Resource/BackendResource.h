@@ -15,12 +15,16 @@ public:
 
     void CreateRenderTargets(uint width, uint height);
     void CreateSharedTexture(uint width, uint height, std::vector<HANDLE> &handle);
+    void CreateSharedFence(std::vector<HANDLE> &handle);
     std::tuple<StageFrameResource *, uint> GetCurrentFrame(Stage stage);
-    void IncrementFrameIndex(){ mCurrentFrameIndex = (mCurrentFrameIndex + 1) % mFrameCount;};
+    void IncrementFrameIndex() { mCurrentFrameIndex = (mCurrentFrameIndex + 1) % mFrameCount; };
 
     ComPtr<ID3D12Device> Device;
     ComPtr<ID3D12CommandQueue> DirectQueue;
     ComPtr<ID3D12CommandQueue> CopyQueue;
+    std::vector<ComPtr<ID3D12GraphicsCommandList>> BundleLists;
+    ComPtr<ID3D12CommandAllocator> BundleAllocator;
+
     std::unordered_map<std::string, ComPtr<ID3D12RootSignature>> Signature;
     std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> PSO;
 

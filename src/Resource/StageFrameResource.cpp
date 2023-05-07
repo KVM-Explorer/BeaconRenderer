@@ -43,9 +43,11 @@ void StageFrameResource::CreateGBuffer(ID3D12Device *device, uint width, uint he
     for (uint i = 0; i < targetFormat.size(); ++i) {
         Texture texture(device, targetFormat[i], width, height, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
         mTexture.push_back(std::move(texture));
-        mResourceMap["GBuffer" + std::to_string(i)] = mTexture.size() - 1;
+        auto name = std::format("GBuffer{}", i);
+        mResourceMap[name] = mTexture.size() - 1;
 
-        mDescriptorMap.RTV["GBuffer" + std::to_string(i)] = mRtvHeap->AddRtvDescriptor(device, mTexture.back().Resource());
+        mDescriptorMap.RTV[name] = mRtvHeap->AddRtvDescriptor(device, mTexture.back().Resource());
+        mDescriptorMap.CBVSRVUAV[name] = mSrvCbvUavHeap->AddSrvDescriptor(device, mTexture.back().Resource());
     }
     Texture texture(device, depthFormat, width, height, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL, true);
     mTexture.push_back(std::move(texture));
@@ -83,6 +85,7 @@ void StageFrameResource::CreateLightBuffer(ID3D12Device *device, HANDLE handle, 
                          D3D12_RESOURCE_STATE_COMMON);
     mTexture.push_back(std::move(lightTexture));
     mResourceMap["Light"] = mTexture.size() - 1;
+    mDescriptorMap.RTV["Light"] = mRtvHeap->AddRtvDescriptor(device, mTexture.back().Resource());
 }
 
 HANDLE StageFrameResource::CreateLightCopyBuffer(ID3D12Device *device, uint width, uint height)
@@ -125,12 +128,32 @@ void StageFrameResource::CreateSwapChain(ID3D12Resource *resource)
     mDescriptorMap.RTV["SwapChain"] = mRtvHeap->AddRtvDescriptor(device.Get(), mTexture.back().Resource());
 }
 
+void StageFrameResource::SetSceneTextureBase(uint base)
+{
+    mDescriptorMap.CBVSRVUAV["SceneTextureBase"] = base;
+}
+
 void StageFrameResource::CreateConstantBuffer(ID3D12Device *device, uint entityCount, uint lightCount, uint materialCount)
 {
     mSceneCB.EntityCB = std::make_unique<UploadBuffer<EntityInfo>>(device, entityCount, true);
     mSceneCB.LightCB = std::make_unique<UploadBuffer<Light>>(device, lightCount, false);
     mSceneCB.MaterialCB = std::make_unique<UploadBuffer<MaterialInfo>>(device, materialCount, false);
     mSceneCB.SceneCB = std::make_unique<UploadBuffer<SceneInfo>>(device, 1, true);
+}
+
+void StageFrameResource::CreateSharedFence(ID3D12Device *device, HANDLE handle)
+{
+    auto hr = device->OpenSharedHandle(handle, IID_PPV_ARGS(&SharedFence));
+    ::CloseHandle(handle);
+    ThrowIfFailed(hr);
+}
+
+HANDLE StageFrameResource::CreateSharedFence(ID3D12Device *device)
+{
+    HANDLE handle;
+    ThrowIfFailed(device->CreateFence(0, D3D12_FENCE_FLAG_SHARED | D3D12_FENCE_FLAG_SHARED_CROSS_ADAPTER, IID_PPV_ARGS(&SharedFence)));
+    device->CreateSharedHandle(SharedFence.Get(), nullptr, GENERIC_ALL, nullptr, &handle);
+    return handle;
 }
 
 void StageFrameResource::ResetDirect()
@@ -159,4 +182,52 @@ void StageFrameResource::FlushDirect()
         WaitForSingleObject(eventHandle, INFINITE);
         CloseHandle(eventHandle);
     }
+}
+
+void StageFrameResource::ResetCopy()
+{
+    CopyCmdAllocator->Reset();
+    CopyCmdList->Reset(CopyCmdAllocator.Get(), nullptr);
+}
+
+void StageFrameResource::SubmitCopy(ID3D12CommandQueue *queue)
+{
+    CopyCmdList->Close();
+    ID3D12CommandList *cmdLists[] = {CopyCmdList.Get()};
+    queue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
+}
+
+void StageFrameResource::SignalCopy(ID3D12CommandQueue *queue)
+{
+    queue->Signal(SharedFence.Get(), ++SharedFenceValue);
+}
+
+void StageFrameResource::FlushCopy()
+{
+    if (SharedFence->GetCompletedValue() < SharedFenceValue) {
+        HANDLE eventHandle = CreateEventEx(nullptr, nullptr, false, EVENT_ALL_ACCESS);
+        ThrowIfFailed(Fence->SetEventOnCompletion(SharedFenceValue, eventHandle));
+        WaitForSingleObject(eventHandle, INFINITE);
+        CloseHandle(eventHandle);
+    }
+}
+
+ID3D12Resource *StageFrameResource::GetResource(std::string name)
+{
+    return mTexture.at(mResourceMap.at(name)).Resource();
+}
+
+CD3DX12_CPU_DESCRIPTOR_HANDLE StageFrameResource::GetRtv(std::string name)
+{
+    return mRtvHeap->CPUHandle(mDescriptorMap.RTV.at(name));
+}
+
+CD3DX12_CPU_DESCRIPTOR_HANDLE StageFrameResource::GetDsv(std::string name)
+{
+    return mDsvHeap->CPUHandle(mDescriptorMap.DSV.at(name));
+}
+
+CD3DX12_GPU_DESCRIPTOR_HANDLE StageFrameResource::GetSrvCbvUav(std::string name)
+{
+    return mSrvCbvUavHeap->GPUHandle(mDescriptorMap.CBVSRVUAV.at(name));
 }
