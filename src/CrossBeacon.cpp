@@ -299,7 +299,7 @@ void CrossBeacon::SetPass(uint frameIndex)
     // ===================== Quad Pass =====================
     mQuadPass->SetTarget(iFR.GetResource("SwapChain"), iFR.GetRtv("SwapChain"));
     mQuadPass->SetRenderType(QuadShader::MixQuad);
-    mQuadPass->SetSrvHandle(iFR.GetSrvCbvUav("CScreenTexture1"));
+    mQuadPass->SetSrvHandle(iFR.GetSrvCbvUav("CScreenTexture1")); // LightCopy Sobel SwapChain
 }
 
 void CrossBeacon::ExecutePass(uint frameIndex)
@@ -367,7 +367,7 @@ void CrossBeacon::ExecutePass(uint frameIndex)
         iFR.CmdList3D->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
         iFR.CmdList3D->IASetVertexBuffers(0, 1, &mIGpuQuadVBView);
         iFR.CmdList3D->DrawInstanced(4, 1, 0, 0);
-        mQuadPass->EndPass(iFR.CmdList3D.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET); // resource state no use
+        mQuadPass->EndPass(iFR.CmdList3D.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET); 
     }
     PIXEndEvent(iFR.CmdList3D.Get());
 

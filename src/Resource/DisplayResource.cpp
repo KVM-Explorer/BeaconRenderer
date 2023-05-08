@@ -29,7 +29,6 @@ DisplayResource::~DisplayResource()
 {
     for (auto &deviceFrames : mSFR) deviceFrames.clear();
     mSFR.clear();
-    mRenderItems.clear();
     mQuadIB = nullptr;
     mQuadVB = nullptr;
     mResourceRegister.reset();
@@ -56,32 +55,33 @@ void DisplayResource::CreateSwapChain(IDXGIFactory6 *factory, HWND handle, uint 
 
 void DisplayResource::CreateRenderTargets(uint width, uint height, size_t backendCount)
 {
+    if (mSFR.empty()) throw std::runtime_error(" shared textures must be created before Render targets ");
+
     auto swapBufferCount = backendCount * mFrameCount;
 
     for (uint i = 0; i < backendCount; i++) {
-        std::vector<StageFrameResource> deviceFrames;
         for (uint j = 0; j < mFrameCount; j++) {
             ComPtr<ID3D12Resource> backBuffer;
-            StageFrameResource frameResource(Device.Get(), mResourceRegister.get());
+            auto &frameResource = mSFR[i][j];
             SwapChain->GetBuffer(i * mFrameCount + j, IID_PPV_ARGS(&backBuffer));
             frameResource.CreateSobelBuffer(Device.Get(), width, height);
             frameResource.CreateSwapChain(backBuffer.Get());
-            deviceFrames.push_back(std::move(frameResource));
         }
-        mSFR.push_back(std::move(deviceFrames));
     }
 }
 
 std::vector<HANDLE> DisplayResource::CreateSharedTexture(uint width, uint height, size_t backendCount)
 {
-    if (mSFR.empty()) throw std::runtime_error("Render targets must be created before shared textures");
     std::vector<HANDLE> handles;
     for (uint i = 0; i < backendCount; i++) {
+        std::vector<StageFrameResource> deviceFrames;
         for (uint j = 0; j < mFrameCount; j++) {
-            auto &frameResource = mSFR[i][j];
+            StageFrameResource frameResource(Device.Get(), mResourceRegister.get());
             HANDLE handle = frameResource.CreateLightCopyBuffer(Device.Get(), width, height);
+            deviceFrames.push_back(std::move(frameResource));
             handles.push_back(handle);
         }
+        mSFR.push_back(std::move(deviceFrames));
     }
     return handles;
 }
@@ -109,4 +109,15 @@ std::tuple<StageFrameResource *, uint> DisplayResource::GetCurrentFrame(uint bac
     default:
         throw std::runtime_error("Invalid stage");
     }
+}
+
+void DisplayResource::CreateScreenQuadView()
+{
+    ScreenQuadVBView.BufferLocation = mQuadVB->resource()->GetGPUVirtualAddress();
+    ScreenQuadVBView.StrideInBytes = sizeof(ModelVertex);
+    ScreenQuadVBView.SizeInBytes = sizeof(ModelVertex) * 4;
+
+    ScreenQuadIBView.BufferLocation = mQuadIB->resource()->GetGPUVirtualAddress();
+    ScreenQuadIBView.Format = DXGI_FORMAT_R16_UINT;
+    ScreenQuadIBView.SizeInBytes = sizeof(uint16_t) * 6;
 }

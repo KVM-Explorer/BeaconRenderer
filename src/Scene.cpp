@@ -83,6 +83,14 @@ void Scene::RenderQuad(ID3D12GraphicsCommandList *cmdList, D3D12_GPU_VIRTUAL_ADD
     }
 }
 
+void Scene::RenderScreenQuad(ID3D12GraphicsCommandList *cmdList,D3D12_VERTEX_BUFFER_VIEW *vertexBufferView, D3D12_INDEX_BUFFER_VIEW *indexBufferView)
+{
+    cmdList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+    cmdList->IASetVertexBuffers(0, 1, vertexBufferView);
+    cmdList->IASetIndexBuffer(indexBufferView);
+    cmdList->DrawIndexedInstanced(6, 1, 0, 0, 0);
+}
+
 void Scene::RenderSphere(ID3D12GraphicsCommandList *cmdList, D3D12_GPU_VIRTUAL_ADDRESS constantAddress, RenderItemsMap *renderItems)
 {
     if (renderItems == nullptr) renderItems = &mRenderItems;

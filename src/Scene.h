@@ -32,6 +32,7 @@ public:
     void RenderScene(ID3D12GraphicsCommandList *cmdList, D3D12_GPU_VIRTUAL_ADDRESS constantAddress, RenderItemsMap *renderItems = nullptr);
     void RenderQuad(ID3D12GraphicsCommandList *cmdList, D3D12_GPU_VIRTUAL_ADDRESS constantAddress, RenderItemsMap *renderItems = nullptr);
     void RenderSphere(ID3D12GraphicsCommandList *cmdList, D3D12_GPU_VIRTUAL_ADDRESS constantAddress, RenderItemsMap *renderItems = nullptr);
+    void RenderScreenQuad(ID3D12GraphicsCommandList *cmdList, D3D12_VERTEX_BUFFER_VIEW *vertexBufferView, D3D12_INDEX_BUFFER_VIEW *indexBufferView);
 
     void UpdateCamera();
     void UpdateSceneConstant(UploadBuffer<SceneInfo> *uploader);

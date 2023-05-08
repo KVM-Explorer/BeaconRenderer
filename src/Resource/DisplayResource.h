@@ -14,7 +14,8 @@ public:
     void CreateRenderTargets(uint width, uint height, size_t backendCount);
     std::vector<HANDLE> CreateSharedTexture(uint width, uint height, size_t backendCount);
     std::vector<HANDLE> CreateSharedFence(size_t backendCount);
-    std::tuple<StageFrameResource *, uint> GetCurrentFrame(uint backendIndex, Stage stage,uint currentBackendIndex);
+    std::tuple<StageFrameResource *, uint> GetCurrentFrame(uint backendIndex, Stage stage, uint currentBackendIndex);
+    void CreateScreenQuadView();
 
     ComPtr<ID3D12Device> Device;
     ComPtr<IDXGISwapChain4> SwapChain;
@@ -28,13 +29,15 @@ public:
 
     std::unique_ptr<UploadBuffer<ModelVertex>> mQuadVB;
     std::unique_ptr<UploadBuffer<uint16_t>> mQuadIB;
-    Scene::RenderItemsMap mRenderItems;
-
+    
     uint mRTVDescriptorSize;
     uint mDSVDescriptorSize;
     uint mCBVSRVUAVDescriptorSize;
 
     std::unique_ptr<ResourceRegister> mResourceRegister;
+
+    D3D12_VERTEX_BUFFER_VIEW ScreenQuadVBView;
+    D3D12_INDEX_BUFFER_VIEW ScreenQuadIBView;
 
     const uint mFrameCount;
     std::vector<std::vector<StageFrameResource>> mSFR; // Device Count, Frame Count

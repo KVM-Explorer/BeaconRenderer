@@ -24,8 +24,9 @@ void StageBeacon::OnInit()
 
     GResource::GUIManager->Init(mDisplayResource->Device.Get());
 
-    CreateRtv(handle);
     CreateSharedResource();
+    CreateRtv(handle);
+
     CreateSharedFence();
     // Pass
 
@@ -62,6 +63,18 @@ void StageBeacon::OnMouseDown(WPARAM btnState, int x, int y)
 
 void StageBeacon::OnDestory()
 {
+    for (auto &backend : mBackendResource) {
+        for (auto &frameResource : backend->mSFR) {
+            frameResource.FlushCopy();
+            frameResource.FlushDirect();
+        }
+    }
+    for (auto &backendResource : mDisplayResource->mSFR) {
+        for (auto &frameResource : backendResource) {
+            frameResource.SignalDirect(mDisplayResource->DirectQueue.Get());
+            frameResource.FlushDirect();
+        }
+    }
     mScene = nullptr;
     mBackendResource.clear();
     mDisplayResource = nullptr;
@@ -226,7 +239,7 @@ void StageBeacon::CreateQuad()
                             frameResource.DirectCmdList.Get(),
                             mDisplayResource->mQuadVB,
                             mDisplayResource->mQuadIB);
-    mDisplayResource->mRenderItems = mScene->GetRenderItems();
+    mDisplayResource->CreateScreenQuadView();
     frameResource.SubmitDirect(mDisplayResource->DirectQueue.Get());
     frameResource.SignalDirect(mDisplayResource->DirectQueue.Get());
     frameResource.FlushDirect();
@@ -302,12 +315,12 @@ void StageBeacon::SetPass(BackendResource *backend, uint backendIndex)
     auto &sobelPass = mDisplayResource->mSobelPass;
     sobelPass->SetInput(stage3Resource->GetSrvCbvUav("LightCopy"));
     sobelPass->SetSrvHeap(stage3Resource->mSrvCbvUavHeap->Resource());
-    sobelPass->SetTarget(stage3Resource->GetResource("Sobel"), stage3Resource->GetSrvCbvUav("SobelUVA"));
+    sobelPass->SetTarget(stage3Resource->GetResource("Sobel"), stage3Resource->GetSrvCbvUav("SobelSRV"));
 
     // Quad Pass
     auto &quadPass = mDisplayResource->mQuadPass;
     quadPass->SetTarget(stage3Resource->GetResource("SwapChain"), stage3Resource->GetRtv("SwapChain"));
-    quadPass->SetSrvHandle(stage3Resource->GetSrvCbvUav("LightCopy"));
+    quadPass->SetSrvHandle(stage3Resource->GetSrvCbvUav("LightCopy")); // LightCopyUVA LightCopy SRV Sobel SwapChain  LightCopySRV
     quadPass->SetRenderType(QuadShader::MixQuad);
 }
 
@@ -315,7 +328,7 @@ void StageBeacon::ExecutePass(BackendResource *backend, uint backendIndex)
 {
     auto [stage1, stage1Index] = backend->GetCurrentFrame(Stage::DeferredRendering);
     auto [stage2, stage2Index] = backend->GetCurrentFrame(Stage::CopyTexture);
-    auto [stage3pre, stage3preIndex] = backend->GetCurrentFrame(Stage::PostProcess);
+    auto [stage3Backend, stage3BackendIndex] = backend->GetCurrentFrame(Stage::PostProcess);
     auto [stage3, stage3Index] = mDisplayResource->GetCurrentFrame(backendIndex, Stage::PostProcess, stage1Index);
 
     // =============================== Stage 1 DeferredRendering ===============================
@@ -356,27 +369,29 @@ void StageBeacon::ExecutePass(BackendResource *backend, uint backendIndex)
     stage2->SignalCopy(backend->CopyQueue.Get());
 
     // ========================Stage 3 PostProcess ========================
-    // stage3->FlushDirect();
-    // stage3->ResetDirect();
-    // mDisplayResource->DirectQueue->Wait(stage3->SharedFence.Get(),stage3pre->SharedFenceValue);
-    // stage3->DirectCmdList->RSSetViewports(1, &mViewPort);
-    // stage3->DirectCmdList->RSSetScissorRects(1, &mScissor);
+    stage3->FlushDirect();
+    stage3->ResetDirect();
+    mDisplayResource->DirectQueue->Wait(stage3->SharedFence.Get(), stage3Backend->SharedFenceValue);
+    stage3->DirectCmdList->RSSetViewports(1, &mViewPort);
+    stage3->DirectCmdList->RSSetScissorRects(1, &mScissor);
 
-    // auto &sobelPass = *(mDisplayResource->mSobelPass);
-    // {
-    //     sobelPass.BeginPass(stage3->DirectCmdList.Get());
-    //     sobelPass.ExecutePass(stage3->DirectCmdList.Get());
-    //     sobelPass.EndPass(stage3->DirectCmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
-    // }
+    auto &sobelPass = *(mDisplayResource->mSobelPass);
+    {
+        sobelPass.BeginPass(stage3->DirectCmdList.Get());
+        sobelPass.ExecutePass(stage3->DirectCmdList.Get());
+        sobelPass.EndPass(stage3->DirectCmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
+    }
 
-    // auto &quadPass = *(mDisplayResource->mQuadPass);
-    // {
-    //     quadPass.BeginPass(stage3->DirectCmdList.Get());
-    //     // mScene->RenderQuad(stage3->DirectCmdList.Get(), 0, &backend->mRenderItems); // TODO 重构SceneQuad生成不生成RenderItem
-    //     quadPass.EndPass(stage3->DirectCmdList.Get(), D3D12_RESOURCE_STATE_PRESENT);
-    // }
+    auto &quadPass = *(mDisplayResource->mQuadPass);
+    {
+        quadPass.BeginPass(stage3->DirectCmdList.Get());
+        mScene->RenderScreenQuad(stage3->DirectCmdList.Get(), &mDisplayResource->ScreenQuadVBView, &mDisplayResource->ScreenQuadIBView);
+        quadPass.EndPass(stage3->DirectCmdList.Get(), D3D12_RESOURCE_STATE_PRESENT);
+    }
 
-    // stage3->SubmitDirect(mDisplayResource->DirectQueue.Get());
-    // stage3->SignalDirect(mDisplayResource->DirectQueue.Get());
-    // // mDisplayResource->SwapChain->Present(0, 0);
+    stage3->SubmitDirect(mDisplayResource->DirectQueue.Get());
+    stage3->SignalDirect(mDisplayResource->DirectQueue.Get());
+
+    // uint swapBufferIndex = mDisplayResource->SwapChain->GetCurrentBackBufferIndex();
+    mDisplayResource->SwapChain->Present(0, 0);
 }

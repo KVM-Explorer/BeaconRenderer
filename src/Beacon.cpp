@@ -332,5 +332,5 @@ void Beacon::ExecutePass(uint frameIndex)
 
     mQuadPass->BeginPass(mFR.at(frameIndex).CmdList.Get());
     mScene->RenderQuad(mFR.at(frameIndex).CmdList.Get(), constantAddress);
-    mQuadPass->EndPass(mFR.at(frameIndex).CmdList.Get(), D3D12_RESOURCE_STATE_PRESENT);
+    mQuadPass->EndPass(mFR.at(frameIndex).CmdList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
 }

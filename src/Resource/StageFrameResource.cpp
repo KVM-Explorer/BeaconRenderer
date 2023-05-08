@@ -114,20 +114,24 @@ void StageFrameResource::CreateSobelBuffer(ID3D12Device *device, UINT width, UIN
     mTexture.push_back(std::move(texture));
     mResourceMap["Sobel"] = mTexture.size() - 1;
 
-    mDescriptorMap.CBVSRVUAV["SobelUVA"] = mSrvCbvUavHeap->AddUavDescriptor(device, mTexture.back().Resource());
+    // mDescriptorMap.CBVSRVUAV["SobelUVA"] = mSrvCbvUavHeap->AddUavDescriptor(device, mTexture.back().Resource());
     mDescriptorMap.CBVSRVUAV["SobelSRV"] = mSrvCbvUavHeap->AddSrvDescriptor(device, mTexture.back().Resource());
 }
 
 void StageFrameResource::CreateSwapChain(ID3D12Resource *resource)
 {
+    static uint index = 0;
     ComPtr<ID3D12Device> device;
     resource->GetDevice(IID_PPV_ARGS(&device));
+    auto name = std::format(L"Display Device SwapChain{}", index);
+    resource->SetName(name.c_str());
 
     Texture texture(resource);
     mTexture.push_back(std::move(texture));
     mResourceMap["SwapChain"] = mTexture.size() - 1;
 
     mDescriptorMap.RTV["SwapChain"] = mRtvHeap->AddRtvDescriptor(device.Get(), mTexture.back().Resource());
+    index++;
 }
 
 void StageFrameResource::SetSceneTextureBase(uint base)
@@ -233,7 +237,6 @@ CD3DX12_GPU_DESCRIPTOR_HANDLE StageFrameResource::GetSrvCbvUav(std::string name)
 {
     return mSrvCbvUavHeap->GPUHandle(mDescriptorMap.CBVSRVUAV.at(name));
 }
-
 
 void StageFrameResource::SetCurrentFrameCB()
 {

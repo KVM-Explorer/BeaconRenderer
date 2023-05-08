@@ -20,7 +20,7 @@ float4 PSMain(PSInput input) : SV_TARGET { // TODO 匹配DataStruct中的Enum
   float4 color;
   float4 texColor1;
   float4 texColor2;
-
+  // return float4(0.3,0.5,0.2,1);
   texColor1 = gTexture1.Sample(gSamplerLinearClamp, input.Texcoord);
   texColor2 = gTexture2.Sample(gSamplerLinearClamp, input.Texcoord);
   color = texColor1 * texColor2;
