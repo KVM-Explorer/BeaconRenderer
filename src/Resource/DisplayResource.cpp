@@ -53,31 +53,20 @@ void DisplayResource::CreateSwapChain(IDXGIFactory6 *factory, HWND handle, uint 
     ThrowIfFailed(swapChain.As(&SwapChain));
 }
 
-void DisplayResource::CreateRenderTargets(uint width, uint height, size_t backendCount)
+std::vector<HANDLE> DisplayResource::CreateRenderTargets(uint width, uint height, size_t backendCount)
 {
-    if (mSFR.empty()) throw std::runtime_error(" shared textures must be created before Render targets ");
-
+    std::vector<HANDLE> handles;
     auto swapBufferCount = backendCount * mFrameCount;
 
     for (uint i = 0; i < backendCount; i++) {
-        for (uint j = 0; j < mFrameCount; j++) {
-            ComPtr<ID3D12Resource> backBuffer;
-            auto &frameResource = mSFR[i][j];
-            SwapChain->GetBuffer(i * mFrameCount + j, IID_PPV_ARGS(&backBuffer));
-            frameResource.CreateSobelBuffer(Device.Get(), width, height);
-            frameResource.CreateSwapChain(backBuffer.Get());
-        }
-    }
-}
-
-std::vector<HANDLE> DisplayResource::CreateSharedTexture(uint width, uint height, size_t backendCount)
-{
-    std::vector<HANDLE> handles;
-    for (uint i = 0; i < backendCount; i++) {
         std::vector<StageFrameResource> deviceFrames;
         for (uint j = 0; j < mFrameCount; j++) {
+            ComPtr<ID3D12Resource> backBuffer;
+            SwapChain->GetBuffer(i * mFrameCount + j, IID_PPV_ARGS(&backBuffer));
             StageFrameResource frameResource(Device.Get(), mResourceRegister.get());
             HANDLE handle = frameResource.CreateLightCopyBuffer(Device.Get(), width, height);
+            frameResource.CreateSobelBuffer(Device.Get(), width, height);
+            frameResource.CreateSwapChain(backBuffer.Get());
             deviceFrames.push_back(std::move(frameResource));
             handles.push_back(handle);
         }

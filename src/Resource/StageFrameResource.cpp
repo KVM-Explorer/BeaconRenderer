@@ -114,8 +114,8 @@ void StageFrameResource::CreateSobelBuffer(ID3D12Device *device, UINT width, UIN
     mTexture.push_back(std::move(texture));
     mResourceMap["Sobel"] = mTexture.size() - 1;
 
-    // mDescriptorMap.CBVSRVUAV["SobelUVA"] = mSrvCbvUavHeap->AddUavDescriptor(device, mTexture.back().Resource());
     mDescriptorMap.CBVSRVUAV["SobelSRV"] = mSrvCbvUavHeap->AddSrvDescriptor(device, mTexture.back().Resource());
+    mDescriptorMap.CBVSRVUAV["SobelUVA"] = mSrvCbvUavHeap->AddUavDescriptor(device, mTexture.back().Resource());
 }
 
 void StageFrameResource::CreateSwapChain(ID3D12Resource *resource)

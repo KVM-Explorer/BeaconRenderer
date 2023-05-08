@@ -24,7 +24,6 @@ void StageBeacon::OnInit()
 
     GResource::GUIManager->Init(mDisplayResource->Device.Get());
 
-    CreateSharedResource();
     CreateRtv(handle);
 
     CreateSharedFence();
@@ -47,10 +46,15 @@ void StageBeacon::OnUpdate()
 
 void StageBeacon::OnRender()
 {
+    GResource::CPUTimerManager->UpdateTimer("RenderTime");
     auto [backend, deviceIndex] = GetCurrentBackend();
+
+    GResource::CPUTimerManager->BeginTimer("DrawCall");
     SetPass(backend, deviceIndex);
     ExecutePass(backend, deviceIndex);
+    GResource::CPUTimerManager->EndTimer("DrawCall");
 
+    
     backend->IncrementFrameIndex();
     IncrementBackendIndex();
 }
@@ -59,7 +63,17 @@ void StageBeacon::OnKeyDown(byte key)
 {}
 
 void StageBeacon::OnMouseDown(WPARAM btnState, int x, int y)
-{}
+{
+    using DirectX::XMConvertToRadians;
+    if ((btnState & MK_LBUTTON) != 0) {
+        // Make each pixel correspond to a quarter of a degree.
+        float dx = XMConvertToRadians(0.25f * static_cast<float>(x - MouseLastPosition.x));
+        float dy = XMConvertToRadians(0.25f * static_cast<float>(y - MouseLastPosition.y));
+        mScene->UpdateMouse(dx, dy);
+    }
+    MouseLastPosition.x = x;
+    MouseLastPosition.y = y;
+}
 
 void StageBeacon::OnDestory()
 {
@@ -170,20 +184,12 @@ void StageBeacon::CreateRtv(HWND handle)
     mDisplayResource->CreateSwapChain(mFactory.Get(), handle, GetWidth(), GetHeight(), mBackendResource.size());
 
     // Display Device Local FrameBuffer
-    mDisplayResource->CreateRenderTargets(GetWidth(), GetHeight(), mBackendResource.size());
+    auto handles = mDisplayResource->CreateRenderTargets(GetWidth(), GetHeight(), mBackendResource.size());
 
     // Backend Device Local FrameBuffer
-    for (const auto &backendResource : mBackendResource) {
-        backendResource->CreateRenderTargets(GetWidth(), GetHeight());
-    }
-}
-
-void StageBeacon::CreateSharedResource()
-{
-    auto handles = mDisplayResource->CreateSharedTexture(GetWidth(), GetHeight(), mBackendResource.size());
     for (size_t i = 0; i < mBackendResource.size(); i++) {
         std::vector<HANDLE> frameHandles(handles.begin() + i * FrameCount, handles.begin() + (i + 1) * FrameCount);
-        mBackendResource[i]->CreateSharedTexture(GetWidth(), GetHeight(), frameHandles);
+        mBackendResource[i]->CreateRenderTargets(GetWidth(), GetHeight(),frameHandles);
     }
 }
 
@@ -315,12 +321,12 @@ void StageBeacon::SetPass(BackendResource *backend, uint backendIndex)
     auto &sobelPass = mDisplayResource->mSobelPass;
     sobelPass->SetInput(stage3Resource->GetSrvCbvUav("LightCopy"));
     sobelPass->SetSrvHeap(stage3Resource->mSrvCbvUavHeap->Resource());
-    sobelPass->SetTarget(stage3Resource->GetResource("Sobel"), stage3Resource->GetSrvCbvUav("SobelSRV"));
+    sobelPass->SetTarget(stage3Resource->GetResource("Sobel"), stage3Resource->GetSrvCbvUav("SobelUVA"));
 
     // Quad Pass
     auto &quadPass = mDisplayResource->mQuadPass;
     quadPass->SetTarget(stage3Resource->GetResource("SwapChain"), stage3Resource->GetRtv("SwapChain"));
-    quadPass->SetSrvHandle(stage3Resource->GetSrvCbvUav("LightCopy")); // LightCopyUVA LightCopy SRV Sobel SwapChain  LightCopySRV
+    quadPass->SetSrvHandle(stage3Resource->GetSrvCbvUav("LightCopy")); //  LightCopy SobelSRV Sobel UVA SRV Sobel SwapChain 
     quadPass->SetRenderType(QuadShader::MixQuad);
 }
 
@@ -386,12 +392,13 @@ void StageBeacon::ExecutePass(BackendResource *backend, uint backendIndex)
     {
         quadPass.BeginPass(stage3->DirectCmdList.Get());
         mScene->RenderScreenQuad(stage3->DirectCmdList.Get(), &mDisplayResource->ScreenQuadVBView, &mDisplayResource->ScreenQuadIBView);
-        quadPass.EndPass(stage3->DirectCmdList.Get(), D3D12_RESOURCE_STATE_PRESENT);
+        quadPass.EndPass(stage3->DirectCmdList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
     }
+
+    GResource::GUIManager->DrawUI(stage3->DirectCmdList.Get(), stage3->GetResource("SwapChain"));
 
     stage3->SubmitDirect(mDisplayResource->DirectQueue.Get());
     stage3->SignalDirect(mDisplayResource->DirectQueue.Get());
 
-    // uint swapBufferIndex = mDisplayResource->SwapChain->GetCurrentBackBufferIndex();
     mDisplayResource->SwapChain->Present(0, 0);
 }

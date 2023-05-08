@@ -44,24 +44,17 @@ BackendResource::~BackendResource()
     Device.Reset();
 }
 
-void BackendResource::CreateRenderTargets(uint width, uint height)
-{
-    for (uint i = 0; i < mFrameCount; i++) {
-        auto &frameResource = mSFR[i];
-        frameResource.CreateGBuffer(Device.Get(), width, height, GBufferPass::GetTargetFormat(), GBufferPass::GetDepthFormat());
-    }
-}
-
-void BackendResource::CreateSharedTexture(uint width, uint height, std::vector<HANDLE> &handle)
+void BackendResource::CreateRenderTargets(uint width, uint height, std::vector<HANDLE> &handle)
 {
     for (uint i = 0; i < mFrameCount; i++) {
         StageFrameResource frameResource(Device.Get(), mResourceRegister.get());
+        frameResource.CreateGBuffer(Device.Get(), width, height, GBufferPass::GetTargetFormat(), GBufferPass::GetDepthFormat());
         frameResource.CreateLightBuffer(Device.Get(), handle[i], width, height);
         mSFR.push_back(std::move(frameResource));
     }
 }
 
-void BackendResource::CreateSharedFence(std::vector<HANDLE>& handle)
+void BackendResource::CreateSharedFence(std::vector<HANDLE> &handle)
 {
     if (mSFR.empty()) std::runtime_error("CreateSharedFence must be called after CreateRenderTargets");
     for (uint i = 0; i < mFrameCount; i++) {

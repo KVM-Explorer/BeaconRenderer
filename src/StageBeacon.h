@@ -35,7 +35,6 @@ private:
     void CompileShaders();
     void CreateSignature2PSO();
     void CreateRtv(HWND handle);
-    void CreateSharedResource();
     void CreateSharedFence();
     void ResetResourceState();
     void InitSceneCB();

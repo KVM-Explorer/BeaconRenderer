@@ -11,8 +11,7 @@ public:
     DisplayResource(IDXGIFactory *factory, IDXGIAdapter1 *adapter, uint frameCount);
     ~DisplayResource();
     void CreateSwapChain(IDXGIFactory6 *factory, HWND handle, uint width, uint height, size_t backendCount);
-    void CreateRenderTargets(uint width, uint height, size_t backendCount);
-    std::vector<HANDLE> CreateSharedTexture(uint width, uint height, size_t backendCount);
+    std::vector<HANDLE> CreateRenderTargets(uint width, uint height, size_t backendCount);
     std::vector<HANDLE> CreateSharedFence(size_t backendCount);
     std::tuple<StageFrameResource *, uint> GetCurrentFrame(uint backendIndex, Stage stage, uint currentBackendIndex);
     void CreateScreenQuadView();
@@ -29,7 +28,7 @@ public:
 
     std::unique_ptr<UploadBuffer<ModelVertex>> mQuadVB;
     std::unique_ptr<UploadBuffer<uint16_t>> mQuadIB;
-    
+
     uint mRTVDescriptorSize;
     uint mDSVDescriptorSize;
     uint mCBVSRVUAVDescriptorSize;

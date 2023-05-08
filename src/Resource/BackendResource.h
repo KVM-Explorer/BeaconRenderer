@@ -13,8 +13,7 @@ public:
     BackendResource(IDXGIFactory *factory, IDXGIAdapter1 *adapter, uint frameCount);
     ~BackendResource();
 
-    void CreateRenderTargets(uint width, uint height);
-    void CreateSharedTexture(uint width, uint height, std::vector<HANDLE> &handle);
+    void CreateRenderTargets(uint width, uint height, std::vector<HANDLE> &handle);
     void CreateSharedFence(std::vector<HANDLE> &handle);
     std::tuple<StageFrameResource *, uint> GetCurrentFrame(Stage stage);
     void IncrementFrameIndex() { mCurrentFrameIndex = (mCurrentFrameIndex + 1) % mFrameCount; };
