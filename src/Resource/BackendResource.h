@@ -10,7 +10,7 @@
 
 struct BackendResource {
 public:
-    BackendResource(IDXGIFactory *factory, IDXGIAdapter1 *adapter, uint frameCount);
+    BackendResource(IDXGIFactory *factory, IDXGIAdapter1 *adapter, uint frameCount,uint startFrameIndex);
     ~BackendResource();
 
     void CreateRenderTargets(uint width, uint height, std::vector<HANDLE> &handle);

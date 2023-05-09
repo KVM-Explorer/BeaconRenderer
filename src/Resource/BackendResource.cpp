@@ -1,8 +1,8 @@
 #include "BackendResource.h"
 
-BackendResource::BackendResource(IDXGIFactory *factory, IDXGIAdapter1 *adapter, uint frameCount) :
+BackendResource::BackendResource(IDXGIFactory *factory, IDXGIAdapter1 *adapter, uint frameCount,uint startFrameIndex) :
     mFrameCount(frameCount),
-    mCurrentFrameIndex(0)
+    mCurrentFrameIndex(startFrameIndex)
 {
     static uint deviceID = 0;
     ThrowIfFailed(D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&Device)));

@@ -54,7 +54,6 @@ void StageBeacon::OnRender()
     ExecutePass(backend, deviceIndex);
     GResource::CPUTimerManager->EndTimer("DrawCall");
 
-    
     backend->IncrementFrameIndex();
     IncrementBackendIndex();
 }
@@ -124,7 +123,8 @@ void StageBeacon::CreateDeviceResource(HWND handle)
         } else {
             auto outputStr = std::format(L"dGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
             OutputDebugStringW(outputStr.c_str());
-            auto backendResource = std::make_unique<BackendResource>(mFactory.Get(), adapter.Get(), FrameCount);
+            auto startFrameIndex = GetBackendStartFrameIndex(mBackendResource.size());
+            auto backendResource = std::make_unique<BackendResource>(mFactory.Get(), adapter.Get(), FrameCount,startFrameIndex);
             mBackendResource.push_back(std::move(backendResource));
         }
     }
@@ -189,7 +189,7 @@ void StageBeacon::CreateRtv(HWND handle)
     // Backend Device Local FrameBuffer
     for (size_t i = 0; i < mBackendResource.size(); i++) {
         std::vector<HANDLE> frameHandles(handles.begin() + i * FrameCount, handles.begin() + (i + 1) * FrameCount);
-        mBackendResource[i]->CreateRenderTargets(GetWidth(), GetHeight(),frameHandles);
+        mBackendResource[i]->CreateRenderTargets(GetWidth(), GetHeight(), frameHandles);
     }
 }
 
@@ -274,6 +274,12 @@ void StageBeacon::IncrementBackendIndex()
     CurrentBackendIndex = (CurrentBackendIndex + 1) % mBackendResource.size();
 }
 
+uint StageBeacon::GetBackendStartFrameIndex(uint index) const
+{
+    const uint stageCount = 3;
+    return (index + stageCount-1) % FrameCount;
+}
+
 void StageBeacon::InitPass()
 {
     mDisplayResource->mSobelPass = std::make_unique<SobelPass>(
@@ -326,7 +332,7 @@ void StageBeacon::SetPass(BackendResource *backend, uint backendIndex)
     // Quad Pass
     auto &quadPass = mDisplayResource->mQuadPass;
     quadPass->SetTarget(stage3Resource->GetResource("SwapChain"), stage3Resource->GetRtv("SwapChain"));
-    quadPass->SetSrvHandle(stage3Resource->GetSrvCbvUav("LightCopy")); //  LightCopy SobelSRV Sobel UVA SRV Sobel SwapChain 
+    quadPass->SetSrvHandle(stage3Resource->GetSrvCbvUav("LightCopy")); //  LightCopy SobelSRV Sobel UVA SRV Sobel SwapChain
     quadPass->SetRenderType(QuadShader::MixQuad);
 }
 
