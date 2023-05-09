@@ -69,5 +69,5 @@ float4 PSMain(PSInput input) : SV_TARGET {
     return float4(color, mat.Diffuse.a); // 材质提取alpha
   }
 
-  return float4(0, 1, 0, 1.0F);
+  return float4(0.14901, 0.14901, 0.14901, 1.0F);
 }
