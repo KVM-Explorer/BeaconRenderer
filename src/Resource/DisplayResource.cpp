@@ -62,7 +62,8 @@ std::vector<HANDLE> DisplayResource::CreateRenderTargets(uint width, uint height
         std::vector<StageFrameResource> deviceFrames;
         for (uint j = 0; j < mFrameCount; j++) {
             ComPtr<ID3D12Resource> backBuffer;
-            SwapChain->GetBuffer(i * mFrameCount + j, IID_PPV_ARGS(&backBuffer));
+            uint index =i + j * backendCount;
+            SwapChain->GetBuffer(index, IID_PPV_ARGS(&backBuffer));
             StageFrameResource frameResource(Device.Get(), mResourceRegister.get());
             HANDLE handle = frameResource.CreateLightCopyBuffer(Device.Get(), width, height);
             frameResource.CreateSobelBuffer(Device.Get(), width, height);
