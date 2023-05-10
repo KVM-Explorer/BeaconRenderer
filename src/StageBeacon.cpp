@@ -51,10 +51,9 @@ void StageBeacon::OnRender()
 
     GResource::CPUTimerManager->BeginTimer("DrawCall");
     SetPass(backend, deviceIndex);
-    ExecutePass(backend, deviceIndex);
+    SyncExecutePass(backend, deviceIndex);
     GResource::CPUTimerManager->EndTimer("DrawCall");
 
-    backend->IncrementFrameIndex();
     IncrementBackendIndex();
 }
 
@@ -124,7 +123,7 @@ void StageBeacon::CreateDeviceResource(HWND handle)
             auto outputStr = std::format(L"dGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
             OutputDebugStringW(outputStr.c_str());
             auto startFrameIndex = GetBackendStartFrameIndex(mBackendResource.size());
-            auto backendResource = std::make_unique<BackendResource>(mFactory.Get(), adapter.Get(), FrameCount,startFrameIndex);
+            auto backendResource = std::make_unique<BackendResource>(mFactory.Get(), adapter.Get(), FrameCount, startFrameIndex);
             mBackendResource.push_back(std::move(backendResource));
         }
     }
@@ -277,7 +276,7 @@ void StageBeacon::IncrementBackendIndex()
 uint StageBeacon::GetBackendStartFrameIndex(uint index) const
 {
     const uint stageCount = 3;
-    return (index + stageCount-1) % FrameCount;
+    return (index + stageCount - 1) % FrameCount;
 }
 
 void StageBeacon::InitPass()
@@ -336,12 +335,13 @@ void StageBeacon::SetPass(BackendResource *backend, uint backendIndex)
     quadPass->SetRenderType(QuadShader::MixQuad);
 }
 
-void StageBeacon::ExecutePass(BackendResource *backend, uint backendIndex)
+void StageBeacon::SyncExecutePass(BackendResource *backend, uint backendIndex)
 {
     auto [stage1, stage1Index] = backend->GetCurrentFrame(Stage::DeferredRendering);
     auto [stage2, stage2Index] = backend->GetCurrentFrame(Stage::CopyTexture);
     auto [stage3Backend, stage3BackendIndex] = backend->GetCurrentFrame(Stage::PostProcess);
     auto [stage3, stage3Index] = mDisplayResource->GetCurrentFrame(backendIndex, Stage::PostProcess, stage1Index);
+    backend->IncrementFrameIndex();
 
     // =============================== Stage 1 DeferredRendering ===============================
     stage1->FlushDirect();
@@ -407,4 +407,8 @@ void StageBeacon::ExecutePass(BackendResource *backend, uint backendIndex)
     stage3->SignalDirect(mDisplayResource->DirectQueue.Get());
 
     mDisplayResource->SwapChain->Present(0, 0);
+}
+
+void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
+{
 }

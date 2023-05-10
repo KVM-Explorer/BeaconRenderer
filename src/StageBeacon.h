@@ -40,13 +40,13 @@ private:
     void InitSceneCB();
     void InitPass();
 
-
-    std::tuple<BackendResource *,uint> GetCurrentBackend() const;
+    std::tuple<BackendResource *, uint> GetCurrentBackend() const;
     void IncrementBackendIndex();
     uint GetBackendStartFrameIndex(uint index) const;
 
     void SetPass(BackendResource *backend, uint index);
-    void ExecutePass(BackendResource *backend, uint index);
+    void SyncExecutePass(BackendResource *backend, uint index);
+    void AsyncExecutePass(BackendResource *backend, uint index);
     // =================== Property ===================
 
     CD3DX12_VIEWPORT mViewPort;

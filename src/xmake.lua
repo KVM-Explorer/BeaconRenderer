@@ -40,3 +40,7 @@ target("StageBeacon")
     add_files("Test/StagePipelineBeacon.cpp")
     add_deps("Renderer")
     add_defines("UNICODE")
+
+target("AsyncTest")
+    set_kind("binary")
+    add_files("Test/AsyncCoroutineTest.cpp")
