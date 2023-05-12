@@ -5,8 +5,8 @@
 class QuadPass {
 public:
     QuadPass(ID3D12PipelineState *pso, ID3D12RootSignature *rs);
-    QuadPass(const QuadPass &) = delete;
-    QuadPass &operator=(const QuadPass &) = delete;
+    QuadPass(const QuadPass &) = default;
+    QuadPass &operator=(const QuadPass &) = default;
     QuadPass(QuadPass &&) = default;
     QuadPass &operator=(QuadPass &&) = default;
 

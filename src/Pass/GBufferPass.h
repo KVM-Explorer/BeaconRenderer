@@ -4,8 +4,8 @@
 class GBufferPass {
 public:
     GBufferPass(ID3D12PipelineState *pso, ID3D12RootSignature *rs);
-    GBufferPass(const GBufferPass &) = delete;
-    GBufferPass &operator=(const GBufferPass &) = delete;
+    GBufferPass(const GBufferPass &) = default;
+    GBufferPass &operator=(const GBufferPass &) = default;
     GBufferPass(GBufferPass &&) = default;
     GBufferPass &operator=(GBufferPass &&) = default;
 
@@ -13,8 +13,8 @@ public:
     void SetDepthBuffer(ID3D12Resource *depthBuffer, CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle);
     void SetRTVDescriptorSize(uint size) { mRTVDescriptorSize = size; }
 
-    void BeginPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES beforeState = D3D12_RESOURCE_STATE_GENERIC_READ);
-    void EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES resultState);
+    void BeginPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES beforeState = D3D12_RESOURCE_STATE_GENERIC_READ) const;
+    void EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES resultState) const;
 
     static std::vector<DXGI_FORMAT> GetTargetFormat() { return mTargetFormats; }
     static uint GetTargetCount() { return mTargetCount; }

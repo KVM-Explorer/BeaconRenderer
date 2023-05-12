@@ -32,6 +32,12 @@ struct StageFrameResource {
     void SignalCopy(ID3D12CommandQueue *queue);
     void FlushCopy();
 
+    void AsyncFlushDirect(uint64 fenceVal);
+    void AsyncFlushCopy(uint64 fenceVal);
+
+    void AsyncSignalDirect(ID3D12CommandQueue *queue, uint64 fenceVal);
+    void AsyncSignalCopy(ID3D12CommandQueue *queue, uint64 fenceVal);
+
     void SetCurrentFrameCB();
 
     ID3D12Resource *GetResource(std::string name);
@@ -59,4 +65,6 @@ struct StageFrameResource {
     std::shared_ptr<DescriptorHeap> mRtvHeap;
     std::shared_ptr<DescriptorHeap> mDsvHeap;
     std::shared_ptr<DescriptorHeap> mSrvCbvUavHeap;
+
+    std::unordered_map<Stage,std::atomic_bool> mStageIsWorking;
 };

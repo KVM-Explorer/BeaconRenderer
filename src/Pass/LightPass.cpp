@@ -23,7 +23,7 @@ void LightPass::SetTexture(ID3D12DescriptorHeap *srvHeap, CD3DX12_GPU_DESCRIPTOR
     mTextureHandle = srvHandle;
 }
 
-void LightPass::BeginPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES beforeState)
+void LightPass::BeginPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES beforeState) const
 {
     const float clearValue[] = {0, 0, 0, 1.0F};
     auto srv2rtv = CD3DX12_RESOURCE_BARRIER::Transition(mTarget,
@@ -41,7 +41,7 @@ void LightPass::BeginPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STA
     cmdList->SetGraphicsRootDescriptorTable(4, mTextureHandle);
 }
 
-void LightPass::EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES resultState)
+void LightPass::EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES resultState) const
 {
     auto rtv2srv = CD3DX12_RESOURCE_BARRIER::Transition(mTarget,
                                                         D3D12_RESOURCE_STATE_RENDER_TARGET,

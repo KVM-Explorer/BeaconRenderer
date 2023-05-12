@@ -47,6 +47,9 @@ private:
     void SetPass(BackendResource *backend, uint index);
     void SyncExecutePass(BackendResource *backend, uint index);
     void AsyncExecutePass(BackendResource *backend, uint index);
+
+    void SyncDrawCall();
+    void AsyncDrawCall();
     // =================== Property ===================
 
     CD3DX12_VIEWPORT mViewPort;
@@ -62,4 +65,5 @@ private:
     std::vector<std::unique_ptr<BackendResource>> mBackendResource;
 
     uint CurrentBackendIndex;
+    std::vector<std::thread> mStageThreads;
 };

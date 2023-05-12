@@ -4,8 +4,8 @@
 class SobelPass  {
 public:
     SobelPass(ID3D12PipelineState *pso, ID3D12RootSignature *rs);
-    SobelPass(const SobelPass &) = delete;
-    SobelPass &operator=(const SobelPass &) = delete;
+    SobelPass(const SobelPass &) = default;
+    SobelPass &operator=(const SobelPass &) = default;
     SobelPass(SobelPass &&) = default;
     SobelPass &operator=(SobelPass &&) = default;
 

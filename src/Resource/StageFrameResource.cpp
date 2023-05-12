@@ -8,14 +8,20 @@ StageFrameResource::StageFrameResource(ID3D12Device *device, ResourceRegister *r
     SharedFenceValue(0)
 {
     ThrowIfFailed(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&DirectCmdAllocator)));
+    DirectCmdAllocator->SetName(L"DirectCmdAllocator");
     ThrowIfFailed(device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, DirectCmdAllocator.Get(), nullptr, IID_PPV_ARGS(&DirectCmdList)));
     DirectCmdList->Close();
 
     ThrowIfFailed(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COPY, IID_PPV_ARGS(&CopyCmdAllocator)));
+    CopyCmdAllocator->SetName(L"CopyCmdAllocator");
     ThrowIfFailed(device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COPY, CopyCmdAllocator.Get(), nullptr, IID_PPV_ARGS(&CopyCmdList)));
     CopyCmdList->Close();
 
     ThrowIfFailed(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&Fence)));
+
+    mStageIsWorking[Stage::DeferredRendering] = false;
+    mStageIsWorking[Stage::CopyTexture] = false;
+    mStageIsWorking[Stage::PostProcess] = false;
 }
 
 StageFrameResource::~StageFrameResource()
@@ -216,6 +222,38 @@ void StageFrameResource::FlushCopy()
         WaitForSingleObject(eventHandle, INFINITE);
         CloseHandle(eventHandle);
     }
+}
+
+void StageFrameResource::AsyncFlushDirect(uint64 fenceValue)
+{
+    if(Fence->GetCompletedValue() < fenceValue)
+    {
+        HANDLE eventHandle = CreateEventEx(nullptr, nullptr, false, EVENT_ALL_ACCESS);
+        ThrowIfFailed(Fence->SetEventOnCompletion(fenceValue, eventHandle));
+        WaitForSingleObject(eventHandle, INFINITE);
+        CloseHandle(eventHandle);
+    }
+}
+
+void StageFrameResource::AsyncFlushCopy(uint64 fenceValue)
+{
+    if(SharedFence->GetCompletedValue() < fenceValue)
+    {
+        HANDLE eventHandle = CreateEventEx(nullptr, nullptr, false, EVENT_ALL_ACCESS);
+        ThrowIfFailed(SharedFence->SetEventOnCompletion(fenceValue, eventHandle));
+        WaitForSingleObject(eventHandle, INFINITE);
+        CloseHandle(eventHandle);
+    }
+}
+
+void StageFrameResource::AsyncSignalDirect(ID3D12CommandQueue *queue,uint64 fenceValue)
+{
+    queue->Signal(Fence.Get(), fenceValue);
+}
+
+void StageFrameResource::AsyncSignalCopy(ID3D12CommandQueue *queue,uint64 fenceValue)
+{
+    queue->Signal(SharedFence.Get(), fenceValue);
 }
 
 ID3D12Resource *StageFrameResource::GetResource(std::string name)
