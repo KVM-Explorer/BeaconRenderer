@@ -62,7 +62,7 @@ std::vector<HANDLE> DisplayResource::CreateRenderTargets(uint width, uint height
         std::vector<StageFrameResource> deviceFrames;
         for (uint j = 0; j < mFrameCount; j++) {
             ComPtr<ID3D12Resource> backBuffer;
-            uint index =i + j * backendCount;
+            uint index = i + j * backendCount;
             SwapChain->GetBuffer(index, IID_PPV_ARGS(&backBuffer));
             StageFrameResource frameResource(Device.Get(), mResourceRegister.get());
             HANDLE handle = frameResource.CreateLightCopyBuffer(Device.Get(), width, height);
@@ -100,7 +100,18 @@ std::tuple<StageFrameResource *, uint> DisplayResource::GetCurrentFrame(uint bac
         throw std::runtime_error("Invalid stage");
     }
 }
-
+std::tuple<StageFrameResource *, uint>
+DisplayResource::GetCurrentSingleFrame(uint backendIndex, Stage stage, uint currentBackendIndex)
+{
+    switch (stage) {
+    case Stage::PostProcess: {
+        auto index = (currentBackendIndex + mFrameCount) % mFrameCount;
+        return {&(mSFR[backendIndex][index]), index};
+    }
+    default:
+        throw std::runtime_error("Invalid stage");
+    }
+}
 void DisplayResource::CreateScreenQuadView()
 {
     ScreenQuadVBView.BufferLocation = mQuadVB->resource()->GetGPUVirtualAddress();

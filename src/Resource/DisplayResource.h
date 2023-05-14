@@ -14,6 +14,7 @@ public:
     std::vector<HANDLE> CreateRenderTargets(uint width, uint height, size_t backendCount);
     std::vector<HANDLE> CreateSharedFence(size_t backendCount);
     std::tuple<StageFrameResource *, uint> GetCurrentFrame(uint backendIndex, Stage stage, uint currentBackendIndex);
+    std::tuple<StageFrameResource *,uint> GetCurrentSingleFrame(uint backendIndex, Stage stage, uint currentBackendIndex);
     void CreateScreenQuadView();
 
     ComPtr<ID3D12Device> Device;

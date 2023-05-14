@@ -7,7 +7,8 @@ StageBeacon::StageBeacon(uint width, uint height, std::wstring title, uint frame
     mViewPort(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height)),
     mScissor(0, 0, static_cast<LONG>(width), static_cast<LONG>(height)),
     FrameCount(frameCount),
-    CurrentBackendIndex(0)
+    CurrentBackendIndex(0),
+    mStagePipeline(9, 3)
 {
 }
 
@@ -34,6 +35,7 @@ void StageBeacon::OnInit()
 
     InitSceneCB();
     InitPass();
+    InitPipelineFunction();
 }
 
 void StageBeacon::OnUpdate()
@@ -46,15 +48,15 @@ void StageBeacon::OnUpdate()
 
 void StageBeacon::OnRender()
 {
-    GResource::CPUTimerManager->UpdateTimer("RenderTime");
-    auto [backend, deviceIndex] = GetCurrentBackend();
-
-    GResource::CPUTimerManager->BeginTimer("DrawCall");
-    SetPass(backend, deviceIndex);
-    SyncExecutePass(backend, deviceIndex);
-    GResource::CPUTimerManager->EndTimer("DrawCall");
-
-    IncrementBackendIndex();
+    // if (!GResource::GUIManager->State.DrawCallAsync) {
+    //     GResource::CPUTimerManager->UpdateTimer("RenderTime");
+    //     GResource::CPUTimerManager->BeginTimer("DrawCall");
+    //     SyncDrawCall();
+    //     GResource::CPUTimerManager->EndTimer("DrawCall");
+    // } 
+    // else {
+        AsyncDrawCall();
+    // }
 }
 
 void StageBeacon::OnKeyDown(byte key)
@@ -75,6 +77,8 @@ void StageBeacon::OnMouseDown(WPARAM btnState, int x, int y)
 
 void StageBeacon::OnDestory()
 {
+    mStagePipeline.Stop();
+
     for (auto &backend : mBackendResource) {
         for (auto &frameResource : backend->mSFR) {
             frameResource.FlushCopy();
@@ -120,11 +124,14 @@ void StageBeacon::CreateDeviceResource(HWND handle)
             OutputDebugStringW(outputStr.c_str());
             mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
         } else {
+            static uint id = 0;
             auto outputStr = std::format(L"dGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
             OutputDebugStringW(outputStr.c_str());
-            auto startFrameIndex = GetBackendStartFrameIndex(mBackendResource.size());
+            // auto startFrameIndex = GetBackendStartFrameIndex(mBackendResource.size()); TODO : 自适应调整
+            auto startFrameIndex = id;
             auto backendResource = std::make_unique<BackendResource>(mFactory.Get(), adapter.Get(), FrameCount, startFrameIndex);
             mBackendResource.push_back(std::move(backendResource));
+            id++;
         }
     }
     if (mBackendResource.empty()) {
@@ -297,7 +304,66 @@ void StageBeacon::InitPass()
     }
 }
 
-void StageBeacon::SetPass(BackendResource *backend, uint backendIndex)
+void StageBeacon::SyncDrawCall()
+{
+    auto [backend, deviceIndex] = GetCurrentBackend();
+    SetMultiStagePass(backend, deviceIndex);
+    SyncExecutePass(backend, deviceIndex);
+    IncrementBackendIndex();
+}
+
+void StageBeacon::SyncSingleDrawCall()
+{
+    auto [backend, deviceIndex] = GetCurrentBackend();
+    SetMultiStagePass(backend, deviceIndex);
+    SyncSingleExecutePass(backend, deviceIndex);
+}
+
+void StageBeacon::AsyncDrawCall()
+{
+    auto [backend, deviceIndex] = GetCurrentBackend();
+    SetFrameStagePass(backend, deviceIndex);
+    AsyncExecutePass(backend, deviceIndex);
+}
+
+void StageBeacon::SetFrameStagePass(BackendResource *backend, uint backendIndex)
+{
+    auto [stage, frameIndex] = backend->GetCurrentFrame(Stage::DeferredRendering);
+    auto [displayStage, displayFrameIndex] = mDisplayResource->GetCurrentSingleFrame(backendIndex, Stage::PostProcess, frameIndex);
+
+    auto &gbufferPass = *(backend->mGBufferPass);
+    std::vector<ID3D12Resource *> gbufferTargets;
+    for (uint i = 0; i < GBufferPass::GetTargetCount(); i++) {
+        auto name = std::format("GBuffer{}", i);
+        gbufferTargets.push_back(stage->GetResource(name));
+    }
+    auto rtvHandle = stage->GetRtv("GBuffer0");
+    auto dsvHandle = stage->GetDsv("Depth");
+
+    gbufferPass.SetRenderTarget(gbufferTargets, rtvHandle);
+    gbufferPass.SetDepthBuffer(stage->GetResource("Depth"), dsvHandle);
+    gbufferPass.SetRTVDescriptorSize(backend->mRTVDescriptorSize);
+
+    // Light Pass
+    auto &lightPass = backend->mLightPass;
+    lightPass->SetRenderTarget(stage->GetResource("Light"), stage->GetRtv("Light"));
+    lightPass->SetGBuffer(stage->mSrvCbvUavHeap->Resource(), stage->GetSrvCbvUav("GBuffer0"));
+    lightPass->SetTexture(stage->mSrvCbvUavHeap->Resource(), stage->GetSrvCbvUav("SceneTextureBase"));
+
+    auto &sobelPass = mDisplayResource->mSobelPass;
+
+    sobelPass->SetInput(displayStage->GetSrvCbvUav("LightCopy"));
+    sobelPass->SetSrvHeap(displayStage->mSrvCbvUavHeap->Resource());
+    sobelPass->SetTarget(displayStage->GetResource("Sobel"), displayStage->GetSrvCbvUav("SobelUVA"));
+
+    // Quad Pass
+    auto &quadPass = mDisplayResource->mQuadPass;
+    quadPass->SetTarget(displayStage->GetResource("SwapChain"), displayStage->GetRtv("SwapChain"));
+    quadPass->SetSrvHandle(displayStage->GetSrvCbvUav("LightCopy")); //  LightCopy SobelSRV Sobel UVA SRV Sobel SwapChain
+    quadPass->SetRenderType(QuadShader::MixQuad);
+}
+
+void StageBeacon::SetMultiStagePass(BackendResource *backend, uint backendIndex)
 {
     auto [stage1Resource, frameIndex] = backend->GetCurrentFrame(Stage::DeferredRendering);
 
@@ -409,6 +475,179 @@ void StageBeacon::SyncExecutePass(BackendResource *backend, uint backendIndex)
     mDisplayResource->SwapChain->Present(0, 0);
 }
 
+void StageBeacon::SyncSingleExecutePass(BackendResource *backend, uint backendIndex)
+{
+    auto [stage, stageIndex] = mBackendResource[backendIndex]->GetCurrentFrame(Stage::DeferredRendering);
+
+    stage->ResetDirect();
+    backend->DirectQueue->Wait(stage->SharedFence.Get(), stage->SharedFenceValue);
+    stage->DirectCmdList->RSSetViewports(1, &mViewPort);
+    stage->DirectCmdList->RSSetScissorRects(1, &mScissor);
+
+    auto entitiesCB = stage->mSceneCB.EntityCB->resource()->GetGPUVirtualAddress();
+    auto &gbufferPass = *(backend->mGBufferPass);
+    {
+        gbufferPass.BeginPass(stage->DirectCmdList.Get());
+        stage->SetCurrentFrameCB();
+        mScene->RenderScene(stage->DirectCmdList.Get(), entitiesCB, &backend->mRenderItems);
+        mScene->RenderSphere(stage->DirectCmdList.Get(), entitiesCB, &backend->mRenderItems);
+        gbufferPass.EndPass(stage->DirectCmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
+    }
+
+    auto &lightPass = *(backend->mLightPass);
+    {
+        lightPass.BeginPass(stage->DirectCmdList.Get(), D3D12_RESOURCE_STATE_COMMON);
+        mScene->RenderQuad(stage->DirectCmdList.Get(), entitiesCB, &backend->mRenderItems);
+        lightPass.EndPass(stage->DirectCmdList.Get(), D3D12_RESOURCE_STATE_COMMON);
+    }
+    stage->SubmitDirect(backend->DirectQueue.Get());
+    stage->SignalDirect(backend->DirectQueue.Get());
+
+    stage->ResetCopy();
+    backend->CopyQueue->Wait(stage->Fence.Get(), stage->FenceValue); // 等待上一帧渲染完毕
+
+    {
+        stage->CopyCmdList->CopyResource(stage->GetResource("LightCopy"), stage->GetResource("Light"));
+    }
+    stage->SubmitCopy(backend->CopyQueue.Get());
+    stage->SignalCopy(backend->CopyQueue.Get());
+
+    auto [displayStage, frameIndex] = mDisplayResource->GetCurrentSingleFrame(backendIndex, Stage::PostProcess, stageIndex);
+
+    // stage->FlushDirect();
+    displayStage->ResetDirect();
+    mDisplayResource->DirectQueue->Wait(displayStage->SharedFence.Get(), stage->SharedFenceValue);
+    displayStage->DirectCmdList->RSSetViewports(1, &mViewPort);
+    displayStage->DirectCmdList->RSSetScissorRects(1, &mScissor);
+
+    auto &sobelPass = *(mDisplayResource->mSobelPass);
+    {
+        sobelPass.BeginPass(displayStage->DirectCmdList.Get());
+        sobelPass.ExecutePass(displayStage->DirectCmdList.Get());
+        sobelPass.EndPass(displayStage->DirectCmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
+    }
+
+    auto &quadPass = *(mDisplayResource->mQuadPass);
+    {
+        quadPass.BeginPass(displayStage->DirectCmdList.Get());
+        mScene->RenderScreenQuad(displayStage->DirectCmdList.Get(), &mDisplayResource->ScreenQuadVBView, &mDisplayResource->ScreenQuadIBView);
+        quadPass.EndPass(displayStage->DirectCmdList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
+    }
+
+    GResource::GUIManager->DrawUI(displayStage->DirectCmdList.Get(), displayStage->GetResource("SwapChain"));
+
+    displayStage->SubmitDirect(mDisplayResource->DirectQueue.Get());
+    displayStage->SignalDirect(mDisplayResource->DirectQueue.Get());
+    displayStage->FlushDirect();
+
+    mDisplayResource->SwapChain->Present(0, 0);
+
+    backend->IncrementFrameIndex();
+    IncrementBackendIndex();
+}
+void StageBeacon::InitPipelineFunction()
+{
+    using TaskInfo = StagePipeline::TaskInfo;
+    auto f1 = [this](TaskInfo info) {
+        auto stage = &(mBackendResource[info.backendIndex]->mSFR[info.frameIndex]);
+        auto &backend = mBackendResource[info.backendIndex];
+
+        stage->ResetDirect();
+        backend->DirectQueue->Wait(stage->SharedFence.Get(), stage->SharedFenceValue);
+        stage->DirectCmdList->RSSetViewports(1, &mViewPort);
+        stage->DirectCmdList->RSSetScissorRects(1, &mScissor);
+
+        auto entitiesCB = stage->mSceneCB.EntityCB->resource()->GetGPUVirtualAddress();
+        auto &gbufferPass = info.gBufferPass;
+        {
+            gbufferPass.BeginPass(stage->DirectCmdList.Get());
+            stage->SetCurrentFrameCB();
+            mScene->RenderScene(stage->DirectCmdList.Get(), entitiesCB, &backend->mRenderItems);
+            mScene->RenderSphere(stage->DirectCmdList.Get(), entitiesCB, &backend->mRenderItems);
+            gbufferPass.EndPass(stage->DirectCmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
+        }
+
+        auto &lightPass = info.lightPass;
+        {
+            lightPass.BeginPass(stage->DirectCmdList.Get(), D3D12_RESOURCE_STATE_COMMON);
+            mScene->RenderQuad(stage->DirectCmdList.Get(), entitiesCB, &backend->mRenderItems);
+            lightPass.EndPass(stage->DirectCmdList.Get(), D3D12_RESOURCE_STATE_COMMON);
+        }
+        stage->SubmitDirect(backend->DirectQueue.Get());
+        stage->SignalDirect(backend->DirectQueue.Get());
+        // stage->FlushDirect();
+    };
+    auto f2 = [this](TaskInfo info) {
+        auto stage = &(mBackendResource[info.backendIndex]->mSFR[info.frameIndex]);
+        auto &backend = mBackendResource[info.backendIndex];
+
+        stage->ResetCopy();
+        backend->CopyQueue->Wait(stage->Fence.Get(), stage->FenceValue); // 等待上一帧渲染完毕
+
+        {
+            stage->CopyCmdList->CopyResource(stage->GetResource("LightCopy"), stage->GetResource("Light"));
+        }
+        stage->SubmitCopy(backend->CopyQueue.Get());
+        stage->SignalCopy(backend->CopyQueue.Get());
+        // stage->FlushCopy(); // 等待上一帧拷贝完毕
+    };
+    auto f3 = [this](TaskInfo info) {
+        auto [stage, stageIndex] = mDisplayResource->GetCurrentSingleFrame(info.backendIndex, Stage::PostProcess, info.frameIndex);
+
+        // stage->FlushDirect();
+        stage->ResetDirect();
+        mDisplayResource->DirectQueue->Wait(stage->SharedFence.Get(), info.copyFenceValue);
+        stage->DirectCmdList->RSSetViewports(1, &mViewPort);
+        stage->DirectCmdList->RSSetScissorRects(1, &mScissor);
+
+        auto &sobelPass = info.sobelPass;
+        {
+            sobelPass.BeginPass(stage->DirectCmdList.Get());
+            sobelPass.ExecutePass(stage->DirectCmdList.Get());
+            sobelPass.EndPass(stage->DirectCmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
+        }
+
+        auto &quadPass = info.quadPass;
+        {
+            quadPass.BeginPass(stage->DirectCmdList.Get());
+            mScene->RenderScreenQuad(stage->DirectCmdList.Get(), &mDisplayResource->ScreenQuadVBView, &mDisplayResource->ScreenQuadIBView);
+            quadPass.EndPass(stage->DirectCmdList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
+        }
+
+        GResource::GUIManager->DrawUI(stage->DirectCmdList.Get(), stage->GetResource("SwapChain"));
+
+        stage->SubmitDirect(mDisplayResource->DirectQueue.Get());
+        stage->SignalDirect(mDisplayResource->DirectQueue.Get());
+        stage->FlushDirect();
+
+        mDisplayResource->SwapChain->Present(0, 0);
+    };
+    mStagePipeline.SetStageTask(static_cast<uint>(Stage::DeferredRendering), f1);
+    mStagePipeline.SetStageTask(static_cast<uint>(Stage::CopyTexture), f2);
+    mStagePipeline.SetStageTask(static_cast<uint>(Stage::PostProcess), f3);
+}
+
 void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
 {
+    if (mStagePipeline.GetWorkNum() < 1) {
+
+        GResource::CPUTimerManager->UpdateTimer("RenderTime");
+        GResource::CPUTimerManager->BeginTimer("DrawCall");
+        using TaskInfo = StagePipeline::TaskInfo;
+        auto [backend, backendIndex] = GetCurrentBackend();
+        auto [stageResourc, stageIndex] = backend->GetCurrentFrame(Stage::DeferredRendering);
+        TaskInfo info{
+            backendIndex,
+            stageIndex,
+            stageResourc->SharedFenceValue + 1,
+            *(backend->mGBufferPass),
+            *(backend->mLightPass),
+            *(mDisplayResource->mSobelPass),
+            *(mDisplayResource->mQuadPass)};
+        mStagePipeline.SubmitResource(info);
+
+        backend->IncrementFrameIndex();
+        IncrementBackendIndex();
+        GResource::CPUTimerManager->EndTimer("DrawCall");
+    }
 }

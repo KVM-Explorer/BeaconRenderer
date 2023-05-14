@@ -8,6 +8,7 @@
 #include "Pass/Pass.h"
 #include "Resource/BackendResource.h"
 #include "Resource/DisplayResource.h"
+#include "Schedule/StagePipeline.h"
 class StageBeacon : public RendererBase {
 public:
     StageBeacon(uint width, uint height, std::wstring title, uint frameCount);
@@ -44,11 +45,15 @@ private:
     void IncrementBackendIndex();
     uint GetBackendStartFrameIndex(uint index) const;
 
-    void SetPass(BackendResource *backend, uint index);
+    void SetMultiStagePass(BackendResource *backend, uint index);
+    void SetFrameStagePass(BackendResource *backend, uint index);
     void SyncExecutePass(BackendResource *backend, uint index);
+    void SyncSingleExecutePass(BackendResource *backend, uint index);
     void AsyncExecutePass(BackendResource *backend, uint index);
 
+    void InitPipelineFunction();
     void SyncDrawCall();
+    void SyncSingleDrawCall();
     void AsyncDrawCall();
     // =================== Property ===================
 
@@ -65,5 +70,5 @@ private:
     std::vector<std::unique_ptr<BackendResource>> mBackendResource;
 
     uint CurrentBackendIndex;
-    std::vector<std::thread> mStageThreads;
+    StagePipeline mStagePipeline;
 };
