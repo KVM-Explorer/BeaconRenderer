@@ -10,14 +10,15 @@
 
 struct BackendResource {
 public:
-    BackendResource(IDXGIFactory *factory, IDXGIAdapter1 *adapter, uint frameCount,uint startFrameIndex);
+    BackendResource(IDXGIFactory *factory, IDXGIAdapter1 *adapter, uint frameCount, uint startFrameIndex);
     ~BackendResource();
 
     void CreateRenderTargets(uint width, uint height, std::vector<HANDLE> &handle);
+    void CreateCompatibleRenderTargets(uint width, uint height, HANDLE handle);
     void CreateSharedFence(std::vector<HANDLE> &handle);
     std::tuple<StageFrameResource *, uint> GetCurrentFrame(Stage stage);
     void IncrementFrameIndex() { mCurrentFrameIndex = (mCurrentFrameIndex + 1) % mFrameCount; };
-
+    
     ComPtr<ID3D12Device> Device;
     ComPtr<ID3D12CommandQueue> DirectQueue;
     ComPtr<ID3D12CommandQueue> CopyQueue;
@@ -47,4 +48,5 @@ public:
 
 private:
     uint mCurrentFrameIndex;
+    ComPtr<ID3D12Heap> mCopyHeap;
 };

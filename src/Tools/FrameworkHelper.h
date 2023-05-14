@@ -42,3 +42,8 @@ inline void SetDXGIDebug(IDXGIObject *object, std::string name)
 {
     object->SetPrivateData(WKPDID_D3DDebugObjectName, name.size(), name.data());
 }
+
+inline uint32_t UpperMemorySize(uint32_t size, uint32_t alignment)
+{
+    return (size + alignment - 1) & ~(alignment - 1);
+}

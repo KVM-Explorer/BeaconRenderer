@@ -12,9 +12,12 @@ public:
     ~DisplayResource();
     void CreateSwapChain(IDXGIFactory6 *factory, HWND handle, uint width, uint height, size_t backendCount);
     std::vector<HANDLE> CreateRenderTargets(uint width, uint height, size_t backendCount);
+    std::vector<HANDLE> CreateCompatibleRenderTargets(uint width, uint height, size_t backendCount);
     std::vector<HANDLE> CreateSharedFence(size_t backendCount);
     std::tuple<StageFrameResource *, uint> GetCurrentFrame(uint backendIndex, Stage stage, uint currentBackendIndex);
     void CreateScreenQuadView();
+
+    std::vector<HANDLE> CreateCopyHeap(uint width, uint height, size_t backendCount);
 
     ComPtr<ID3D12Device> Device;
     ComPtr<IDXGISwapChain4> SwapChain;
@@ -41,4 +44,5 @@ public:
     const uint mFrameCount;
     std::vector<std::vector<StageFrameResource>> mSFR; // Device Count, Frame Count
 private:
+    std::vector<ComPtr<ID3D12Heap>> mCopyHeaps;
 };

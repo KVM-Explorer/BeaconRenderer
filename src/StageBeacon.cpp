@@ -116,17 +116,17 @@ void StageBeacon::CreateDeviceResource(HWND handle)
 
         auto hr = adapter->EnumOutputs(0, &output);
         if (SUCCEEDED(hr) && output != nullptr) {
-            // auto outputStr = std::format(L"iGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
-            // OutputDebugStringW(outputStr.c_str());
-            // mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
+            auto outputStr = std::format(L"iGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
+            OutputDebugStringW(outputStr.c_str());
+            mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
         } else {
             static uint id = 0;
-            if (id == 0) {
-                OutputDebugStringW(std::format(L"Found Display dGPU:  {}\n", i).c_str());
-                mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
-                id++;
-                continue;
-            }
+            // if (id == 0) {
+            //     OutputDebugStringW(std::format(L"Found Display dGPU:  {}\n", i).c_str());
+            //     mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
+            //     id++;
+            //     continue;
+            // }
 
             auto outputStr = std::format(L"dGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
             OutputDebugStringW(outputStr.c_str());
@@ -185,18 +185,51 @@ void StageBeacon::CreateSignature2PSO()
     mDisplayResource->PSO["Sobel"] = GpuEntryLayout::CreateSobelPSO(device, mDisplayResource->Signature["Compute"].Get());
 }
 
+bool StageBeacon::CheckFeatureSupport()
+{
+    D3D12_FEATURE_DATA_D3D12_OPTIONS stOptions = {};
+    // 通过检测带有显示输出的显卡是否支持跨显卡资源来决定跨显卡的资源如何创建
+
+    ThrowIfFailed(mDisplayResource->Device->CheckFeatureSupport(
+        D3D12_FEATURE_D3D12_OPTIONS, reinterpret_cast<void *>(&stOptions), sizeof(stOptions)));
+    auto crossAdaptorTextureSupport = stOptions.CrossAdapterRowMajorTextureSupported;
+    if (!crossAdaptorTextureSupport) {
+        OutputDebugStringA("Displat Device Cross adaptor texture not supported\n");
+        return false;
+    }
+    for (auto &backend : mBackendResource) {
+        ThrowIfFailed(backend->Device->CheckFeatureSupport(
+            D3D12_FEATURE_D3D12_OPTIONS, reinterpret_cast<void *>(&stOptions), sizeof(stOptions)));
+        crossAdaptorTextureSupport = stOptions.CrossAdapterRowMajorTextureSupported;
+        if (!crossAdaptorTextureSupport) {
+            OutputDebugStringA("Backend Device Cross adaptor texture not supported\n");
+            return false;
+        }
+    }
+    return true;
+}
+
 void StageBeacon::CreateRtv(HWND handle)
 {
     // Display SwapChain
     mDisplayResource->CreateSwapChain(mFactory.Get(), handle, GetWidth(), GetHeight(), mBackendResource.size());
 
-    // Display Device Local FrameBuffer
-    auto handles = mDisplayResource->CreateRenderTargets(GetWidth(), GetHeight(), mBackendResource.size());
+    if (CheckFeatureSupport()) {
+        // Display Device Local FrameBuffer
+        auto handles = mDisplayResource->CreateRenderTargets(GetWidth(), GetHeight(), mBackendResource.size());
 
-    // Backend Device Local FrameBuffer
-    for (size_t i = 0; i < mBackendResource.size(); i++) {
-        std::vector<HANDLE> frameHandles(handles.begin() + i * FrameCount, handles.begin() + (i + 1) * FrameCount);
-        mBackendResource[i]->CreateRenderTargets(GetWidth(), GetHeight(), frameHandles);
+        // Backend Device Local FrameBuffer
+        for (size_t i = 0; i < mBackendResource.size(); i++) {
+            std::vector<HANDLE> frameHandles(handles.begin() + i * FrameCount, handles.begin() + (i + 1) * FrameCount);
+            mBackendResource[i]->CreateRenderTargets(GetWidth(), GetHeight(), frameHandles);
+        }
+    } else {
+        CrossAdapterTextureSupport = false;
+
+        auto handles = mDisplayResource->CreateCompatibleRenderTargets(GetWidth(), GetHeight(), mBackendResource.size());
+        for (auto i = 0; i < mBackendResource.size(); i++) {
+            mBackendResource[i]->CreateCompatibleRenderTargets(GetWidth(), GetHeight(), handles[i]);
+        }
     }
 }
 

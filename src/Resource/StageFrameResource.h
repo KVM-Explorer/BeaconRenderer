@@ -12,13 +12,23 @@ struct StageFrameResource {
     StageFrameResource &operator=(StageFrameResource &&) = default;
 
     void CreateGBuffer(ID3D12Device *device, uint width, uint height, std::vector<DXGI_FORMAT> targetFormat, DXGI_FORMAT depthFormat);
-    void CreateLightBuffer(ID3D12Device *device, HANDLE handle, uint width, uint height);
-    HANDLE CreateLightCopyBuffer(ID3D12Device *device, uint width, uint height);
+    // Backend Device Light + Open Light Copy Handle
+    void CreateLight2CopyTexture(ID3D12Device *device, HANDLE handle, uint width, uint height);
+    // Backend Deivce Only Light
+    void CreateLightTexture(ID3D12Device *device, uint width, uint height);
+    // Display Device
+    HANDLE CreateLightCopyTexture(ID3D12Device *device, uint width, uint height);
+    // Display Device
+    void CreateLightCopyHeapTexture(ID3D12Device *device, uint width, uint height);
+    // Display Device Heap Resource
+    void CreateLightCopyHeapBuffer(ID3D12Device *device, ID3D12Heap *heap, uint index, uint width, uint height, D3D12_RESOURCE_STATES initalState);
+
     void CreateSharedFence(ID3D12Device *device, HANDLE handle);
     HANDLE CreateSharedFence(ID3D12Device *device);
 
     void CreateSobelBuffer(ID3D12Device *device, UINT width, UINT height);
     void CreateSwapChain(ID3D12Resource *resource);
+
     void CreateConstantBuffer(ID3D12Device *device, uint entityCount, uint lightCount, uint materialCount);
     void SetSceneTextureBase(uint index);
 
@@ -51,6 +61,7 @@ struct StageFrameResource {
 
     DescriptorMap mDescriptorMap;
     std::vector<Texture> mTexture;
+    ComPtr<ID3D12Resource> mCopyBuffer;
     std::unordered_map<std::string, uint> mResourceMap;
 
     SceneCB mSceneCB;

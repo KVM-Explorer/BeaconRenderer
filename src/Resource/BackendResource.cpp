@@ -1,6 +1,6 @@
 #include "BackendResource.h"
 
-BackendResource::BackendResource(IDXGIFactory *factory, IDXGIAdapter1 *adapter, uint frameCount,uint startFrameIndex) :
+BackendResource::BackendResource(IDXGIFactory *factory, IDXGIAdapter1 *adapter, uint frameCount, uint startFrameIndex) :
     mFrameCount(frameCount),
     mCurrentFrameIndex(startFrameIndex)
 {
@@ -33,6 +33,7 @@ BackendResource::BackendResource(IDXGIFactory *factory, IDXGIAdapter1 *adapter, 
 
 BackendResource::~BackendResource()
 {
+    mCopyHeap = nullptr;
     mSFR.clear();
     mRenderItems.clear();
     mSceneTextures.clear();
@@ -49,7 +50,22 @@ void BackendResource::CreateRenderTargets(uint width, uint height, std::vector<H
     for (uint i = 0; i < mFrameCount; i++) {
         StageFrameResource frameResource(Device.Get(), mResourceRegister.get());
         frameResource.CreateGBuffer(Device.Get(), width, height, GBufferPass::GetTargetFormat(), GBufferPass::GetDepthFormat());
-        frameResource.CreateLightBuffer(Device.Get(), handle[i], width, height);
+        frameResource.CreateLight2CopyTexture(Device.Get(), handle[i], width, height);
+        mSFR.push_back(std::move(frameResource));
+    }
+}
+
+void BackendResource::CreateCompatibleRenderTargets(uint width, uint height, HANDLE handle)
+{
+    auto hr = Device->OpenSharedHandle(handle, IID_PPV_ARGS(&mCopyHeap));
+    ::CloseHandle(handle);
+    ThrowIfFailed(hr);
+
+    for (uint i = 0; i < mFrameCount; i++) {
+        StageFrameResource frameResource(Device.Get(), mResourceRegister.get());
+        frameResource.CreateGBuffer(Device.Get(), width, height, GBufferPass::GetTargetFormat(), GBufferPass::GetDepthFormat());
+        frameResource.CreateLightTexture(Device.Get(), width, height);
+        frameResource.CreateLightCopyHeapBuffer(Device.Get(), mCopyHeap.Get(), i, width, height, D3D12_RESOURCE_STATE_COPY_SOURCE);
         mSFR.push_back(std::move(frameResource));
     }
 }

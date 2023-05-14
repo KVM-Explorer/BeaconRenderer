@@ -35,6 +35,7 @@ private:
     void CompileShaders();
     void CreateSignature2PSO();
     void CreateRtv(HWND handle);
+    bool CheckFeatureSupport();
     void CreateSharedFence();
     void ResetResourceState();
     void InitSceneCB();
@@ -62,4 +63,6 @@ private:
     std::vector<std::unique_ptr<BackendResource>> mBackendResource;
 
     uint CurrentBackendIndex;
+
+    bool CrossAdapterTextureSupport = true;
 };

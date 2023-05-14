@@ -66,7 +66,7 @@ void StageFrameResource::CreateGBuffer(ID3D12Device *device, uint width, uint he
     mDescriptorMap.CBVSRVUAV["Depth"] = mSrvCbvUavHeap->AddSrvDescriptor(device, mTexture.back().Resource(), &srvDescriptor);
 }
 
-void StageFrameResource::CreateLightBuffer(ID3D12Device *device, HANDLE handle, uint width, uint height)
+void StageFrameResource::CreateLight2CopyTexture(ID3D12Device *device, HANDLE handle, uint width, uint height)
 {
     ComPtr<ID3D12Resource> resource;
     auto hr = device->OpenSharedHandle(handle, IID_PPV_ARGS(&resource));
@@ -77,6 +77,11 @@ void StageFrameResource::CreateLightBuffer(ID3D12Device *device, HANDLE handle, 
     mTexture.push_back(std::move(texture));
     mResourceMap["LightCopy"] = mTexture.size() - 1;
 
+    CreateLightTexture(device, width, height);
+}
+
+void StageFrameResource::CreateLightTexture(ID3D12Device *device, uint width, uint height)
+{
     Texture lightTexture(device,
                          DXGI_FORMAT_R8G8B8A8_UNORM,
                          width, height,
@@ -90,7 +95,7 @@ void StageFrameResource::CreateLightBuffer(ID3D12Device *device, HANDLE handle, 
     mTexture.back().Resource()->SetName(L"Light");
 }
 
-HANDLE StageFrameResource::CreateLightCopyBuffer(ID3D12Device *device, uint width, uint height)
+HANDLE StageFrameResource::CreateLightCopyTexture(ID3D12Device *device, uint width, uint height)
 {
     HANDLE handle;
     Texture texture(device, DXGI_FORMAT_R8G8B8A8_UNORM,
@@ -106,6 +111,45 @@ HANDLE StageFrameResource::CreateLightCopyBuffer(ID3D12Device *device, uint widt
 
     device->CreateSharedHandle(mTexture.back().Resource(), nullptr, GENERIC_ALL, nullptr, &handle);
     return handle;
+}
+
+void StageFrameResource::CreateLightCopyHeapTexture(ID3D12Device *device, uint width, uint height)
+{
+    Texture texture(device, DXGI_FORMAT_R8G8B8A8_UNORM,
+                    width, height,
+                    D3D12_RESOURCE_FLAG_NONE,
+                    false,
+                    D3D12_HEAP_FLAG_NONE,
+                    D3D12_RESOURCE_STATE_COMMON);
+    mTexture.push_back(std::move(texture));
+    mResourceMap["LightCopy"] = mTexture.size() - 1;
+
+    mDescriptorMap.CBVSRVUAV["LightCopy"] = mSrvCbvUavHeap->AddSrvDescriptor(device, mTexture.back().Resource());
+}
+
+void StageFrameResource::CreateLightCopyHeapBuffer(ID3D12Device *device, ID3D12Heap *heap, uint index, uint width, uint height, D3D12_RESOURCE_STATES initalState)
+{
+    auto textureDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, width, height, 1, 1, 1);
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT layouts;
+    device->GetCopyableFootprints(&textureDesc, 0, 1, 0, &layouts, nullptr, nullptr, nullptr);
+
+    uint64 bufferSize = UpperMemorySize(layouts.Footprint.RowPitch * layouts.Footprint.Height, D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT);
+
+    auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(bufferSize, D3D12_RESOURCE_FLAG_ALLOW_CROSS_ADAPTER);
+
+    uint64 startAddr = bufferSize * index;
+    ComPtr<ID3D12Resource> resource;
+    device->CreatePlacedResource(
+        heap,
+        startAddr,
+        &bufferDesc,
+        initalState,
+        nullptr,
+        IID_PPV_ARGS(&resource));
+
+    Texture texture(resource.Get());
+    mTexture.push_back(std::move(texture));
+    mResourceMap["LightCopyBuffer"] = mTexture.size() - 1;
 }
 
 void StageFrameResource::CreateSobelBuffer(ID3D12Device *device, UINT width, UINT height)
