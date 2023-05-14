@@ -416,7 +416,25 @@ void StageBeacon::SyncExecutePass(BackendResource *backend, uint backendIndex)
     backend->CopyQueue->Wait(stage2->Fence.Get(), stage2->FenceValue); // 等待上一帧渲染完毕
 
     {
-        stage2->CopyCmdList->CopyResource(stage2->GetResource("LightCopy"), stage2->GetResource("Light"));
+        if (CrossAdapterTextureSupport) {
+            stage2->CopyCmdList->CopyResource(stage2->GetResource("LightCopy"), stage2->GetResource("Light"));
+        } else {
+            auto copyDstBarrier = CD3DX12_RESOURCE_BARRIER::Transition(stage2->GetResource("LightCopyBuffer"), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
+            auto copySrcBarrier = CD3DX12_RESOURCE_BARRIER::Transition(stage2->GetResource("LightCopyBuffer"), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COPY_SOURCE);
+
+            auto targetDesc = stage2->GetResource("Light")->GetDesc();
+            D3D12_PLACED_SUBRESOURCE_FOOTPRINT layout = {};
+
+            backend->Device->GetCopyableFootprints(&targetDesc, 0, 1, 0, &layout, nullptr, nullptr, nullptr);
+
+            CD3DX12_TEXTURE_COPY_LOCATION dst(stage2->GetResource("LightCopyBuffer"), layout);
+            CD3DX12_TEXTURE_COPY_LOCATION src(stage2->GetResource("Light"), 0);
+            CD3DX12_BOX box(0, 0, GetWidth(), GetHeight());
+
+            stage2->CopyCmdList->ResourceBarrier(1, &copyDstBarrier);
+            stage2->CopyCmdList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+            stage2->CopyCmdList->ResourceBarrier(1, &copySrcBarrier);
+        }
     }
     stage2->SubmitCopy(backend->CopyQueue.Get());
     stage2->SignalCopy(backend->CopyQueue.Get());
@@ -427,6 +445,24 @@ void StageBeacon::SyncExecutePass(BackendResource *backend, uint backendIndex)
     mDisplayResource->DirectQueue->Wait(stage3->SharedFence.Get(), stage3Backend->SharedFenceValue);
     stage3->DirectCmdList->RSSetViewports(1, &mViewPort);
     stage3->DirectCmdList->RSSetScissorRects(1, &mScissor);
+
+    // Copy Light
+    {
+        auto copyDstBarrier = CD3DX12_RESOURCE_BARRIER::Transition(stage3->GetResource("LightCopy"), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST);
+        auto shaderResourceBarrier = CD3DX12_RESOURCE_BARRIER::Transition(stage3->GetResource("LightCopy"), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON);
+
+        auto targetDesc = stage3->GetResource("LightCopy")->GetDesc();
+        D3D12_PLACED_SUBRESOURCE_FOOTPRINT layout = {};
+        mDisplayResource->Device->GetCopyableFootprints(&targetDesc, 0, 1, 0, &layout, nullptr, nullptr, nullptr);
+
+        CD3DX12_TEXTURE_COPY_LOCATION dst(stage3->GetResource("LightCopy"), 0);
+        CD3DX12_TEXTURE_COPY_LOCATION src(stage3->GetResource("LightCopyBuffer"), layout);
+        CD3DX12_BOX box(0, 0, GetWidth(), GetHeight());
+
+        stage3->DirectCmdList->ResourceBarrier(1, &copyDstBarrier);
+        stage3->DirectCmdList->CopyTextureRegion(&dst, 0, 0, 0, &src, &box);
+        stage3->DirectCmdList->ResourceBarrier(1, &shaderResourceBarrier);
+    }
 
     auto &sobelPass = *(mDisplayResource->mSobelPass);
     {

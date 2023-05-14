@@ -89,7 +89,7 @@ std::vector<HANDLE> DisplayResource::CreateCompatibleRenderTargets(uint width, u
             uint index = i + j * backendCount;
             SwapChain->GetBuffer(index, IID_PPV_ARGS(&backBuffer));
             StageFrameResource frameResource(Device.Get(), mResourceRegister.get());
-            frameResource.CreateLightCopyHeapBuffer(Device.Get(), mCopyHeaps[i].Get(), j, width, height, D3D12_RESOURCE_STATE_COPY_DEST);
+            frameResource.CreateLightCopyHeapBuffer(Device.Get(), mCopyHeaps[i].Get(), j, width, height, D3D12_RESOURCE_STATE_COPY_SOURCE);
             frameResource.CreateLightCopyHeapTexture(Device.Get(), width, height);
             frameResource.CreateSobelBuffer(Device.Get(), width, height);
             frameResource.CreateSwapChain(backBuffer.Get());
