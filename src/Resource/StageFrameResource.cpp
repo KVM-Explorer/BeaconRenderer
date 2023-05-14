@@ -167,8 +167,6 @@ void StageFrameResource::CreateSwapChain(ID3D12Resource *resource)
     static uint index = 0;
     ComPtr<ID3D12Device> device;
     resource->GetDevice(IID_PPV_ARGS(&device));
-    auto name = std::format(L"Display Device SwapChain{}", index);
-    resource->SetName(name.c_str());
 
     Texture texture(resource);
     mTexture.push_back(std::move(texture));
