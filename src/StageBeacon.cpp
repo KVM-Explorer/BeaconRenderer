@@ -116,13 +116,10 @@ void StageBeacon::CreateDeviceResource(HWND handle)
 
         auto hr = adapter->EnumOutputs(0, &output);
         if (SUCCEEDED(hr) && output != nullptr) {
-#ifdef SERVER
-            auto outputStr = std::format(L"iGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
-            OutputDebugStringW(outputStr.c_str());
-            mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
-#endif
+            // auto outputStr = std::format(L"iGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
+            // OutputDebugStringW(outputStr.c_str());
+            // mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
         } else {
-#ifdef SERVER
             static uint id = 0;
             if (id == 0) {
                 OutputDebugStringW(std::format(L"Found Display dGPU:  {}\n", i).c_str());
@@ -131,7 +128,6 @@ void StageBeacon::CreateDeviceResource(HWND handle)
                 continue;
             }
 
-#endif
             auto outputStr = std::format(L"dGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
             OutputDebugStringW(outputStr.c_str());
             auto startFrameIndex = GetBackendStartFrameIndex(mBackendResource.size());
