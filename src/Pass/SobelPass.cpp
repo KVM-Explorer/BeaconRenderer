@@ -21,7 +21,7 @@ void SobelPass::SetTarget(ID3D12Resource *target, CD3DX12_GPU_DESCRIPTOR_HANDLE 
     mTarget = target;
     mDstHandle = dstHandle;
 }
-void SobelPass::BeginPass(ID3D12GraphicsCommandList *cmdList)
+void SobelPass::BeginPass(ID3D12GraphicsCommandList *cmdList) const
 {
     cmdList->SetComputeRootSignature(mRS);
     cmdList->SetPipelineState(mPSO);
@@ -31,7 +31,7 @@ void SobelPass::BeginPass(ID3D12GraphicsCommandList *cmdList)
     cmdList->SetComputeRootDescriptorTable(1, mDstHandle);
 }
 
-void SobelPass::ExecutePass(ID3D12GraphicsCommandList *cmdList)
+void SobelPass::ExecutePass(ID3D12GraphicsCommandList *cmdList) const
 {
     const uint threadNum = 16;
     uint numGroupX = GResource::Width / threadNum;
@@ -39,7 +39,7 @@ void SobelPass::ExecutePass(ID3D12GraphicsCommandList *cmdList)
     cmdList->Dispatch(numGroupX, numGroupY, 1);
 }
 
-void SobelPass::EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES resultState)
+void SobelPass::EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES resultState) const
 {
     // auto uav2srv = CD3DX12_RESOURCE_BARRIER::Transition(mTarget,
     //                                                     D3D12_RESOURCE_STATE_UNORDERED_ACCESS,

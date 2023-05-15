@@ -38,10 +38,12 @@ void StageBeacon::OnInit()
 
 void StageBeacon::OnUpdate()
 {
+    GResource::CPUTimerManager->BeginTimer("UpdateScene");
     auto [backend, deviceIndex] = GetCurrentBackend();
     auto [frameResource, frameIndex] = backend->GetCurrentFrame(Stage::DeferredRendering);
     mScene->UpdateCamera();
     mScene->UpdateSceneConstant(frameResource->mSceneCB.SceneCB.get());
+    GResource::CPUTimerManager->EndTimer("UpdateScene");
 }
 
 void StageBeacon::OnRender()
@@ -50,8 +52,11 @@ void StageBeacon::OnRender()
     auto [backend, deviceIndex] = GetCurrentBackend();
 
     GResource::CPUTimerManager->BeginTimer("DrawCall");
+    GResource::CPUTimerManager->BeginTimer("UpdatePass");
     SetPass(backend, deviceIndex);
-    SyncExecutePass(backend, deviceIndex);
+    GResource::CPUTimerManager->EndTimer("UpdatePass");
+    // SyncExecutePass(backend, deviceIndex);
+    AsyncExecutePass(backend, deviceIndex);
     GResource::CPUTimerManager->EndTimer("DrawCall");
 
     IncrementBackendIndex();
@@ -389,7 +394,7 @@ void StageBeacon::SyncExecutePass(BackendResource *backend, uint backendIndex)
     // =============================== Stage 1 DeferredRendering ===============================
     stage1->FlushDirect();
     stage1->ResetDirect();
-    backend->DirectQueue->Wait(stage1->SharedFence.Get(), stage1->SharedFenceValue);
+    // backend->DirectQueue->Wait(stage1->SharedFence.Get(), stage1->SharedFenceValue);
     stage1->DirectCmdList->RSSetViewports(1, &mViewPort);
     stage1->DirectCmdList->RSSetScissorRects(1, &mScissor);
 
@@ -431,7 +436,7 @@ void StageBeacon::SyncExecutePass(BackendResource *backend, uint backendIndex)
 
             CD3DX12_TEXTURE_COPY_LOCATION dst(stage2->GetResource("LightCopyBuffer"), layout);
             CD3DX12_TEXTURE_COPY_LOCATION src(stage2->GetResource("Light"), 0);
-            CD3DX12_BOX box(0, 0, GetWidth(), GetHeight());
+            // CD3DX12_BOX box(0, 0, GetWidth(), GetHeight());
 
             stage2->CopyCmdList->ResourceBarrier(1, &copyDstBarrier);
             stage2->CopyCmdList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
@@ -490,4 +495,116 @@ void StageBeacon::SyncExecutePass(BackendResource *backend, uint backendIndex)
 
 void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
 {
+    using Concurrency::task_group;
+
+    auto [stage1, stage1Index] = backend->GetCurrentFrame(Stage::DeferredRendering);
+    auto [stage2, stage2Index] = backend->GetCurrentFrame(Stage::CopyTexture);
+    auto [stage3, stage3Index] = mDisplayResource->GetCurrentFrame(backendIndex, Stage::PostProcess, stage1Index);
+
+    auto [stage3FR, null] = backend->GetCurrentFrame(Stage::PostProcess);
+    uint copyFenceValue = stage2->SharedFenceValue;
+
+    auto &gbufferPass = *(backend->mGBufferPass);
+    auto &lightPass = *(backend->mLightPass);
+    auto &sobelPass = *(mDisplayResource->mSobelPass);
+    auto &quadPass = *(mDisplayResource->mQuadPass);
+
+    backend->IncrementFrameIndex();
+    task_group g;
+    g.run([this, stage1, backend, gbufferPass, lightPass]() {
+        stage1->FlushDirect();
+        stage1->ResetDirect();
+        stage1->DirectCmdList->RSSetViewports(1, &mViewPort);
+        stage1->DirectCmdList->RSSetScissorRects(1, &mScissor);
+
+        auto entitiesCB = stage1->mSceneCB.EntityCB->resource()->GetGPUVirtualAddress();
+
+        {
+            gbufferPass.BeginPass(stage1->DirectCmdList.Get());
+            stage1->SetCurrentFrameCB();
+            mScene->RenderScene(stage1->DirectCmdList.Get(), entitiesCB, &backend->mRenderItems);
+            mScene->RenderSphere(stage1->DirectCmdList.Get(), entitiesCB, &backend->mRenderItems);
+            gbufferPass.EndPass(stage1->DirectCmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
+        }
+
+        {
+            lightPass.BeginPass(stage1->DirectCmdList.Get(), D3D12_RESOURCE_STATE_COMMON);
+            mScene->RenderQuad(stage1->DirectCmdList.Get(), entitiesCB, &backend->mRenderItems);
+            lightPass.EndPass(stage1->DirectCmdList.Get(), D3D12_RESOURCE_STATE_COMMON);
+        }
+        stage1->SubmitDirect(backend->DirectQueue.Get());
+        stage1->SignalDirect(backend->DirectQueue.Get());
+    });
+    g.run([this, stage2, backend]() {
+        stage2->FlushCopy(); // 等待上一帧拷贝完毕
+        stage2->ResetCopy();
+        backend->CopyQueue->Wait(stage2->Fence.Get(), stage2->FenceValue); // 等待上一帧渲染完毕
+
+        {
+            if (CrossAdapterTextureSupport) {
+                stage2->CopyCmdList->CopyResource(stage2->GetResource("LightCopy"), stage2->GetResource("Light"));
+            } else {
+                auto copyDstBarrier = CD3DX12_RESOURCE_BARRIER::Transition(stage2->GetResource("LightCopyBuffer"), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
+                auto copySrcBarrier = CD3DX12_RESOURCE_BARRIER::Transition(stage2->GetResource("LightCopyBuffer"), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COPY_SOURCE);
+
+                auto targetDesc = stage2->GetResource("Light")->GetDesc();
+                D3D12_PLACED_SUBRESOURCE_FOOTPRINT layout = {};
+
+                backend->Device->GetCopyableFootprints(&targetDesc, 0, 1, 0, &layout, nullptr, nullptr, nullptr);
+
+                CD3DX12_TEXTURE_COPY_LOCATION dst(stage2->GetResource("LightCopyBuffer"), layout);
+                CD3DX12_TEXTURE_COPY_LOCATION src(stage2->GetResource("Light"), 0);
+                // CD3DX12_BOX box(0, 0, GetWidth(), GetHeight());
+
+                stage2->CopyCmdList->ResourceBarrier(1, &copyDstBarrier);
+                stage2->CopyCmdList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+                stage2->CopyCmdList->ResourceBarrier(1, &copySrcBarrier);
+            }
+        }
+        stage2->SubmitCopy(backend->CopyQueue.Get());
+        stage2->SignalCopy(backend->CopyQueue.Get());
+    });
+    g.run([this, stage3, sobelPass, quadPass, copyFenceValue]() {
+        stage3->FlushDirect();
+        stage3->ResetDirect();
+        mDisplayResource->DirectQueue->Wait(stage3->SharedFence.Get(), copyFenceValue);
+        stage3->DirectCmdList->RSSetViewports(1, &mViewPort);
+        stage3->DirectCmdList->RSSetScissorRects(1, &mScissor);
+
+        // Copy Light
+        {
+            auto copyDstBarrier = CD3DX12_RESOURCE_BARRIER::Transition(stage3->GetResource("LightCopy"), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST);
+            auto shaderResourceBarrier = CD3DX12_RESOURCE_BARRIER::Transition(stage3->GetResource("LightCopy"), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON);
+
+            auto targetDesc = stage3->GetResource("LightCopy")->GetDesc();
+            D3D12_PLACED_SUBRESOURCE_FOOTPRINT layout = {};
+            mDisplayResource->Device->GetCopyableFootprints(&targetDesc, 0, 1, 0, &layout, nullptr, nullptr, nullptr);
+
+            CD3DX12_TEXTURE_COPY_LOCATION dst(stage3->GetResource("LightCopy"), 0);
+            CD3DX12_TEXTURE_COPY_LOCATION src(stage3->GetResource("LightCopyBuffer"), layout);
+            CD3DX12_BOX box(0, 0, GetWidth(), GetHeight());
+
+            stage3->DirectCmdList->ResourceBarrier(1, &copyDstBarrier);
+            stage3->DirectCmdList->CopyTextureRegion(&dst, 0, 0, 0, &src, &box);
+            stage3->DirectCmdList->ResourceBarrier(1, &shaderResourceBarrier);
+        }
+        {
+            sobelPass.BeginPass(stage3->DirectCmdList.Get());
+            sobelPass.ExecutePass(stage3->DirectCmdList.Get());
+            sobelPass.EndPass(stage3->DirectCmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
+        }
+        {
+            quadPass.BeginPass(stage3->DirectCmdList.Get());
+            mScene->RenderScreenQuad(stage3->DirectCmdList.Get(), &mDisplayResource->ScreenQuadVBView, &mDisplayResource->ScreenQuadIBView);
+            quadPass.EndPass(stage3->DirectCmdList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
+        }
+
+        GResource::GUIManager->DrawUI(stage3->DirectCmdList.Get(), stage3->GetResource("SwapChain"));
+
+        stage3->SubmitDirect(mDisplayResource->DirectQueue.Get());
+        stage3->SignalDirect(mDisplayResource->DirectQueue.Get());
+
+        mDisplayResource->SwapChain->Present(0, 0);
+    });
+    g.wait();
 }

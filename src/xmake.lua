@@ -44,3 +44,7 @@ target("StageBeacon")
 target("AsyncTest")
     set_kind("binary")
     add_files("Test/AsyncCoroutineTest.cpp")
+
+target("PPLTest")
+    set_kind("binary")
+    add_files("Test/PPLTest.cpp")

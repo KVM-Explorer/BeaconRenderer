@@ -42,6 +42,8 @@ void ImguiManager::DrawUI(ID3D12GraphicsCommandList *cmdList, ID3D12Resource *ta
     // Update State
     State.RenderTime = GResource::CPUTimerManager->QueryDuration("RenderTime") / 1000.0F;
     State.DrawCallTime = GResource::CPUTimerManager->QueryDuration("DrawCall") / 1000.0F;
+    State.UpdateSceneTime = GResource::CPUTimerManager->QueryDuration("UpdateScene") / 1000.0F;
+    State.UpdatePassTime = GResource::CPUTimerManager->QueryDuration("UpdatePass") / 1000.0F;
 
     // Define GUI
     ImGui_ImplDX12_NewFrame();
@@ -54,6 +56,8 @@ void ImguiManager::DrawUI(ID3D12GraphicsCommandList *cmdList, ID3D12Resource *ta
     ImGui::Begin("Timer Summary", &show_window); // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
     ImGui::Text("Rendering FPS: %.3f ", 1000.0F/State.RenderTime);
     ImGui::Text("Draw Call with UI: %.2f ms", State.DrawCallTime);
+    ImGui::Text("Update Scene: %.2f ms", State.UpdateSceneTime);
+    ImGui::Text("Update Pass: %.2f ms", State.UpdatePassTime);
 
     // for (auto &timer : GResource::GPUTimer->GetTimes()) {
     //     ImGui::Text("%s %f", timer.second.c_str(), timer.first * 1000.0F);
