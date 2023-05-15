@@ -88,6 +88,8 @@ std::vector<HANDLE> DisplayResource::CreateCompatibleRenderTargets(uint width, u
             ComPtr<ID3D12Resource> backBuffer;
             uint index = i + j * backendCount;
             SwapChain->GetBuffer(index, IID_PPV_ARGS(&backBuffer));
+            auto str = std::format(L"ID:{} FrameID:{}",index,j);
+            backBuffer.Get()->SetName(str.c_str());
             StageFrameResource frameResource(Device.Get(), mResourceRegister.get());
             frameResource.CreateLightCopyHeapBuffer(Device.Get(), mCopyHeaps[i].Get(), j, width, height, D3D12_RESOURCE_STATE_COPY_SOURCE);
             frameResource.CreateLightCopyHeapTexture(Device.Get(), width, height);

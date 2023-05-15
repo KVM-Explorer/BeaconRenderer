@@ -8,9 +8,9 @@ includes("**/xmake.lua")
 
 before_build(
     function (target)
-        os.trycp("$(projectdir)/lib/*.dll", "$(buildir)/$(plat)/$(arch)/$(mode)")
-        os.trycp("$(projectdir)/Shaders/","$(buildir)/$(plat)/$(arch)/$(mode)")
-        os.trycp("$(projectdir)/Assets/","$(buildir)/$(plat)/$(arch)/$(mode)")
+        os.trycp("$(projectdir)/lib/*.dll", "$(buildir)/$(plat)/$(arch)/$(mode)/")
+        os.trycp("$(projectdir)/Shaders/","$(buildir)/$(plat)/$(arch)/$(mode)/")
+        os.trycp("$(projectdir)/Assets/","$(buildir)/$(plat)/$(arch)/$(mode)/")
     end
 )
 

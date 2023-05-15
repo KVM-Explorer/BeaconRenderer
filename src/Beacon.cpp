@@ -202,7 +202,7 @@ void Beacon::LoadScene()
 {
     // TODO add read config file
     std::string Path = "./Assets";
-    auto scene = std::make_unique<Scene>(Path, "witch");
+    auto scene = std::make_unique<Scene>(Path, "lighthouse");
     scene->Init(mDevice.Get(), mFR.at(0).CmdList.Get(), mResourceRegister->SrvCbvUavDescriptorHeap.get());
 
     mScene = std::move(scene);

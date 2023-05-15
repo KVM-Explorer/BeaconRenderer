@@ -43,7 +43,7 @@ private:
 
     std::tuple<BackendResource *, uint> GetCurrentBackend() const;
     void IncrementBackendIndex();
-    uint GetBackendStartFrameIndex(uint index) const;
+    uint GetBackendStartFrameIndex() const;
 
     void SetPass(BackendResource *backend, uint index);
     void SyncExecutePass(BackendResource *backend, uint index);

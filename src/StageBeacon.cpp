@@ -116,23 +116,25 @@ void StageBeacon::CreateDeviceResource(HWND handle)
 
         auto hr = adapter->EnumOutputs(0, &output);
         if (SUCCEEDED(hr) && output != nullptr) {
-            auto outputStr = std::format(L"iGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
-            OutputDebugStringW(outputStr.c_str());
-            mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
+            // auto outputStr = std::format(L"iGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
+            // OutputDebugStringW(outputStr.c_str());
+            // mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
         } else {
             static uint id = 0;
-            // if (id == 0) {
-            //     OutputDebugStringW(std::format(L"Found Display dGPU:  {}\n", i).c_str());
-            //     mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
-            //     id++;
-            //     continue;
-            // }
+            if (id == 0) {
+                OutputDebugStringW(std::format(L"Found Display dGPU:  {}\n", i).c_str());
+                mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
+                id++;
+                continue;
+            }
 
             auto outputStr = std::format(L"dGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
             OutputDebugStringW(outputStr.c_str());
-            auto startFrameIndex = GetBackendStartFrameIndex(mBackendResource.size());
+            auto startFrameIndex = GetBackendStartFrameIndex();
             auto backendResource = std::make_unique<BackendResource>(mFactory.Get(), adapter.Get(), FrameCount, startFrameIndex);
             mBackendResource.push_back(std::move(backendResource));
+            id++;
+            if(id == 3) break;
         }
     }
     if (mBackendResource.empty()) {
@@ -246,7 +248,7 @@ void StageBeacon::LoadAssets()
 {
     // Backend Device VB IB
     std::string assetsPath = "Assets";
-    auto scene = std::make_unique<Scene>(assetsPath, "witch");
+    auto scene = std::make_unique<Scene>(assetsPath, "lighthouse");
     for (const auto &backend : mBackendResource) {
         auto *device = backend->Device.Get();
         auto &frameResource = backend->mSFR.at(0);
@@ -314,10 +316,10 @@ void StageBeacon::IncrementBackendIndex()
     CurrentBackendIndex = (CurrentBackendIndex + 1) % mBackendResource.size();
 }
 
-uint StageBeacon::GetBackendStartFrameIndex(uint index) const
+uint StageBeacon::GetBackendStartFrameIndex() const
 {
     const uint stageCount = 3;
-    return (index + stageCount - 1) % FrameCount;
+    return (stageCount - 1) % FrameCount;
 }
 
 void StageBeacon::InitPass()
