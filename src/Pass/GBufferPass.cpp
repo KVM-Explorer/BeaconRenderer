@@ -2,7 +2,7 @@
 #include "Framework/GlobalResource.h"
 
 GBufferPass::GBufferPass(ID3D12PipelineState *pso, ID3D12RootSignature *rs) :
-    mPSO(pso),mRS(rs)
+    mPSO(pso), mRS(rs)
 {
 }
 
@@ -17,7 +17,7 @@ void GBufferPass::SetDepthBuffer(ID3D12Resource *depthBuffer, CD3DX12_CPU_DESCRI
     mDsvHandle = dsvHandle;
 }
 
-void GBufferPass::BeginPass(ID3D12GraphicsCommandList *cmdList,D3D12_RESOURCE_STATES beforeState)
+void GBufferPass::BeginPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES beforeState) const
 {
     cmdList->SetGraphicsRootSignature(mRS);
     cmdList->SetPipelineState(mPSO);
@@ -32,7 +32,7 @@ void GBufferPass::BeginPass(ID3D12GraphicsCommandList *cmdList,D3D12_RESOURCE_ST
                                                             D3D12_RESOURCE_STATE_RENDER_TARGET);
         cmdList->ResourceBarrier(1, &srv2rtv);
         cmdList->ClearRenderTargetView(targetRtvHandle, clearColor, 0, nullptr);
-        targetRtvHandle.Offset(1,mRTVDescriptorSize);
+        targetRtvHandle.Offset(1, mRTVDescriptorSize);
     }
 
     auto srv2dsv = CD3DX12_RESOURCE_BARRIER::Transition(mDepthBuffer,
@@ -42,10 +42,10 @@ void GBufferPass::BeginPass(ID3D12GraphicsCommandList *cmdList,D3D12_RESOURCE_ST
     cmdList->ClearDepthStencilView(mDsvHandle, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0F, 0, 0, nullptr);
 }
 
-void GBufferPass::EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES resultState)
+void GBufferPass::EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES resultState) const
 {
     //  GBuffer + Depth -> SRV
-    std::array<D3D12_RESOURCE_BARRIER,mTargetCount + 1> rtv2srvs;
+    std::array<D3D12_RESOURCE_BARRIER, mTargetCount + 1> rtv2srvs;
     for (uint i = 0; i < mTargets.size(); i++) {
         auto rtv2srv = CD3DX12_RESOURCE_BARRIER::Transition(mTargets.at(i),
                                                             D3D12_RESOURCE_STATE_RENDER_TARGET,
