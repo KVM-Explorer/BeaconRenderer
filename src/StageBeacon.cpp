@@ -454,7 +454,7 @@ void StageBeacon::SyncExecutePass(BackendResource *backend, uint backendIndex)
     stage3->DirectCmdList->RSSetScissorRects(1, &mScissor);
 
     // Copy Light
-    {
+    if (!CrossAdapterTextureSupport) {
         auto copyDstBarrier = CD3DX12_RESOURCE_BARRIER::Transition(stage3->GetResource("LightCopy"), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST);
         auto shaderResourceBarrier = CD3DX12_RESOURCE_BARRIER::Transition(stage3->GetResource("LightCopy"), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON);
 
@@ -511,6 +511,25 @@ void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
 
     backend->IncrementFrameIndex();
     task_group g;
+    // =================== Submit Last Frame Command List ==================
+    g.run([backend, this]() {
+        static bool first = true;
+        if (first) {
+            first = false;
+            return;
+        }
+        LastFrameInfo.stage1->SubmitDirect(LastFrameInfo.backend->DirectQueue.Get());
+        LastFrameInfo.stage1->SignalDirect(LastFrameInfo.backend->DirectQueue.Get());
+
+        LastFrameInfo.stage2->SubmitCopy(LastFrameInfo.backend->CopyQueue.Get());
+        LastFrameInfo.stage2->SignalCopy(LastFrameInfo.backend->CopyQueue.Get());
+
+        LastFrameInfo.stage3->SubmitDirect(mDisplayResource->DirectQueue.Get());
+        LastFrameInfo.stage3->SignalDirect(mDisplayResource->DirectQueue.Get());
+        mDisplayResource->SwapChain->Present(0, 0);
+    });
+
+    // ======================== Record Command List ========================
     g.run([this, stage1, backend, gbufferPass, lightPass]() {
         stage1->FlushDirect();
         stage1->ResetDirect();
@@ -532,8 +551,8 @@ void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
             mScene->RenderQuad(stage1->DirectCmdList.Get(), entitiesCB, &backend->mRenderItems);
             lightPass.EndPass(stage1->DirectCmdList.Get(), D3D12_RESOURCE_STATE_COMMON);
         }
-        stage1->SubmitDirect(backend->DirectQueue.Get());
-        stage1->SignalDirect(backend->DirectQueue.Get());
+        // stage1->SubmitDirect(backend->DirectQueue.Get());
+        // stage1->SignalDirect(backend->DirectQueue.Get());
     });
     g.run([this, stage2, backend]() {
         stage2->FlushCopy(); // 等待上一帧拷贝完毕
@@ -561,8 +580,8 @@ void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
                 stage2->CopyCmdList->ResourceBarrier(1, &copySrcBarrier);
             }
         }
-        stage2->SubmitCopy(backend->CopyQueue.Get());
-        stage2->SignalCopy(backend->CopyQueue.Get());
+        // stage2->SubmitCopy(backend->CopyQueue.Get());
+        // stage2->SignalCopy(backend->CopyQueue.Get());
     });
     g.run([this, stage3, sobelPass, quadPass, copyFenceValue]() {
         stage3->FlushDirect();
@@ -572,7 +591,7 @@ void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
         stage3->DirectCmdList->RSSetScissorRects(1, &mScissor);
 
         // Copy Light
-        {
+        if (!CrossAdapterTextureSupport) {
             auto copyDstBarrier = CD3DX12_RESOURCE_BARRIER::Transition(stage3->GetResource("LightCopy"), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST);
             auto shaderResourceBarrier = CD3DX12_RESOURCE_BARRIER::Transition(stage3->GetResource("LightCopy"), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON);
 
@@ -601,10 +620,17 @@ void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
 
         GResource::GUIManager->DrawUI(stage3->DirectCmdList.Get(), stage3->GetResource("SwapChain"));
 
-        stage3->SubmitDirect(mDisplayResource->DirectQueue.Get());
-        stage3->SignalDirect(mDisplayResource->DirectQueue.Get());
+        // stage3->SubmitDirect(mDisplayResource->DirectQueue.Get());
+        // stage3->SignalDirect(mDisplayResource->DirectQueue.Get());
 
-        mDisplayResource->SwapChain->Present(0, 0);
+        // mDisplayResource->SwapChain->Present(0, 0);
     });
     g.wait();
+
+    LastFrameInfo = {
+        stage1,
+        stage2,
+        stage3,
+        backend,
+    };
 }
