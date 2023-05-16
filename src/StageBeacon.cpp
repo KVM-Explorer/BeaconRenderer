@@ -139,7 +139,7 @@ void StageBeacon::CreateDeviceResource(HWND handle)
             auto backendResource = std::make_unique<BackendResource>(mFactory.Get(), adapter.Get(), FrameCount, startFrameIndex);
             mBackendResource.push_back(std::move(backendResource));
             id++;
-            if(id == 3) break;
+            // if(id == 3) break;
         }
     }
     if (mBackendResource.empty()) {
