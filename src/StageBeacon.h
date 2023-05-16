@@ -10,6 +10,12 @@
 #include "Resource/DisplayResource.h"
 class StageBeacon : public RendererBase {
 public:
+    struct FrameInfo {
+        StageFrameResource *stage1;
+        StageFrameResource *stage2;
+        StageFrameResource *stage3;
+        BackendResource *backend;
+    };
     StageBeacon(uint width, uint height, std::wstring title, uint frameCount);
     StageBeacon(const StageBeacon &) = delete;
     StageBeacon(StageBeacon &&) = default;
@@ -65,4 +71,5 @@ private:
     uint CurrentBackendIndex;
 
     bool CrossAdapterTextureSupport = true;
+    FrameInfo LastFrameInfo;
 };
