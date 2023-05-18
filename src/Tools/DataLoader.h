@@ -67,4 +67,5 @@ private:
     std::filesystem::path mRootPath;
     std::filesystem::path mMetaPath;
     ModelProps mModel;
+    std::string mName;
 };

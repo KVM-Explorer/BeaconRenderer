@@ -40,7 +40,7 @@ struct MeshInfo {
 
 struct Material {
     uint Index;
-    uint DiffuseMapIndex;
+    int DiffuseMapIndex;
     float Shineness; // radius not 0-1
     uint Padding0;
     DirectX::XMFLOAT4 BaseColor;
@@ -51,7 +51,7 @@ struct MaterialInfo {
     DirectX::XMFLOAT4 BaseColor;
     DirectX::XMFLOAT3 FresnelR0;
     float Roughness;
-    uint DiffuseMapIndex;
+    int DiffuseMapIndex;
 };
 
 struct Light {

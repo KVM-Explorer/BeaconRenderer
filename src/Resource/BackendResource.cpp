@@ -66,6 +66,9 @@ void BackendResource::CreateCompatibleRenderTargets(uint width, uint height, HAN
         frameResource.CreateGBuffer(Device.Get(), width, height, GBufferPass::GetTargetFormat(), GBufferPass::GetDepthFormat());
         frameResource.CreateLightTexture(Device.Get(), width, height);
         frameResource.CreateLightCopyHeapBuffer(Device.Get(), mCopyHeap.Get(), i, width, height, D3D12_RESOURCE_STATE_COPY_SOURCE);
+
+        frameResource.CopyCmdAllocator->SetName(L"Backend CopyCmdAllocator");
+        frameResource.DirectCmdAllocator->SetName(L"Backend DirectCmdAllocator");
         mSFR.push_back(std::move(frameResource));
     }
 }

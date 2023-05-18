@@ -1,13 +1,16 @@
 #include "DataLoader.h"
 #include <iostream>
 #include <fstream>
+#include <MathHelper.h>
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 
+
 DataLoader::DataLoader(std::string path, std::string name) :
     mScenePath(path + "\\" + name),
-    mRootPath(path)
+    mRootPath(path),
+    mName(name)
 {
     GetModelMetaFile();
     ReadSceneFromFile();
@@ -111,18 +114,28 @@ std::vector<DirectX::XMFLOAT4X4> DataLoader::GetTransforms() const
 {
     // TODO ReDesign Root Transform
     std::vector<DirectX::XMFLOAT4X4> transforms;
-    auto translation = DirectX::XMMatrixTranslation(-13.924f, -21.974f, 19.691f);
+    
+
+    auto translation = DirectX::XMMatrixTranslation(-13.924f, -21.974f , 19.691f);
     // auto translation = DirectX::XMMatrixTranslation(-17.924f, -16.974f, 32.691f);
     // auto rotationX = DirectX::XMMatrixRotationX(DirectX::XMConvertToRadians(-90));
     // auto rotationY = DirectX::XMMatrixRotationY(DirectX::XMConvertToRadians(180));
     // auto rotationZ = DirectX::XMMatrixRotationZ(DirectX::XMConvertToRadians(180));
-    // auto rotation = rotationX * rotationY;
+    auto rotation = DirectX::XMMatrixRotationX(DirectX::XMConvertToRadians(90));
     auto scale = DirectX::XMMatrixScaling(0.1F, 0.1F, 0.1F);
     // auto root = scale * rotation * translation;
 
+    if (mName == "lighthouse") {
+        translation = DirectX::XMMatrixTranslation(-17.924f, -16.974f, -32.691f);
+        scale = DirectX::XMMatrixScaling(0.016F, 0.016F, 0.016F);
+        rotation = DirectX::XMMatrixRotationX(DirectX::XMConvertToRadians(180));
+    }
+    
     for (const auto &item : mModel.Transforms) {
-        auto itemTransform = DirectX::XMLoadFloat4x4(&item);
-        auto result = scale * translation;
+        auto itemTransform = DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(&item));
+        // itemTransform = itemTransform * MathHelper::SLHToRH();
+        auto sceneTransform = translation * rotation * scale;
+        auto result = itemTransform * sceneTransform;
 
         DirectX::XMFLOAT4X4 result4x4;
         DirectX::XMStoreFloat4x4(&result4x4, result);

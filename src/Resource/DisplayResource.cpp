@@ -95,6 +95,8 @@ std::vector<HANDLE> DisplayResource::CreateCompatibleRenderTargets(uint width, u
             frameResource.CreateLightCopyHeapTexture(Device.Get(), width, height);
             frameResource.CreateSobelBuffer(Device.Get(), width, height);
             frameResource.CreateSwapChain(backBuffer.Get());
+
+            frameResource.DirectCmdAllocator->SetName(L"DisplayDirectAllocator");
             deviceFrames.push_back(std::move(frameResource));
         }
         mSFR.push_back(std::move(deviceFrames));

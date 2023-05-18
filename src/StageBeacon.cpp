@@ -251,7 +251,7 @@ void StageBeacon::LoadAssets()
 {
     // Backend Device VB IB
     std::string assetsPath = "Assets";
-    auto scene = std::make_unique<Scene>(assetsPath, "lighthouse");
+    auto scene = std::make_unique<Scene>(assetsPath, "witch");
     for (const auto &backend : mBackendResource) {
         auto *device = backend->Device.Get();
         auto &frameResource = backend->mSFR.at(0);
@@ -392,7 +392,7 @@ void StageBeacon::SyncExecutePass(BackendResource *backend, uint backendIndex)
     // =============================== Stage 1 DeferredRendering ===============================
     stage1->FlushDirect();
     stage1->ResetDirect();
-    // backend->DirectQueue->Wait(stage1->SharedFence.Get(), stage1->SharedFenceValue);
+    backend->DirectQueue->Wait(stage1->SharedFence.Get(), stage1->SharedFenceValue);
     stage1->DirectCmdList->RSSetViewports(1, &mViewPort);
     stage1->DirectCmdList->RSSetScissorRects(1, &mScissor);
 
@@ -533,7 +533,7 @@ void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
         stage1->ResetDirect();
         stage1->DirectCmdList->RSSetViewports(1, &mViewPort);
         stage1->DirectCmdList->RSSetScissorRects(1, &mScissor);
-
+        backend->DirectQueue->Wait(stage1->SharedFence.Get(),stage1->SharedFenceValue);
         auto entitiesCB = stage1->mSceneCB.EntityCB->resource()->GetGPUVirtualAddress();
 
         {

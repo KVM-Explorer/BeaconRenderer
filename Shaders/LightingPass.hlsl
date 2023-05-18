@@ -10,7 +10,7 @@ struct MaterialInfo {
   float4 BaseColor;
   float3 FresnelR0;
   float Roughness;
-  uint DiffuseMap;
+  int DiffuseMap;
 };
 
 StructuredBuffer<Light> PointLights : register(t0, space1);
@@ -51,7 +51,7 @@ float4 PSMain(PSInput input) : SV_TARGET {
   mat.Diffuse = Materials[materialID].BaseColor;
   mat.FresnelR0 = Materials[materialID].FresnelR0;
   mat.Roughness = Materials[materialID].Roughness;
-  uint diffuseMap = Materials[materialID].DiffuseMap;
+  int diffuseMap = Materials[materialID].DiffuseMap;
 
   if (gShaderTexure[input.Position.xy] == 1) { // Opaque
     float4 ambient = gAmbient * mat.Diffuse;
@@ -61,7 +61,8 @@ float4 PSMain(PSInput input) : SV_TARGET {
     return float4(color, mat.Diffuse.a); // 材质提取alpha
   }
   if (gShaderTexure[input.Position.xy] == 2) { // Opaque
-    mat.Diffuse = gDiffuseMap[diffuseMap].Sample(gSamplerLinearClamp, uv);
+    if(diffuseMap >= 0)
+      mat.Diffuse = gDiffuseMap[diffuseMap].Sample(gSamplerLinearClamp, uv);
     float4 ambient = gAmbient * mat.Diffuse;
     color = PointLightColor(PointLights[0], mat, worldPos.xyz, normal,
                             gEyePosition);

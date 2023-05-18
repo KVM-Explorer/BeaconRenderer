@@ -28,7 +28,7 @@ void Scene::Init(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList, Descr
     mIndicesBuffer = std::make_unique<UploadBuffer<UINT16>>(device, mAllIndices.size(), false);
     BuildVertex2Constant(device, cmdList, mVerticesBuffer.get(), mIndicesBuffer.get());
 
-    mCamera["default"].SetPosition(0, 0, -10.5F);
+    mCamera["default"].SetPosition(0, 0, -13.5F);
     mCamera["default"].SetLens(0.25f * MathHelper::Pi, GResource::Width / GResource::Height, 1, 1000);
 }
 
@@ -48,7 +48,7 @@ void Scene::InitWithBackend(ID3D12Device *device,
     indicesBuffer = std::make_unique<UploadBuffer<UINT16>>(device, mAllIndices.size(), false);
     BuildVertex2Constant(device, cmdList, verticesBuffer.get(), indicesBuffer.get());
 
-    mCamera["default"].SetPosition(0, 0, -10.5F);
+    mCamera["default"].SetPosition(0, 0, -13.5F);
     mCamera["default"].SetLens(0.25f * MathHelper::Pi, GResource::Width / GResource::Height, 1, 1000);
 }
 
@@ -190,6 +190,8 @@ void Scene::CreateMaterials(const std::vector<ModelMaterial> &info,
             uint srvIndex = descriptorHeap->AddSrvDescriptor(device, textures[index].Resource());
 
             material.DiffuseMapIndex = srvIndex;
+        } else {
+            material.DiffuseMapIndex = -1;
         }
         mMaterials.push_back(std::move(material));
         index++;
@@ -348,7 +350,7 @@ void Scene::UpdateEntityConstant(UploadBuffer<EntityInfo> *uploader)
 
 void Scene::UpdateCamera()
 {
-    const float deltaTime = 0.01F;
+    const float deltaTime = 0.1F;
     if (GetAsyncKeyState('W') & 0x8000) {
         mCamera["default"].Walk(1.0F * deltaTime);
     }
