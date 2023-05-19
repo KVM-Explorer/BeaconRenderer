@@ -138,7 +138,7 @@ void StageBeacon::CreateDeviceResource(HWND handle)
         } else {
             static uint id = 0;
             if (id == 0) {
-                OutputDebugStringW(std::format(L"Found Display dGPU:  {}\n", i).c_str());
+                OutputDebugStringW(std::format(L"Found Display dGPU:  {}\n", str).c_str());
                 mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
                 id++;
                 continue;
@@ -550,7 +550,7 @@ void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
         stage2->FlushCopy(); // 等待上一帧拷贝完毕
         stage2->ResetCopy();
         backend->CopyQueue->Wait(stage2->Fence.Get(), stage2->FenceValue); // 等待上一帧渲染完毕
-
+        // backend->GpuTimer->BeginTimer(stage2->CopyCmdList.Get(),static_cast<uint>(GpuTimers::CopyPass));
         {
             if (CrossAdapterTextureSupport) {
                 stage2->CopyCmdList->CopyResource(stage2->GetResource("LightCopy"), stage2->GetResource("Light"));
@@ -572,6 +572,7 @@ void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
                 stage2->CopyCmdList->ResourceBarrier(1, &copySrcBarrier);
             }
         }
+        // backend->GpuTimer->EndTimer(stage2->CopyCmdList.Get(),static_cast<uint>(GpuTimers::CopyPass));
         stage2->SubmitCopy(backend->CopyQueue.Get());
         stage2->SignalCopy(backend->CopyQueue.Get());
     });

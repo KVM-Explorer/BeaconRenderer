@@ -29,6 +29,7 @@ BackendResource::BackendResource(IDXGIFactory *factory, IDXGIAdapter1 *adapter, 
     }
 
     mResourceRegister = std::make_unique<ResourceRegister>(Device.Get());
+    // GpuTimer = std::make_unique<D3D12GpuTimer>(Device.Get(),CopyQueue.Get(),static_cast<uint>(GpuTimers::NumTimers));
 }
 
 BackendResource::~BackendResource()

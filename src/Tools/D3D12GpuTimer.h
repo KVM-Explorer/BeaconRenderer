@@ -40,6 +40,7 @@ enum class GpuTimers {
     FPS,
     GBuffer,
     LightPass,
+    CopyPass,
     ComputeShader,
     UI,
     NumTimers
