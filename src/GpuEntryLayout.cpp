@@ -34,7 +34,7 @@ ComPtr<ID3D12RootSignature> GpuEntryLayout::CreateRenderSignature(ID3D12Device *
     std::array<CD3DX12_DESCRIPTOR_RANGE, 1> srvRange = {};
     srvRange.at(0).Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, gbufferNum + 1, 0); // Gbuffer 3 output + Depth
     std::array<CD3DX12_DESCRIPTOR_RANGE, 1> texRange = {};
-    texRange.at(0).Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV,100, 0, 2); // Bindless Diffuse Texture
+    texRange.at(0).Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 100, 0, 2); // Bindless Diffuse Texture
 
     std::array<CD3DX12_ROOT_PARAMETER, 7> rootParameters = {};
     rootParameters.at(0).InitAsConstantBufferView(0);                             // Object Constant

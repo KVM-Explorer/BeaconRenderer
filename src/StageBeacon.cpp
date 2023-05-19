@@ -570,7 +570,7 @@ void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
         stage3->DirectCmdList->RSSetScissorRects(1, &mScissor);
 
         // Copy Light
-        {
+        if (!CrossAdapterTextureSupport) {
             auto copyDstBarrier = CD3DX12_RESOURCE_BARRIER::Transition(stage3->GetResource("LightCopy"), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST);
             auto shaderResourceBarrier = CD3DX12_RESOURCE_BARRIER::Transition(stage3->GetResource("LightCopy"), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON);
 
@@ -588,7 +588,10 @@ void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
         }
         {
             sobelPass.BeginPass(stage3->DirectCmdList.Get());
-            sobelPass.ExecutePass(stage3->DirectCmdList.Get());
+            for (uint i = 0; i < 10; i++) {
+                sobelPass.ExecutePass(stage3->DirectCmdList.Get());
+            }
+
             sobelPass.EndPass(stage3->DirectCmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
         }
         {

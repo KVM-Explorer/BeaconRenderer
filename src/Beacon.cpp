@@ -324,7 +324,9 @@ void Beacon::ExecutePass(uint frameIndex)
     GResource::GPUTimer->BeginTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::ComputeShader));
 
     mSobelPass->BeginPass(mFR.at(frameIndex).CmdList.Get());
-    mSobelPass->ExecutePass(mFR.at(frameIndex).CmdList.Get());
+    for (uint i = 0; i < 10; i++) {
+        mSobelPass->ExecutePass(mFR.at(frameIndex).CmdList.Get());
+    }
     mSobelPass->EndPass(mFR.at(frameIndex).CmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
 
     GResource::GPUTimer->EndTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::ComputeShader));
