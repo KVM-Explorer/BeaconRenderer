@@ -121,17 +121,17 @@ void StageBeacon::CreateDeviceResource(HWND handle)
 
         auto hr = adapter->EnumOutputs(0, &output);
         if (SUCCEEDED(hr) && output != nullptr) {
-            auto outputStr = std::format(L"iGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
-            OutputDebugStringW(outputStr.c_str());
-            mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
+        //     auto outputStr = std::format(L"iGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
+        //     OutputDebugStringW(outputStr.c_str());
+        //     mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
         } else {
             static uint id = 0;
-            // if (id == 0) {
-            //     OutputDebugStringW(std::format(L"Found Display dGPU:  {}\n", i).c_str());
-            //     mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
-            //     id++;
-            //     continue;
-            // }
+            if (id == 0) {
+                OutputDebugStringW(std::format(L"Found Display dGPU:  {}\n", i).c_str());
+                mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
+                id++;
+                continue;
+            }
 
             auto outputStr = std::format(L"dGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
             OutputDebugStringW(outputStr.c_str());
@@ -514,7 +514,7 @@ void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
         stage1->ResetDirect();
         stage1->DirectCmdList->RSSetViewports(1, &mViewPort);
         stage1->DirectCmdList->RSSetScissorRects(1, &mScissor);
-
+        backend->DirectQueue->Wait(stage1->SharedFence.Get(),stage1->SharedFenceValue);
         auto entitiesCB = stage1->mSceneCB.EntityCB->resource()->GetGPUVirtualAddress();
 
         {
@@ -527,7 +527,10 @@ void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
 
         {
             lightPass.BeginPass(stage1->DirectCmdList.Get(), D3D12_RESOURCE_STATE_COMMON);
-            mScene->RenderQuad(stage1->DirectCmdList.Get(), entitiesCB, &backend->mRenderItems);
+            for(uint i=0;i<200;i++)
+            {
+                 mScene->RenderQuad(stage1->DirectCmdList.Get(), entitiesCB, &backend->mRenderItems);
+            }
             lightPass.EndPass(stage1->DirectCmdList.Get(), D3D12_RESOURCE_STATE_COMMON);
         }
         stage1->SubmitDirect(backend->DirectQueue.Get());
@@ -588,7 +591,7 @@ void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
         }
         {
             sobelPass.BeginPass(stage3->DirectCmdList.Get());
-            for (uint i = 0; i < 10; i++) {
+            for (uint i = 0; i < 1; i++) {
                 sobelPass.ExecutePass(stage3->DirectCmdList.Get());
             }
 
