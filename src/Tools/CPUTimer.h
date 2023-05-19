@@ -1,5 +1,6 @@
 #include <stdafx.h>
 
+using TimePoint = std::chrono::high_resolution_clock::time_point;
 class CPUTimer {
 public:
     CPUTimer() = default;
@@ -8,6 +9,8 @@ public:
     CPUTimer(CPUTimer &&) = delete;
     CPUTimer &operator=(CPUTimer &&) = delete;
 
+    uint GetStaticTimeDuration(std::string name,TimePoint time);
+    void SetStaticTime(std::string name,TimePoint time);
     void BeginTimer(std::string name);
     void EndTimer(std::string name);
     void UpdateTimer(std::string name);

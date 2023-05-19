@@ -43,3 +43,18 @@ uint CPUTimer::QueryDuration(std::string name)
     if (mDuration.contains(name)) return mDuration[name];
     return 0;
 }
+
+uint CPUTimer::GetStaticTimeDuration(std::string name,TimePoint time)
+{
+    if (mTimerPoints.contains(name)) {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(time - mTimerPoints[name]).count();
+    }
+    mTimerPoints[name] = time;
+    return 0;
+}
+
+void CPUTimer::SetStaticTime(std::string name,TimePoint time)
+{
+    mTimerPoints[name] = time;
+}
+

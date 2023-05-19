@@ -56,6 +56,17 @@ void StageBeacon::OnRender()
     SetPass(backend, deviceIndex);
     GResource::CPUTimerManager->EndTimer("UpdatePass");
     // SyncExecutePass(backend, deviceIndex);
+
+    TimePoint now = std::chrono::high_resolution_clock::now();
+    static uint fpsCount = 0;
+    fpsCount++;
+    auto duration = GResource::CPUTimerManager->GetStaticTimeDuration("FPS", now);
+    if (duration > 1000) {
+        GResource::CPUTimerManager->SetStaticTime("FPS", now);
+        GResource::GUIManager->State.FPSCount = fpsCount;
+        fpsCount = 0;
+    }
+
     AsyncExecutePass(backend, deviceIndex);
     GResource::CPUTimerManager->EndTimer("DrawCall");
 
@@ -514,7 +525,7 @@ void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
         stage1->ResetDirect();
         stage1->DirectCmdList->RSSetViewports(1, &mViewPort);
         stage1->DirectCmdList->RSSetScissorRects(1, &mScissor);
-        backend->DirectQueue->Wait(stage1->SharedFence.Get(),stage1->SharedFenceValue);
+        backend->DirectQueue->Wait(stage1->SharedFence.Get(), stage1->SharedFenceValue);
         auto entitiesCB = stage1->mSceneCB.EntityCB->resource()->GetGPUVirtualAddress();
 
         {
@@ -527,9 +538,8 @@ void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
 
         {
             lightPass.BeginPass(stage1->DirectCmdList.Get(), D3D12_RESOURCE_STATE_COMMON);
-            for(uint i=0;i<200;i++)
-            {
-                 mScene->RenderQuad(stage1->DirectCmdList.Get(), entitiesCB, &backend->mRenderItems);
+            for (uint i = 0; i < 200; i++) {
+                mScene->RenderQuad(stage1->DirectCmdList.Get(), entitiesCB, &backend->mRenderItems);
             }
             lightPass.EndPass(stage1->DirectCmdList.Get(), D3D12_RESOURCE_STATE_COMMON);
         }

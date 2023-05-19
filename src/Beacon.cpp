@@ -54,6 +54,15 @@ void Beacon::OnInit()
 void Beacon::OnRender()
 {
     GResource::CPUTimerManager->UpdateTimer("RenderTime");
+    TimePoint now = std::chrono::high_resolution_clock::now();
+    static uint fpsCount = 0;
+    fpsCount++;
+    auto duration = GResource::CPUTimerManager->GetStaticTimeDuration("FPS", now);
+    if (duration > 1000) {
+        GResource::CPUTimerManager->SetStaticTime("FPS", now);
+        GResource::GUIManager->State.FPSCount = fpsCount;
+        fpsCount = 0;
+    }
 
     int frameIndex = mCurrentBackBuffer;
 
@@ -316,12 +325,10 @@ void Beacon::ExecutePass(uint frameIndex)
     GResource::GPUTimer->BeginTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::LightPass));
 
     mLightPass->BeginPass(mFR.at(frameIndex).CmdList.Get());
-    for(uint i=0;i<200;i++)
-    {
+    for (uint i = 0; i < 200; i++) {
         mScene->RenderQuad(mFR.at(frameIndex).CmdList.Get(), constantAddress);
     }
-     mLightPass->EndPass(mFR.at(frameIndex).CmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
-   
+    mLightPass->EndPass(mFR.at(frameIndex).CmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
 
     GResource::GPUTimer->EndTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::LightPass));
     // =============================== Sobel Pass ================================

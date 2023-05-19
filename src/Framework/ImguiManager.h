@@ -14,7 +14,7 @@ class ImguiManager {
         float ComputeShaderTime;
         bool EnableSphere = true;
         bool EnableModel;
-
+        uint FPSCount;
     };
 
 public:
