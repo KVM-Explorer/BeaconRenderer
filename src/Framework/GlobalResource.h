@@ -3,9 +3,9 @@
 #include <Framework/ImguiManager.h>
 #include "Tools/CPUTimer.h"
 #include "Tools/D3D12GpuTimer.h"
+#include <yaml-cpp/yaml.h>
 
-class GResource {
-public:
+struct GResource {
     inline static std::unique_ptr<ImguiManager> GUIManager = nullptr;
     inline static std::unique_ptr<CPUTimer> CPUTimerManager = nullptr;
     inline static std::unique_ptr<D3D12GpuTimer> GPUTimer = nullptr;
@@ -21,4 +21,5 @@ public:
         CPUTimerManager = nullptr;
         GUIManager = nullptr;
     }
+    inline static YAML::Node config;
 };

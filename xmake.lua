@@ -11,6 +11,7 @@ before_build(
         os.trycp("$(projectdir)/lib/*.dll", "$(buildir)/$(plat)/$(arch)/$(mode)/")
         os.trycp("$(projectdir)/Shaders/","$(buildir)/$(plat)/$(arch)/$(mode)/")
         os.trycp("$(projectdir)/Assets/","$(buildir)/$(plat)/$(arch)/$(mode)/")
+        os.trycp("$(projectdir)/Configs/*","$(buildir)/$(plat)/$(arch)/$(mode)/")
     end
 )
 

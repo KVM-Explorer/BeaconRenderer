@@ -325,7 +325,7 @@ void Beacon::ExecutePass(uint frameIndex)
     GResource::GPUTimer->BeginTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::LightPass));
 
     mLightPass->BeginPass(mFR.at(frameIndex).CmdList.Get());
-    for (uint i = 0; i < 200; i++) {
+    for (uint i = 0; i < GResource::config["LightPassLoop"].as<uint>(); i++) {
         mScene->RenderQuad(mFR.at(frameIndex).CmdList.Get(), constantAddress);
     }
     mLightPass->EndPass(mFR.at(frameIndex).CmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
@@ -335,7 +335,7 @@ void Beacon::ExecutePass(uint frameIndex)
     GResource::GPUTimer->BeginTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::ComputeShader));
 
     mSobelPass->BeginPass(mFR.at(frameIndex).CmdList.Get());
-    for (uint i = 0; i < 1; i++) {
+    for (uint i = 0; i < GResource::config["PostProcessLoop"].as<uint>(); i++) {
         mSobelPass->ExecutePass(mFR.at(frameIndex).CmdList.Get());
     }
     mSobelPass->EndPass(mFR.at(frameIndex).CmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);

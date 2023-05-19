@@ -2,7 +2,6 @@
 #include <stdafx.h>
 #include <tchar.h>
 #include "GlobalResource.h"
-
 HWND Application::mHandle = nullptr;
 // Forward declare message handler from imgui_impl_win32.cpp
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -49,6 +48,7 @@ int Application::Run(RendererBase *renderer, HINSTANCE hInstance, int hCmdShow)
                                       renderer);
 
     mHandle = WindowsHandle;
+    GResource::config = YAML::LoadFile("./config.yaml");
 
     renderer->OnInit();
 
