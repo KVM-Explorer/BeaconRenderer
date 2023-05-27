@@ -132,9 +132,9 @@ void StageBeacon::CreateDeviceResource(HWND handle)
 
         auto hr = adapter->EnumOutputs(0, &output);
         if (SUCCEEDED(hr) && output != nullptr) {
-        //     auto outputStr = std::format(L"iGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
-        //     OutputDebugStringW(outputStr.c_str());
-        //     mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
+            //     auto outputStr = std::format(L"iGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
+            //     OutputDebugStringW(outputStr.c_str());
+            //     mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
         } else {
             static uint id = 0;
             if (id == 0) {
@@ -275,7 +275,7 @@ void StageBeacon::LoadAssets()
                                backend->mSceneVB,
                                backend->mSceneIB,
                                backend->mSceneTextures);
-
+        backend->mEnvMapIndex = scene->GetEnvSrvIndex();
         // Frame CB
         for (auto &fr : backend->mSFR) {
             fr.SetSceneTextureBase(0); // DiffuseMap取的是所有SRV中的ID因而Texture的基准应该从第0个开始
@@ -378,6 +378,8 @@ void StageBeacon::SetPass(BackendResource *backend, uint backendIndex)
     lightPass->SetRenderTarget(stage1Resource->GetResource("Light"), stage1Resource->GetRtv("Light"));
     lightPass->SetGBuffer(stage1Resource->mSrvCbvUavHeap->Resource(), stage1Resource->GetSrvCbvUav("GBuffer0"));
     lightPass->SetTexture(stage1Resource->mSrvCbvUavHeap->Resource(), stage1Resource->GetSrvCbvUav("SceneTextureBase"));
+    lightPass->SetCubeMap(backend->mResourceRegister->SrvCbvUavDescriptorHeap->Resource(),
+                          backend->mResourceRegister->SrvCbvUavDescriptorHeap->GPUHandle(backend->mEnvMapIndex));
 
     // Sobel Pass
     auto [stage3Resource, index] = mDisplayResource->GetCurrentFrame(backendIndex, Stage::PostProcess, frameIndex);

@@ -41,6 +41,8 @@ public:
 
     std::unique_ptr<ResourceRegister> mResourceRegister;
 
+    int mEnvMapIndex;
+    
     uint mRTVDescriptorSize;
     uint mDSVDescriptorSize;
     uint mCBVSRVUAVDescriptorSize;
