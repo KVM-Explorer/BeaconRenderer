@@ -108,10 +108,12 @@ void Beacon::OnUpdate()
 }
 
 void Beacon::OnDestory()
-{
-    for(auto &item : mFR) {
+{   
+    for (auto &item : mFR) {
+        mCommandQueue->Signal(item.Fence.Get(), ++item.FenceValue);
         item.Sync();
     }
+    GResource::GPUTimer = nullptr;
     mScene = nullptr;
     mFR.clear();
     mQuadPass = nullptr;
