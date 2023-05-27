@@ -109,6 +109,9 @@ void Beacon::OnUpdate()
 
 void Beacon::OnDestory()
 {
+    for(auto &item : mFR) {
+        item.Sync();
+    }
     mScene = nullptr;
     mFR.clear();
     mQuadPass = nullptr;

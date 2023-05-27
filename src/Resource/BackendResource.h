@@ -7,6 +7,7 @@
 #include "D3DHelpler/ResourceRegister.h"
 #include "StageFrameResource.h"
 #include "Scene.h"
+#include "Tools/D3D12GpuTimer.h"
 
 struct BackendResource {
 public:
@@ -45,6 +46,8 @@ public:
     uint mCBVSRVUAVDescriptorSize;
 
     std::vector<StageFrameResource> mSFR; // Frame Count
+
+    std::unique_ptr<D3D12GpuTimer> GpuTimer;
 
 private:
     uint mCurrentFrameIndex;
