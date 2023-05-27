@@ -254,7 +254,7 @@ void StageFrameResource::FlushCopy()
 {
     if (SharedFence->GetCompletedValue() < SharedFenceValue) {
         HANDLE eventHandle = CreateEventEx(nullptr, nullptr, false, EVENT_ALL_ACCESS);
-        ThrowIfFailed(Fence->SetEventOnCompletion(SharedFenceValue, eventHandle));
+        ThrowIfFailed(SharedFence->SetEventOnCompletion(SharedFenceValue, eventHandle));
         WaitForSingleObject(eventHandle, INFINITE);
         CloseHandle(eventHandle);
     }
