@@ -1,4 +1,5 @@
 Width: 600
 Height: 600
-LightPassLoop: 1
-PostProcessLoop: 1
+LightPassLoop: 52
+PostProcessLoop: 24
+PassInfoUI: false
