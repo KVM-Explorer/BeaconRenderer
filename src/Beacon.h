@@ -59,6 +59,8 @@ private:
 
     std::unique_ptr<ResourceRegister> mResourceRegister;
 
+    int mEnvMapIndex = -1;
+    
     // Multi-Pass
     std::vector<FrameResource> mFR;
     std::unique_ptr<GBufferPass> mGBufferPass;

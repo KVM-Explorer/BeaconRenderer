@@ -219,13 +219,13 @@ void Beacon::LoadScene()
     std::string sceneName = GResource::config["SceneName"].as<std::string>();
     auto scene = std::make_unique<Scene>(path, sceneName);
     scene->Init(mDevice.Get(), mFR.at(0).CmdList.Get(), mResourceRegister->SrvCbvUavDescriptorHeap.get());
-
+    mEnvMapIndex = scene->GetEnvSrvIndex();
     mScene = std::move(scene);
 }
 
 void Beacon::CompileShaders()
 {
-    UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+    UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION | D3DCOMPILE_DEBUG_NAME_FOR_SOURCE;
     ComPtr<ID3DBlob> error;
     ThrowIfFailed(D3DCompileFromFile(L"Shaders/GBuffer.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VSMain", "vs_5_1", compileFlags, 0, &GResource::Shaders["GBufferVS"], &error));
 
@@ -298,6 +298,7 @@ void Beacon::SetPass(uint frameIndex)
     mLightPass->SetRenderTarget(mFR.at(frameIndex).GetResource("ScreenTexture1"), mFR.at(frameIndex).GetRtv("ScreenTexture1"));
     mLightPass->SetGBuffer(mFR.at(frameIndex).SrvCbvUavDescriptorHeap->Resource(), mFR.at(frameIndex).GetSrvCbvUav("GBuffer0"));
     mLightPass->SetTexture(mFR.at(frameIndex).SrvCbvUavDescriptorHeap->Resource(), mFR.at(frameIndex).SrvCbvUavDescriptorHeap->GPUHandle(0));
+    mLightPass->SetCubeMap(mFR.at(0).SrvCbvUavDescriptorHeap->Resource(), mFR.at(0).SrvCbvUavDescriptorHeap->GPUHandle(mEnvMapIndex));
 
     // ================== SobelPass ==================
     mSobelPass->SetInput(mFR.at(frameIndex).GetSrvCbvUav("Depth"));

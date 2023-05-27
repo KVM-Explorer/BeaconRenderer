@@ -52,7 +52,9 @@ public:
     void CreateSceneInfo(const ModelLight &info);
     void CreateMaterials(const std::vector<ModelMaterial> &info, ID3D12Device *device, ID3D12GraphicsCommandList *commandList, DescriptorHeap *descriptorHeap, std::vector<Texture> &textures);
     MeshInfo AddMesh(Mesh &mesh, ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
-    void CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12GraphicsCommandList *commandList,uint repeat = 0);
+    void CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12GraphicsCommandList *commandList, uint repeat = 0);
+    void CreateEnvironmentMap(ID3D12Device *device, ID3D12GraphicsCommandList *commandList, DescriptorHeap *descriptorHeap, std::vector<Texture> &textures);
+    int GetEnvSrvIndex() const { return mEnvironmentMapIndex; };
 
 private:
     std::unordered_map<std::string, Camera> mCamera;
@@ -71,6 +73,7 @@ private:
     std::vector<uint16> mAllIndices;
     std::unique_ptr<UploadBuffer<ModelVertex>> mVerticesBuffer;
     std::unique_ptr<UploadBuffer<uint16>> mIndicesBuffer;
+    int mEnvironmentMapIndex = 0;
 
     // Resource
     std::vector<Texture> mTextures;

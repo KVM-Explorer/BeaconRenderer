@@ -165,6 +165,9 @@ void Scene::LoadAssets(ID3D12Device *device, ID3D12GraphicsCommandList *commandL
     // CreateSceneInfo(dataLoader->GetLight()); // TODO CreateSceneInfo
     CreateMaterials(dataLoader->GetMaterials(), device, commandList, descriptorHeap, textures);
     mMeshesData = dataLoader->GetMeshes();
+    if (mSceneName == "common") {
+        CreateEnvironmentMap(device, commandList, descriptorHeap, textures);
+    }
     CreateModels(dataLoader->GetModels(), device, commandList, repeat);
 }
 
@@ -215,12 +218,21 @@ MeshInfo Scene::AddMesh(Mesh &mesh, ID3D12Device *device, ID3D12GraphicsCommandL
     return {vertexOffset, vertexCount, indexOffset, indexCount};
 }
 
+void Scene::CreateEnvironmentMap(ID3D12Device *device, ID3D12GraphicsCommandList *commandList, DescriptorHeap *descriptorHeap, std::vector<Texture> &textures)
+{
+    std::wstring path = string2wstring(mRootPath + "\\" + mSceneName + "\\cubemap.dds");
+    std::replace(path.begin(), path.end(), '/', '\\');
+    Texture texture(device, commandList, path, true);
+    mEnvironmentMapIndex = descriptorHeap->AddSrvDescriptor(device, texture.Resource());
+    textures.push_back(std::move(texture));
+}
+
 void Scene::CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12GraphicsCommandList *commandList, uint repeat)
 {
     for (uint i = 0; i < repeat + 1; i++) {
         for (const auto &item : info) {
             Entity entity(EntityType::Opaque);
-            entity.Transform = mTransforms[item.transform+ i * info.size()];
+            entity.Transform = mTransforms[item.transform + i * info.size()];
             entity.MaterialIndex = item.material;
             entity.EntityIndex = mEntities.size();
             if (mSceneName == "common") {
@@ -320,9 +332,9 @@ void Scene::UpdateLightConstant(UploadBuffer<Light> *uploader)
 {
     Light pointLight;
     pointLight.LightBegin = 0.0F;
-    pointLight.LightEnd = 100.0F;
+    pointLight.LightEnd = 20.0F;
     pointLight.Position = DirectX::XMFLOAT3(3, 3, -5);
-    pointLight.LightStrengh = DirectX::XMFLOAT3(1.0, 1.0, 1.0);
+    pointLight.LightStrengh = DirectX::XMFLOAT3(0.5, 0.5, 0.5);
     uploader->copyData(0, pointLight);
 }
 

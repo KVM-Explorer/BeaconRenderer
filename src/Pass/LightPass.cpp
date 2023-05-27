@@ -23,6 +23,12 @@ void LightPass::SetTexture(ID3D12DescriptorHeap *srvHeap, CD3DX12_GPU_DESCRIPTOR
     mTextureHandle = srvHandle;
 }
 
+void LightPass::SetCubeMap(ID3D12DescriptorHeap *srvHeap, CD3DX12_GPU_DESCRIPTOR_HANDLE srvHandle)
+{
+    mSrvHeap = srvHeap;
+    mCubeMapHandle = srvHandle;
+}
+
 void LightPass::BeginPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES beforeState) const
 {
     const float clearValue[] = {0, 0, 0, 1.0F};
@@ -39,6 +45,7 @@ void LightPass::BeginPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STA
     cmdList->SetDescriptorHeaps(1, &mSrvHeap);
     cmdList->SetGraphicsRootDescriptorTable(3, mGBufferHandle);
     cmdList->SetGraphicsRootDescriptorTable(4, mTextureHandle);
+    cmdList->SetGraphicsRootDescriptorTable(7, mCubeMapHandle);
 }
 
 void LightPass::EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES resultState) const
