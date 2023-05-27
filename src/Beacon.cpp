@@ -210,8 +210,9 @@ void Beacon::CreateRTV(ID3D12Device *device, IDXGISwapChain4 *swapchain, uint fr
 void Beacon::LoadScene()
 {
     // TODO add read config file
-    std::string Path = "./Assets";
-    auto scene = std::make_unique<Scene>(Path, "lighthouse");
+    std::string path = "./Assets";
+    std::string sceneName = GResource::config["SceneName"].as<std::string>();
+    auto scene = std::make_unique<Scene>(path, sceneName);
     scene->Init(mDevice.Get(), mFR.at(0).CmdList.Get(), mResourceRegister->SrvCbvUavDescriptorHeap.get());
 
     mScene = std::move(scene);

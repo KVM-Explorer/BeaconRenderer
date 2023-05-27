@@ -83,7 +83,7 @@ void Scene::RenderQuad(ID3D12GraphicsCommandList *cmdList, D3D12_GPU_VIRTUAL_ADD
     }
 }
 
-void Scene::RenderScreenQuad(ID3D12GraphicsCommandList *cmdList,D3D12_VERTEX_BUFFER_VIEW *vertexBufferView, D3D12_INDEX_BUFFER_VIEW *indexBufferView)
+void Scene::RenderScreenQuad(ID3D12GraphicsCommandList *cmdList, D3D12_VERTEX_BUFFER_VIEW *vertexBufferView, D3D12_INDEX_BUFFER_VIEW *indexBufferView)
 {
     cmdList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
     cmdList->IASetVertexBuffers(0, 1, vertexBufferView);
@@ -160,11 +160,12 @@ void Scene::CreateQuadTest(ID3D12Device *device, ID3D12GraphicsCommandList *cmdL
 void Scene::LoadAssets(ID3D12Device *device, ID3D12GraphicsCommandList *commandList, DescriptorHeap *descriptorHeap, DataLoader *dataLoader, std::vector<Texture> &textures)
 {
     // DataLoader light, materials, obj model(vertex index normal)
-    mTransforms = dataLoader->GetTransforms();
+    uint repeat = GResource::config["RepeatModel"].as<uint>();
+    mTransforms = dataLoader->GetTransforms(repeat);
     // CreateSceneInfo(dataLoader->GetLight()); // TODO CreateSceneInfo
     CreateMaterials(dataLoader->GetMaterials(), device, commandList, descriptorHeap, textures);
     mMeshesData = dataLoader->GetMeshes();
-    CreateModels(dataLoader->GetModels(), device, commandList);
+    CreateModels(dataLoader->GetModels(), device, commandList, repeat);
 }
 
 void Scene::CreateMaterials(const std::vector<ModelMaterial> &info,
@@ -214,17 +215,23 @@ MeshInfo Scene::AddMesh(Mesh &mesh, ID3D12Device *device, ID3D12GraphicsCommandL
     return {vertexOffset, vertexCount, indexOffset, indexCount};
 }
 
-void Scene::CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12GraphicsCommandList *commandList)
+void Scene::CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12GraphicsCommandList *commandList, uint repeat)
 {
-    for (const auto &item : info) {
-        Entity entity(EntityType::Opaque);
-        entity.Transform = mTransforms[item.transform];
-        entity.MaterialIndex = item.material;
-        entity.EntityIndex = mEntities.size();
-        entity.ShaderID = static_cast<uint>(ShaderID::OpaqueWithTexture);
-        auto meshInfo = AddMesh(mMeshesData[item.mesh], device, commandList);
-        entity.MeshInfo = meshInfo;
-        mEntities.push_back(entity);
+    for (uint i = 0; i < repeat + 1; i++) {
+        for (const auto &item : info) {
+            Entity entity(EntityType::Opaque);
+            entity.Transform = mTransforms[item.transform+ i * info.size()];
+            entity.MaterialIndex = item.material;
+            entity.EntityIndex = mEntities.size();
+            if (mSceneName == "common") {
+                entity.ShaderID = static_cast<uint>(ShaderID::Opaque);
+            } else {
+                entity.ShaderID = static_cast<uint>(ShaderID::OpaqueWithTexture);
+            }
+            auto meshInfo = AddMesh(mMeshesData[item.mesh], device, commandList);
+            entity.MeshInfo = meshInfo;
+            mEntities.push_back(entity);
+        }
     }
 }
 
@@ -324,8 +331,10 @@ void Scene::UpdateMaterialConstant(UploadBuffer<MaterialInfo> *uploader)
     for (uint i = 0; i < mMaterials.size(); i++) {
         MaterialInfo info = {};
         info.BaseColor = mMaterials[i].BaseColor;
-        // info.Roughness = 1 - mMaterials[i].Shineness; // TODO 默认Roughness是非归一化的数值如32
-        info.Roughness = 0.02;
+        if (mMaterials[i].Shineness > 1.0F)
+            info.Roughness = 0.02;
+        else
+            info.Roughness = 1 - mMaterials[i].Shineness;
         info.FresnelR0 = DirectX::XMFLOAT3(0.2F, 0.3F, 1.0F);
         info.DiffuseMapIndex = mMaterials[i].DiffuseMapIndex;
         uploader->copyData(i, info);

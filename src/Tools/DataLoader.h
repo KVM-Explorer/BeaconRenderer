@@ -33,17 +33,22 @@ struct Model {
 };
 
 struct ModelProps {
+    enum class ModelType {
+        BliningPhong,
+        PBRM
+    };
     ModelLight LightInfo;
     std::vector<ModelMaterial> Materials;
     std::vector<DirectX::XMFLOAT4X4> Transforms;
     std::vector<Model> Models;
+    ModelType Type;
 };
 
 class DataLoader {
 public:
     DataLoader(std::string path, std::string name);
 
-    [[nodiscard]] std::vector<DirectX::XMFLOAT4X4> GetTransforms() const;
+    [[nodiscard]] std::vector<DirectX::XMFLOAT4X4> GetTransforms(uint repeat = 0) const;
     [[nodiscard]] ModelLight GetLight() const;
     [[nodiscard]] std::vector<ModelMaterial> GetMaterials() const;
     std::unordered_map<std::string, Mesh> GetMeshes();
@@ -57,6 +62,7 @@ private:
     std::string ReadType(std::stringstream &reader);
     void ReadLight(std::stringstream &reader);
     void ReadBlinnMaterials(std::stringstream &reader);
+    void ReadBPRMMaterials(std::stringstream &reader);
     void ReadTransforms(std::stringstream &reader);
     void ReadModels(std::stringstream &reader);
 

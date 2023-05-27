@@ -18,6 +18,7 @@ struct PSOutput {
 PSInput VSMain(VSInput input) {
 	PSInput res;
 	float4 pos = float4(input.Position, 1);
+	pos = mul(pos,gEntityTransform);
 	res.Position = mul(pos, gViewProject);
 	res.Normal = input.Normal;
 	res.UV = input.Texcoord;

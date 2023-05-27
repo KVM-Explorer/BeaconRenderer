@@ -262,7 +262,8 @@ void StageBeacon::LoadAssets()
 {
     // Backend Device VB IB
     std::string assetsPath = "Assets";
-    auto scene = std::make_unique<Scene>(assetsPath, "lighthouse");
+    auto sceneName = GResource::config["SceneName"].as<std::string>();
+    auto scene = std::make_unique<Scene>(assetsPath, sceneName);
     for (const auto &backend : mBackendResource) {
         auto *device = backend->Device.Get();
         auto &frameResource = backend->mSFR.at(0);
