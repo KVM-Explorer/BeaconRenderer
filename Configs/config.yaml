@@ -1,5 +1,7 @@
 Width: 600
 Height: 600
-LightPassLoop: 52
-PostProcessLoop: 24
+LightPassLoop: 1
+PostProcessLoop: 1
 PassInfoUI: false
+SceneName: common
+RepeatModel: 12

@@ -25,6 +25,11 @@ void DataLoader::ReadSceneFromFile()
         ReadBlinnMaterials(reader);
         ReadTransforms(reader);
         ReadModels(reader);
+    } else if (modelType == "pbrm") {
+        ReadLight(reader);
+        ReadBPRMMaterials(reader);
+        ReadTransforms(reader);
+        ReadModels(reader);
     } else {
         throw std::exception("Unkonwn Model Type");
     }
@@ -91,6 +96,47 @@ void DataLoader::ReadBlinnMaterials(std::stringstream &reader)
     }
 }
 
+void DataLoader::ReadBPRMMaterials(std::stringstream &reader)
+{
+    std::string tmp;
+    /*
+            basecolor_factor: 1 1 1 1
+            metalness_factor: 1
+            roughness_factor: 0.0
+            basecolor_map: null
+            metalness_map: null
+            roughness_map: null
+            normal_map: null
+            occlusion_map: null
+            emission_map: null
+            double_sided: off
+            enable_blend: off
+            alpha_cutoff: 0
+    */
+    int num, index;
+    float x, y, z, w;
+    reader >> tmp >> num >> tmp;
+    for (int i = 0; i < num; i++) {
+        ModelMaterial material;
+        reader >> tmp >> index >> tmp;
+        reader >> tmp >> x >> y >> z >> w; // basecolor_factor
+        material.basecolor = {x, y, z, w};
+        reader >> tmp >> material.shiniess;     // metalness_factor !
+        reader >> tmp >> material.shiniess;     // roughness_factor !
+        reader >> tmp >> material.diffuse_map;  // basecolor_map
+        reader >> tmp >> material.specular_map; // metalness_map
+        reader >> tmp >> material.emission_map; // roughness_map
+        reader >> tmp >> material.emission_map; // normal_map
+        reader >> tmp >> material.emission_map; // occlusion_map
+        reader >> tmp >> material.emission_map; // emission_map
+        reader >> tmp >> material.double_side;  // double_sided
+        reader >> tmp >> material.enable_blend; // enable_blend
+        reader >> tmp >> material.aplha_cutoff; // alpha_cutoff
+        material.shiniess = 1 - material.shiniess;
+        mModel.Materials.emplace_back(material);
+    }
+}
+
 void DataLoader::ReadTransforms(std::stringstream &reader)
 {
     // TODO 注意数据的转置
@@ -107,31 +153,35 @@ void DataLoader::ReadTransforms(std::stringstream &reader)
     }
 }
 
-std::vector<DirectX::XMFLOAT4X4> DataLoader::GetTransforms() const
+std::vector<DirectX::XMFLOAT4X4> DataLoader::GetTransforms(uint repeat) const
 {
+    using DirectX::XMMatrixTranspose;
     // TODO ReDesign Root Transform
     std::vector<DirectX::XMFLOAT4X4> transforms;
-    auto translation = DirectX::XMMatrixTranslation(-13.924f, -21.974f, 19.691f);
-    // auto translation = DirectX::XMMatrixTranslation(-17.924f, -16.974f, 32.691f);
-    // auto rotationX = DirectX::XMMatrixRotationX(DirectX::XMConvertToRadians(-90));
-    // auto rotationY = DirectX::XMMatrixRotationY(DirectX::XMConvertToRadians(180));
-    // auto rotationZ = DirectX::XMMatrixRotationZ(DirectX::XMConvertToRadians(180));
-    // auto rotation = rotationX * rotationY;
-    auto scale = DirectX::XMMatrixScaling(0.1F, 0.1F, 0.1F);
-    // auto root = scale * rotation * translation;
+    for (uint i = 0; i < repeat + 1; i++) {
+        auto translation = DirectX::XMMatrixTranslation(-13.924f, -21.974f, 19.691f);
+        // auto translation = DirectX::XMMatrixTranslation(-17.924f, -16.974f, 32.691f);
+        // auto rotationX = DirectX::XMMatrixRotationX(DirectX::XMConvertToRadians(-90));
+        // auto rotationY = DirectX::XMMatrixRotationY(DirectX::XMConvertToRadians(180));
+        // auto rotationZ = DirectX::XMMatrixRotationZ(DirectX::XMConvertToRadians(180));
+        // auto rotation = rotationX * rotationY;
+        // auto scale = DirectX::XMMatrixScaling(0.1F, 0.1F, 0.1F);
+        // auto root = scale * rotation * translation;
 
-    for (const auto &item : mModel.Transforms) {
-        auto itemTransform = DirectX::XMLoadFloat4x4(&item);
-        auto result = scale * translation;
+        for (const auto &item : mModel.Transforms) {
+            auto itemTransform = XMMatrixTranspose(DirectX::XMLoadFloat4x4(&item));
+            auto origin = DirectX::XMVectorGetZ(itemTransform.r[3]);
+            itemTransform.r[3] = DirectX::XMVectorSetZ(itemTransform.r[3], origin + i * 10);
+            auto result = itemTransform;
 
-        DirectX::XMFLOAT4X4 result4x4;
-        DirectX::XMStoreFloat4x4(&result4x4, result);
+            DirectX::XMFLOAT4X4 result4x4;
+            DirectX::XMStoreFloat4x4(&result4x4, result);
 
-        transforms.push_back(result4x4);
+            transforms.push_back(result4x4);
+        }
+        
     }
     return transforms;
-
-    // return mModel.Transforms;
 }
 
 void DataLoader::ReadModels(std::stringstream &reader)
