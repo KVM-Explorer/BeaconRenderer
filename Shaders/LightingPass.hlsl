@@ -45,7 +45,7 @@ float4 PSMain(PSInput input) : SV_TARGET {
 
   float3 tmp = gNormalTexture[input.Position.xy].xyz;
   float3 normal = normalize(tmp);
-  float3 normalW = mul(normal, (float3x3)gViewProject);
+  float3 normalW = normalize( mul(normal, (float3x3)gViewProject));
   float3 litColor = float3(0, 0, 0);
 
   Material mat;

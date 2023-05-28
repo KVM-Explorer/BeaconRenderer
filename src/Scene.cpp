@@ -369,7 +369,7 @@ void Scene::UpdateEntityConstant(UploadBuffer<EntityInfo> *uploader)
 
 void Scene::UpdateCamera()
 {
-    const float deltaTime = 0.01F;
+    const float deltaTime = 0.1F;
     if (GetAsyncKeyState('W') & 0x8000) {
         mCamera["default"].Walk(1.0F * deltaTime);
     }

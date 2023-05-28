@@ -22,14 +22,11 @@ PSInput VSMain(VSInput input) {
 	res.Position = mul(pos, gViewProject);
 	res.Normal = input.Normal;
 	res.UV = input.Texcoord;
-	res.WorldPos = input.Position ; // TODO Understand
 	return res;
 }
 
 PSOutput PSMain(PSInput input) : SV_TARGET {
 	PSOutput output;
-
-
 	output.Normal = float4(input.Normal, 1.0f);
 	output.UV = input.UV;
 	output.MaterialID = gMaterialID;
