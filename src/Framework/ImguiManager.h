@@ -15,6 +15,7 @@ class ImguiManager {
         bool EnableSphere = false;
         bool EnableModel = true;
         uint FPSCount;
+        char CameraSpeed[10];
     };
 
 public:

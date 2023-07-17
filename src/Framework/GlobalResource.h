@@ -35,5 +35,6 @@ struct GResource {
         GResource::Height = config["Application"]["Height"].as<uint>();
         GResource::GUIManager = std::make_unique<ImguiManager>(); // CreateWindows会调用一次IMGUI::IO 必须被初始化
         GResource::CPUTimerManager = std::make_unique<CPUTimer>();
+        std::strcpy(GResource::GUIManager->State.CameraSpeed, "0.01");
     }
 };

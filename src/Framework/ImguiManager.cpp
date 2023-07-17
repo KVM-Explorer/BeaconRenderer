@@ -59,6 +59,7 @@ void ImguiManager::DrawUI(ID3D12GraphicsCommandList *cmdList, ID3D12Resource *ta
     ImGui::Text("Draw Call with UI: %.2f ms", State.DrawCallTime);
     ImGui::Text("Update Scene: %.2f ms", State.UpdateSceneTime);
     ImGui::Text("Update Pass: %.2f ms", State.UpdatePassTime);
+    ImGui::InputText("CameraSpeed", State.CameraSpeed, IM_ARRAYSIZE(State.CameraSpeed));
 
     if (GResource::config["Optional"]["PassInfoUI"].as<bool>()) {
         for (auto &timer : GResource::GPUTimer->GetTimes()) {
