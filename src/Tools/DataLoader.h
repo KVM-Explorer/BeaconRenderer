@@ -77,5 +77,6 @@ private:
     std::filesystem::path mScenePath;
     std::filesystem::path mRootPath;
     std::filesystem::path mMetaPath;
+    std::string mName;
     ModelProps mModel;
 };

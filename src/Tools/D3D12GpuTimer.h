@@ -65,6 +65,11 @@ public:
     {
         return m_times;
     }
+    ~D3D12GpuTimer()
+    {
+        m_buffer = nullptr;
+        m_heap = nullptr;
+    };
 
 private:
     std::uint32_t m_numTimers; // how many we expose. we need double to record begin + end

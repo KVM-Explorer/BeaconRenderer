@@ -136,12 +136,12 @@ void StageBeacon::CreateDeviceResource(HWND handle)
             mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
         } else {
             static uint id = 0;
-            if (id == 0) {
-                OutputDebugStringW(std::format(L"Found Display dGPU:  {}\n", str).c_str());
-                mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
-                id++;
-                continue;
-            }
+            // if (id == 0) {
+            //     OutputDebugStringW(std::format(L"Found Display dGPU:  {}\n", str).c_str());
+            //     mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
+            //     id++;
+            //     continue;
+            // }
 
             auto outputStr = std::format(L"dGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
             OutputDebugStringW(outputStr.c_str());

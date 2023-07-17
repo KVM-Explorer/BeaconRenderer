@@ -11,7 +11,7 @@ Scene:
   ScenePath: Assets/single
   SceneName: Armadillo
   SceneType: singleModel # singleModel, multiModel
-  RepeatScene: [1,1,1] # 重复场景次数
+  RepeatScene: [2,2,2] # 重复场景次数
   LightPassLoop: 1
   PostProcessLoop: 1
 

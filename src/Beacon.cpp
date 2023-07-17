@@ -110,9 +110,12 @@ void Beacon::OnUpdate()
 void Beacon::OnDestory()
 {
     for (auto &item : mFR) {
+        GResource::GPUTimer->ResolveAllTimers(item.CmdList.Get());
         mCommandQueue->Signal(item.Fence.Get(), ++item.FenceValue);
         item.Sync();
     }
+    
+    GResource::GPUTimer = nullptr;
     GResource::GPUTimer = nullptr;
     mScene = nullptr;
     mFR.clear();

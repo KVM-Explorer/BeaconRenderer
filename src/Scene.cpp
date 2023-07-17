@@ -48,7 +48,11 @@ void Scene::InitWithBackend(ID3D12Device *device,
     CreateSphereTest(device, cmdList);
     CreateQuadTest(device, cmdList);
     auto dataLoader = std::make_unique<DataLoader>(mRootPath, mSceneName);
-    LoadAssets(device, cmdList, srvDescriptorHeap, dataLoader.get(), textures);
+    if (GResource::config["Scene"]["SceneType"].as<std::string>() == "singleModel") {
+        LoadSingleModel(device, cmdList, dataLoader.get());
+    } else {
+        LoadAssets(device, cmdList, srvDescriptorHeap, dataLoader.get(), textures);
+    }
     verticesBuffer = std::make_unique<UploadBuffer<ModelVertex>>(device, mAllVertices.size(), false);
     indicesBuffer = std::make_unique<UploadBuffer<uint>>(device, mAllIndices.size(), false);
     BuildVertex2Constant(device, cmdList, verticesBuffer.get(), indicesBuffer.get());

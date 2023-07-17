@@ -7,7 +7,8 @@
 
 DataLoader::DataLoader(std::string path, std::string name) :
     mScenePath(path + "\\" + name),
-    mRootPath(path)
+    mRootPath(path),
+    mName(name)
 {
     if (path.find("single") == std::string::npos) {
         GetModelMetaFile();
@@ -200,6 +201,15 @@ std::vector<DirectX::XMFLOAT4X4> DataLoader::GenerateTransforms(MathHelper::Vec3
     using DirectX::XMMatrixTranspose;
     std::vector<DirectX::XMFLOAT4X4> transforms;
     float gap = 1.0f;
+    DirectX::XMMATRIX rotation = DirectX::XMMatrixRotationX(DirectX::XMConvertToRadians(-90));
+    DirectX::XMMATRIX scale = DirectX::XMMatrixScaling(1.0F, 1.0F, 1.0F);
+    if (mName == "bunny") {
+        gap = 0.5f;
+    }
+    if (mName == "Armadillo") {
+        scale = DirectX::XMMatrixScaling(0.01F, 0.01F, 0.01F);
+        gap =2.0f;
+    }
 
     for (int i = 0; i < repeat.x; i++) {
         for (int j = 0; j < repeat.y; j++) {
@@ -209,8 +219,7 @@ std::vector<DirectX::XMFLOAT4X4> DataLoader::GenerateTransforms(MathHelper::Vec3
                 float z = k * gap;
 
                 DirectX::XMMATRIX translation = DirectX::XMMatrixTranslation(x, y, z);
-                DirectX::XMMATRIX scale = DirectX::XMMatrixScaling(10.0F, 10.0F, 10.0F);
-                auto model = translation * scale ;
+                auto model = scale* rotation * translation  ;
                 //
                 // TODO Rotation
                 DirectX::XMFLOAT4X4 result4x4;
