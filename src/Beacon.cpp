@@ -215,8 +215,8 @@ void Beacon::CreateRTV(ID3D12Device *device, IDXGISwapChain4 *swapchain, uint fr
 void Beacon::LoadScene()
 {
     // TODO add read config file
-    std::string path = "./Assets";
-    std::string sceneName = GResource::config["SceneName"].as<std::string>();
+    auto path = GResource::config["Scene"]["ScenePath"].as<std::string>();
+    auto sceneName = GResource::config["Scene"]["SceneName"].as<std::string>();
     auto scene = std::make_unique<Scene>(path, sceneName);
     scene->Init(mDevice.Get(), mFR.at(0).CmdList.Get(), mResourceRegister->SrvCbvUavDescriptorHeap.get());
     mEnvMapIndex = scene->GetEnvSrvIndex();
@@ -332,7 +332,7 @@ void Beacon::ExecutePass(uint frameIndex)
     GResource::GPUTimer->BeginTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::LightPass));
 
     mLightPass->BeginPass(mFR.at(frameIndex).CmdList.Get());
-    for (uint i = 0; i < GResource::config["LightPassLoop"].as<uint>(); i++) {
+    for (uint i = 0; i < GResource::config["Scene"]["LightPassLoop"].as<uint>(); i++) {
         mScene->RenderQuad(mFR.at(frameIndex).CmdList.Get(), constantAddress);
     }
     mLightPass->EndPass(mFR.at(frameIndex).CmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
@@ -342,7 +342,7 @@ void Beacon::ExecutePass(uint frameIndex)
     GResource::GPUTimer->BeginTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::ComputeShader));
 
     mSobelPass->BeginPass(mFR.at(frameIndex).CmdList.Get());
-    for (uint i = 0; i < GResource::config["PostProcessLoop"].as<uint>(); i++) {
+    for (uint i = 0; i < GResource::config["Scene"]["PostProcessLoop"].as<uint>(); i++) {
         mSobelPass->ExecutePass(mFR.at(frameIndex).CmdList.Get());
     }
     mSobelPass->EndPass(mFR.at(frameIndex).CmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);

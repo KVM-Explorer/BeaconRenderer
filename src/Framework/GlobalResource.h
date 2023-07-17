@@ -22,4 +22,18 @@ struct GResource {
         GUIManager = nullptr;
     }
     inline static YAML::Node config;
+
+    inline static void Init(std::string path)
+    {
+        try {
+            GResource::config = YAML::LoadFile(path);
+
+        } catch (std::exception &e) {
+            throw std::runtime_error("Failed to load config file: " + path + "\n" + e.what());
+        }
+        GResource::Width = config["Application"]["Width"].as<uint>();
+        GResource::Height = config["Application"]["Height"].as<uint>();
+        GResource::GUIManager = std::make_unique<ImguiManager>(); // CreateWindows会调用一次IMGUI::IO 必须被初始化
+        GResource::CPUTimerManager = std::make_unique<CPUTimer>();
+    }
 };

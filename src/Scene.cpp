@@ -23,6 +23,7 @@ void Scene::Init(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList, Descr
     CreateSphereTest(device, cmdList);
     CreateQuadTest(device, cmdList);
     auto dataLoader = std::make_unique<DataLoader>(mRootPath, mSceneName);
+    if (GResource::config["Scene"]["SceneType"].as<std::string>() == "singleModel") {
     LoadAssets(device, cmdList, descriptorHeap, dataLoader.get(), mTextures);
     mVerticesBuffer = std::make_unique<UploadBuffer<ModelVertex>>(device, mAllVertices.size(), false);
     mIndicesBuffer = std::make_unique<UploadBuffer<UINT16>>(device, mAllIndices.size(), false);
@@ -160,7 +161,7 @@ void Scene::CreateQuadTest(ID3D12Device *device, ID3D12GraphicsCommandList *cmdL
 void Scene::LoadAssets(ID3D12Device *device, ID3D12GraphicsCommandList *commandList, DescriptorHeap *descriptorHeap, DataLoader *dataLoader, std::vector<Texture> &textures)
 {
     // DataLoader light, materials, obj model(vertex index normal)
-    uint repeat = GResource::config["RepeatModel"].as<uint>();
+    auto repeat = GResource::config["Scene"]["RepeatScene"].as<MathHelper::Vec3ui>();
     mTransforms = dataLoader->GetTransforms(repeat);
     // CreateSceneInfo(dataLoader->GetLight()); // TODO CreateSceneInfo
     CreateMaterials(dataLoader->GetMaterials(), device, commandList, descriptorHeap, textures);

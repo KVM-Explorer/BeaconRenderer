@@ -23,6 +23,7 @@
 #include <chrono>
 #include <unordered_map>
 #include <ppl.h>
+#include <yaml-cpp/yaml.h>
 using Microsoft::WRL::ComPtr;
 
 using byte = uint8_t;

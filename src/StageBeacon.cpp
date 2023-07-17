@@ -541,7 +541,7 @@ void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
 
         {
             lightPass.BeginPass(stage1->DirectCmdList.Get(), D3D12_RESOURCE_STATE_COMMON);
-            for (uint i = 0; i < GResource::config["LightPassLoop"].as<uint>(); i++) {
+            for (uint i = 0; i < GResource::config["Scene"]["LightPassLoop"].as<uint>(); i++) {
                 mScene->RenderQuad(stage1->DirectCmdList.Get(), entitiesCB, &backend->mRenderItems);
             }
             lightPass.EndPass(stage1->DirectCmdList.Get(), D3D12_RESOURCE_STATE_COMMON);
@@ -605,7 +605,7 @@ void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
         }
         {
             sobelPass.BeginPass(stage3->DirectCmdList.Get());
-            for (uint i = 0; i < GResource::config["PostProcessLoop"].as<uint>(); i++) {
+            for (uint i = 0; i < GResource::config["Scene"]["PostProcessLoop"].as<uint>(); i++) {
                 sobelPass.ExecutePass(stage3->DirectCmdList.Get());
             }
 

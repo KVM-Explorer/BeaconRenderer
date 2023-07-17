@@ -1,7 +1,19 @@
-Width: 600
-Height: 600
-LightPassLoop: 1
-PostProcessLoop: 1
-PassInfoUI: false
-SceneName: common
-RepeatModel: 12
+
+
+Application:
+  Width: 600
+  Height: 600
+
+Optional:
+  PassInfoUI: false
+
+Scene:
+  ScenePath: Assets/single
+  SceneName: Armadillo
+  SceneType: singleModel # singleModel, multiModel
+  RepeatScene: [1,1,1] # 重复场景次数
+  LightPassLoop: 1
+  PostProcessLoop: 1
+
+Environment:
+  LightPosition: 0, 0, 0

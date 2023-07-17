@@ -256,8 +256,9 @@ void CrossBeacon::CreatePass()
 void CrossBeacon::LoadScene()
 {
     // TODO add read config file
-    std::string Path = "./Assets";
-    auto scene = std::make_unique<Scene>(Path, "witch");
+    std::string path = GResource::config["Scene"]["ScenePath"].as<std::string>();
+    std::string name = GResource::config["Scene"]["SceneName"].as<std::string>();
+    auto scene = std::make_unique<Scene>(path, name);
     scene->Init(mDResource[Gpu::Discrete]->Device.Get(),
                 mDResource[Gpu::Discrete]->FR.at(0).CmdList3D.Get(),
                 mDResource[Gpu::Discrete]->mResourceRegister->SrvCbvUavDescriptorHeap.get());

@@ -33,8 +33,7 @@ int Application::Run(RendererBase *renderer, HINSTANCE hInstance, int hCmdShow)
     INT posX = (GetSystemMetrics(SM_CXSCREEN) - rtWnd.right - rtWnd.left) / 2;
     INT posY = (GetSystemMetrics(SM_CYSCREEN) - rtWnd.bottom - rtWnd.top) / 2;
 
-    GResource::GUIManager = std::make_unique<ImguiManager>(); // CreateWindows会调用一次IMGUI::IO 必须被初始化
-    GResource::CPUTimerManager = std::make_unique<CPUTimer>();
+   
 
     auto WindowsHandle = CreateWindow(WindowsClass.lpszClassName,
                                       renderer->GetTitle(),
@@ -48,7 +47,6 @@ int Application::Run(RendererBase *renderer, HINSTANCE hInstance, int hCmdShow)
                                       renderer);
 
     mHandle = WindowsHandle;
-    GResource::config = YAML::LoadFile("./config.yaml");
 
     renderer->OnInit();
 

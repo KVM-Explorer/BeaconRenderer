@@ -60,13 +60,11 @@ void ImguiManager::DrawUI(ID3D12GraphicsCommandList *cmdList, ID3D12Resource *ta
     ImGui::Text("Update Scene: %.2f ms", State.UpdateSceneTime);
     ImGui::Text("Update Pass: %.2f ms", State.UpdatePassTime);
 
-    if(GResource::config["PassInfoUI"].as<bool>())
-    {
+    if (GResource::config["Optional"]["PassInfoUI"].as<bool>()) {
         for (auto &timer : GResource::GPUTimer->GetTimes()) {
             ImGui::Text("%s %f", timer.second.c_str(), timer.first * 1000.0F);
         }
     }
-
 
     ImGui::End();
 
