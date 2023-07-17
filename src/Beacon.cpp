@@ -43,7 +43,7 @@ void Beacon::OnInit()
     LoadScene();
 
     for (auto &item : mFR) {
-        item.CreateConstantBuffer(mDevice.Get(), mScene->GetEntityCount(), 1, mScene->GetMaterialCount());
+        item.CreateConstantBuffer(mDevice.Get(), mScene->GetEntityCount(), mScene->GetMaterialCount(), 1);
     }
 
     // Upload Committed Resource 0 - > 1
@@ -108,7 +108,7 @@ void Beacon::OnUpdate()
 }
 
 void Beacon::OnDestory()
-{   
+{
     for (auto &item : mFR) {
         mCommandQueue->Signal(item.Fence.Get(), ++item.FenceValue);
         item.Sync();

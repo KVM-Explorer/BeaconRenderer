@@ -21,7 +21,7 @@ public:
     void Release();
     void CreateRenderTarget(ID3D12Device *device, ID3D12Resource *backBuffer);
 
-    void CreateConstantBuffer(ID3D12Device *device, uint entityCount, uint lightCount, uint materialCount);
+    void CreateConstantBuffer(ID3D12Device *device, uint entityCount,uint materialCount, uint lightCount);
     void SetSceneConstant();
     ID3D12Resource *GetResource(const std::string &name) const;
     CD3DX12_CPU_DESCRIPTOR_HANDLE GetRtv(const std::string &name) const;

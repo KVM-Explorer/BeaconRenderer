@@ -160,6 +160,7 @@ void FrameResource::CreateConstantBuffer(ID3D12Device *device, uint objectCount,
     EntityConstant = std::make_unique<UploadBuffer<EntityInfo>>(device, objectCount, true);
     LightConstant = std::make_unique<UploadBuffer<Light>>(device, lightCount, false);
     MaterialConstant = std::make_unique<UploadBuffer<MaterialInfo>>(device, materialCount, false);
+    LightConstant = std::make_unique<UploadBuffer<Light>>(device, lightCount, false);
 }
 
 void FrameResource::SetSceneConstant()
