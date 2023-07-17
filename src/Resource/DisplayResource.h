@@ -30,7 +30,7 @@ public:
     std::unique_ptr<SobelPass> mSobelPass;
 
     std::unique_ptr<UploadBuffer<ModelVertex>> mQuadVB;
-    std::unique_ptr<UploadBuffer<uint16_t>> mQuadIB;
+    std::unique_ptr<UploadBuffer<uint>> mQuadIB;
 
     uint mRTVDescriptorSize;
     uint mDSVDescriptorSize;

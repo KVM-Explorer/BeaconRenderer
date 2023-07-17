@@ -134,8 +134,8 @@ void DisplayResource::CreateScreenQuadView()
     ScreenQuadVBView.SizeInBytes = sizeof(ModelVertex) * 4;
 
     ScreenQuadIBView.BufferLocation = mQuadIB->resource()->GetGPUVirtualAddress();
-    ScreenQuadIBView.Format = DXGI_FORMAT_R16_UINT;
-    ScreenQuadIBView.SizeInBytes = sizeof(uint16_t) * 6;
+    ScreenQuadIBView.Format = DXGI_FORMAT_R32_UINT;
+    ScreenQuadIBView.SizeInBytes = sizeof(uint) * 6;
 }
 
 std::vector<HANDLE> DisplayResource::CreateCopyHeap(uint width, uint height, size_t backendCount)

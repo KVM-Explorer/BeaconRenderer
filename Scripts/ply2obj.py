@@ -14,3 +14,6 @@ for file in files:
             os.makedirs(DST_PATH)
         dst = str(Path(DST_PATH)/file.replace('.ply','.obj'))
         scene.save(dst)
+
+## ERROR 导入的模型显示异常，又重新使用Blender进行转化
+

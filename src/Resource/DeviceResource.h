@@ -31,7 +31,7 @@ public:
     std::unordered_map<std::string, ComPtr<ID3D12RootSignature>> Signature;
 
     std::unique_ptr<UploadBuffer<ModelVertex>> mQuadVB;
-    std::unique_ptr<UploadBuffer<uint16> > mQuadIB;
+    std::unique_ptr<UploadBuffer<uint> > mQuadIB;
 
 
 private:

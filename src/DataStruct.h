@@ -75,7 +75,7 @@ struct SceneInfo {
 
 struct Mesh {
     std::vector<ModelVertex> Vertices;
-    std::vector<uint16> Indices;
+    std::vector<uint> Indices;
 };
 struct EntityInfo {
     DirectX::XMFLOAT4X4 Transform;

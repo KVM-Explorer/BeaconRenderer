@@ -9,8 +9,19 @@ DataLoader::DataLoader(std::string path, std::string name) :
     mScenePath(path + "\\" + name),
     mRootPath(path)
 {
-    GetModelMetaFile();
-    ReadSceneFromFile();
+    if (path.find("single") == std::string::npos) {
+        GetModelMetaFile();
+        ReadSceneFromFile();
+    } else {
+        // load single model info
+        Model model;
+
+        model.transform = 0;
+        model.material = 0;
+        model.mesh = name + ".obj";
+        mModel.Models.emplace_back(model);
+        mModel.ColorType = ModelProps::ColorType::BliningPhong;
+    }
 }
 
 void DataLoader::ReadSceneFromFile()
@@ -19,19 +30,19 @@ void DataLoader::ReadSceneFromFile()
     std::stringstream reader;
     reader << file.rdbuf();
 
-    std::string modelType = ReadType(reader);
-    if (modelType == "blinn") {
+    std::string colorType = ReadType(reader);
+    if (colorType == "blinn") {
         ReadLight(reader);
         ReadBlinnMaterials(reader);
         ReadTransforms(reader);
         ReadModels(reader);
-    } else if (modelType == "pbrm") {
+    } else if (colorType == "pbrm") {
         ReadLight(reader);
         ReadBPRMMaterials(reader);
         ReadTransforms(reader);
         ReadModels(reader);
     } else {
-        throw std::exception("Unkonwn Model Type");
+        throw std::exception("Unkonwn Color Type");
     }
 }
 
@@ -153,12 +164,13 @@ void DataLoader::ReadTransforms(std::stringstream &reader)
     }
 }
 
-std::vector<DirectX::XMFLOAT4X4> DataLoader::GetTransforms(uint repeat) const
+std::vector<DirectX::XMFLOAT4X4> DataLoader::GetTransforms(MathHelper::Vec3ui repeat) const
 {
     using DirectX::XMMatrixTranspose;
     // TODO ReDesign Root Transform
     std::vector<DirectX::XMFLOAT4X4> transforms;
-    for (uint i = 0; i < repeat + 1; i++) {
+    // TODO Repeat X Y 维度
+    for (uint i = 0; i < repeat.z; i++) {
         auto translation = DirectX::XMMatrixTranslation(-13.924f, -21.974f, 19.691f);
         // auto translation = DirectX::XMMatrixTranslation(-17.924f, -16.974f, 32.691f);
         // auto rotationX = DirectX::XMMatrixRotationX(DirectX::XMConvertToRadians(-90));
@@ -179,8 +191,36 @@ std::vector<DirectX::XMFLOAT4X4> DataLoader::GetTransforms(uint repeat) const
 
             transforms.push_back(result4x4);
         }
-        
     }
+    return transforms;
+}
+
+std::vector<DirectX::XMFLOAT4X4> DataLoader::GenerateTransforms(MathHelper::Vec3ui repeat) const
+{
+    using DirectX::XMMatrixTranspose;
+    std::vector<DirectX::XMFLOAT4X4> transforms;
+    float gap = 1.0f;
+
+    for (int i = 0; i < repeat.x; i++) {
+        for (int j = 0; j < repeat.y; j++) {
+            for (int k = 0; k < repeat.z; k++) {
+                float x = (i - repeat.x / 2.0f) * gap;
+                float y = (j - repeat.y / 2.0f) * gap;
+                float z = k * gap;
+
+                DirectX::XMMATRIX translation = DirectX::XMMatrixTranslation(x, y, z);
+                DirectX::XMMATRIX scale = DirectX::XMMatrixScaling(10.0F, 10.0F, 10.0F);
+                auto model = translation * scale ;
+                //
+                // TODO Rotation
+                DirectX::XMFLOAT4X4 result4x4;
+                DirectX::XMStoreFloat4x4(&result4x4, model);
+                transforms.push_back(result4x4);
+                // transforms.push_back(MathHelper::Identity4x4());
+            }
+        }
+    }
+
     return transforms;
 }
 
@@ -214,13 +254,20 @@ std::vector<ModelMaterial> DataLoader::GetMaterials() const
 Mesh DataLoader::ReadMesh(std::string path)
 {
     Assimp::Importer importer;
-    const uint flags = {aiProcess_ConvertToLeftHanded | aiProcess_Triangulate};
+    // clang-format off
+    const uint flags = {
+                        aiProcess_Triangulate |
+                        aiProcess_ConvertToLeftHanded |
+                        aiProcess_OptimizeMeshes
+                        
+                    };
+    // clang-format on
     auto *scene = importer.ReadFile(path.c_str(), flags);
     if (scene == nullptr) throw std::runtime_error("No Model Exist");
     auto const &mesh = scene->mMeshes;
 
     std::vector<ModelVertex> vertices;
-    std::vector<uint16> indices;
+    std::vector<uint> indices;
 
     for (uint i = 0; i < scene->mNumMeshes; i++) {
         // Vertex
@@ -228,15 +275,16 @@ Mesh DataLoader::ReadMesh(std::string path)
             ModelVertex vertex{};
             vertex.Position = {mesh[i]->mVertices[j].x, mesh[i]->mVertices[j].y, mesh[i]->mVertices[j].z};
             vertex.Normal = {mesh[i]->mNormals[j].x, mesh[i]->mNormals[j].y, mesh[i]->mNormals[j].z};
-            vertex.UV = {mesh[i]->mTextureCoords[0][j].x, mesh[i]->mTextureCoords[0][j].y};
+            if (mesh[i]->mTextureCoords[0] != nullptr) {
+                vertex.UV = {mesh[i]->mTextureCoords[0][j].x, mesh[i]->mTextureCoords[0][j].y};
+            }
             vertices.push_back(vertex);
         }
         // Index
         for (uint k = 0; k < mesh[i]->mNumFaces; k++) {
             auto face = mesh[i]->mFaces[k];
             for (uint j = 0; j < face.mNumIndices; j++) {
-                indices.push_back(static_cast<uint16>(face.mIndices[j]));
-                // TODO 数据量非常奇怪Vertex = Index，但是渲染结果正确
+                indices.push_back(static_cast<uint>(face.mIndices[j]));
             }
         }
     }
@@ -260,7 +308,7 @@ std::unordered_map<std::string, Mesh> DataLoader::GetMeshes()
 std::vector<Model> DataLoader::GetModels() const
 
 {
-    std::vector<Model> models{mModel.Models[0]};
+    // std::vector<Model> models{mModel.Models[0]};
     // TODO Remove Test Signle Model
     return mModel.Models;
 

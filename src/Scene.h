@@ -1,6 +1,7 @@
 #pragma once
 #include <stdafx.h>
 #include <unordered_map>
+#include "MathHelper.h"
 #include "Tools/Camera.h"
 #include "D3DHelpler/DescroptorHeap.h"
 #include "D3DHelpler/DefaultBuffer.h"
@@ -25,8 +26,8 @@ public:
 
 public:
     void Init(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList, DescriptorHeap *srvDescriptorHeap);
-    void InitWithBackend(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList, DescriptorHeap *srvDescriptorHeap, std::unique_ptr<UploadBuffer<ModelVertex>> &verticesBuffer, std::unique_ptr<UploadBuffer<uint16>> &indicesBuffer, std::vector<Texture> &textures);
-    void InitWithDisplay(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList, std::unique_ptr<UploadBuffer<ModelVertex>> &verticesBuffer, std::unique_ptr<UploadBuffer<UINT16>> &indicesBuffer);
+    void InitWithBackend(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList, DescriptorHeap *srvDescriptorHeap, std::unique_ptr<UploadBuffer<ModelVertex>> &verticesBuffer, std::unique_ptr<UploadBuffer<uint>> &indicesBuffer, std::vector<Texture> &textures);
+    void InitWithDisplay(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList, std::unique_ptr<UploadBuffer<ModelVertex>> &verticesBuffer, std::unique_ptr<UploadBuffer<uint>> &indicesBuffer);
     void Reset();
     std::unordered_map<EntityType, std::vector<RenderItem>> GetRenderItems() const { return mRenderItems; };
     void RenderScene(ID3D12GraphicsCommandList *cmdList, D3D12_GPU_VIRTUAL_ADDRESS constantAddress, RenderItemsMap *renderItems = nullptr);
@@ -48,11 +49,14 @@ public:
     void CreateQuadTest(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList);
 
     void LoadAssets(ID3D12Device *device, ID3D12GraphicsCommandList *commandList, DescriptorHeap *descriptorHeap, DataLoader *dataLoader, std::vector<Texture> &textures);
-    void BuildVertex2Constant(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList, UploadBuffer<ModelVertex> *verticesBuffer, UploadBuffer<uint16> *indicesBuffer);
+    void LoadSingleModel(ID3D12Device *device,
+                         ID3D12GraphicsCommandList *cmdList,
+                         DataLoader *dataLoader);
+    void BuildVertex2Constant(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList, UploadBuffer<ModelVertex> *verticesBuffer, UploadBuffer<uint> *indicesBuffer);
     void CreateSceneInfo(const ModelLight &info);
     void CreateMaterials(const std::vector<ModelMaterial> &info, ID3D12Device *device, ID3D12GraphicsCommandList *commandList, DescriptorHeap *descriptorHeap, std::vector<Texture> &textures);
     MeshInfo AddMesh(Mesh &mesh, ID3D12Device *device, ID3D12GraphicsCommandList *commandList);
-    void CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12GraphicsCommandList *commandList, uint repeat = 0);
+    void CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12GraphicsCommandList *commandList, MathHelper::Vec3ui repeat);
     void CreateEnvironmentMap(ID3D12Device *device, ID3D12GraphicsCommandList *commandList, DescriptorHeap *descriptorHeap, std::vector<Texture> &textures);
     int GetEnvSrvIndex() const { return mEnvironmentMapIndex; };
 
@@ -70,9 +74,9 @@ private:
 
     // Vertices & Indices
     std::vector<ModelVertex> mAllVertices;
-    std::vector<uint16> mAllIndices;
+    std::vector<uint> mAllIndices;
     std::unique_ptr<UploadBuffer<ModelVertex>> mVerticesBuffer;
-    std::unique_ptr<UploadBuffer<uint16>> mIndicesBuffer;
+    std::unique_ptr<UploadBuffer<uint>> mIndicesBuffer;
     int mEnvironmentMapIndex = 0;
 
     // Resource

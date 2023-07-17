@@ -24,20 +24,24 @@ void Scene::Init(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList, Descr
     CreateQuadTest(device, cmdList);
     auto dataLoader = std::make_unique<DataLoader>(mRootPath, mSceneName);
     if (GResource::config["Scene"]["SceneType"].as<std::string>() == "singleModel") {
-    LoadAssets(device, cmdList, descriptorHeap, dataLoader.get(), mTextures);
+        LoadSingleModel(device, cmdList, dataLoader.get());
+    } else {
+        LoadAssets(device, cmdList, descriptorHeap, dataLoader.get(), mTextures);
+    }
+
     mVerticesBuffer = std::make_unique<UploadBuffer<ModelVertex>>(device, mAllVertices.size(), false);
-    mIndicesBuffer = std::make_unique<UploadBuffer<UINT16>>(device, mAllIndices.size(), false);
+    mIndicesBuffer = std::make_unique<UploadBuffer<uint>>(device, mAllIndices.size(), false);
     BuildVertex2Constant(device, cmdList, mVerticesBuffer.get(), mIndicesBuffer.get());
 
     mCamera["default"].SetPosition(0, 0, -10.5F);
-    mCamera["default"].SetLens(0.25f * MathHelper::Pi, GResource::Width / GResource::Height, 1, 1000);
+    mCamera["default"].SetLens(0.25f * MathHelper::Pi, 16.0F / 9.0F, 0.1F, 100.0F);
 }
 
 void Scene::InitWithBackend(ID3D12Device *device,
                             ID3D12GraphicsCommandList *cmdList,
                             DescriptorHeap *srvDescriptorHeap,
                             std::unique_ptr<UploadBuffer<ModelVertex>> &verticesBuffer,
-                            std::unique_ptr<UploadBuffer<uint16>> &indicesBuffer,
+                            std::unique_ptr<UploadBuffer<uint>> &indicesBuffer,
                             std::vector<Texture> &textures)
 {
     Reset();
@@ -46,7 +50,7 @@ void Scene::InitWithBackend(ID3D12Device *device,
     auto dataLoader = std::make_unique<DataLoader>(mRootPath, mSceneName);
     LoadAssets(device, cmdList, srvDescriptorHeap, dataLoader.get(), textures);
     verticesBuffer = std::make_unique<UploadBuffer<ModelVertex>>(device, mAllVertices.size(), false);
-    indicesBuffer = std::make_unique<UploadBuffer<UINT16>>(device, mAllIndices.size(), false);
+    indicesBuffer = std::make_unique<UploadBuffer<uint>>(device, mAllIndices.size(), false);
     BuildVertex2Constant(device, cmdList, verticesBuffer.get(), indicesBuffer.get());
 
     mCamera["default"].SetPosition(0, 0, -10.5F);
@@ -56,12 +60,12 @@ void Scene::InitWithBackend(ID3D12Device *device,
 void Scene::InitWithDisplay(ID3D12Device *device,
                             ID3D12GraphicsCommandList *cmdList,
                             std::unique_ptr<UploadBuffer<ModelVertex>> &verticesBuffer,
-                            std::unique_ptr<UploadBuffer<UINT16>> &indicesBuffer)
+                            std::unique_ptr<UploadBuffer<UINT>> &indicesBuffer)
 {
     Reset();
     CreateQuadTest(device, cmdList);
     verticesBuffer = std::make_unique<UploadBuffer<ModelVertex>>(device, mAllVertices.size(), false);
-    indicesBuffer = std::make_unique<UploadBuffer<UINT16>>(device, mAllIndices.size(), false);
+    indicesBuffer = std::make_unique<UploadBuffer<uint>>(device, mAllIndices.size(), false);
     BuildVertex2Constant(device, cmdList, verticesBuffer.get(), indicesBuffer.get());
 }
 
@@ -107,14 +111,14 @@ void Scene::CreateSphereTest(ID3D12Device *device, ID3D12GraphicsCommandList *cm
     auto gen = GeometryGenerator();
     auto mesh = gen.CreateSphere(2, 30, 30);
     std::vector<ModelVertex> vertices(mesh.Vertices.size());
-    std::vector<uint16> indices;
+    std::vector<uint> indices;
 
     for (uint i = 0; i < mesh.Vertices.size(); i++) {
         vertices[i].Position = mesh.Vertices[i].Position;
         vertices[i].Normal = mesh.Vertices[i].Normal;
         vertices[i].UV = mesh.Vertices[i].TexC;
     }
-    indices.insert(indices.end(), mesh.GetIndices16().begin(), mesh.GetIndices16().end());
+    indices.insert(indices.end(), mesh.Indices32.begin(), mesh.Indices32.end());
 
     Mesh meshData{vertices, indices};
     auto meshInfo = AddMesh(meshData, device, cmdList);
@@ -137,7 +141,7 @@ void Scene::CreateQuadTest(ID3D12Device *device, ID3D12GraphicsCommandList *cmdL
         {{1.0F, -1.0F, 0.0F}, {}, {1.0F, 1.0F}},
     }};
 
-    const std::vector<uint16> indices{{
+    const std::vector<uint> indices{{
         0,
         1,
         2,
@@ -166,10 +170,22 @@ void Scene::LoadAssets(ID3D12Device *device, ID3D12GraphicsCommandList *commandL
     // CreateSceneInfo(dataLoader->GetLight()); // TODO CreateSceneInfo
     CreateMaterials(dataLoader->GetMaterials(), device, commandList, descriptorHeap, textures);
     mMeshesData = dataLoader->GetMeshes();
-    if (mSceneName == "common") {
-        CreateEnvironmentMap(device, commandList, descriptorHeap, textures);
-    }
+    // if (mSceneName == "common") {
+    //     CreateEnvironmentMap(device, commandList, descriptorHeap, textures);
+    // }]
+
     CreateModels(dataLoader->GetModels(), device, commandList, repeat);
+}
+
+void Scene::LoadSingleModel(ID3D12Device *device,
+                            ID3D12GraphicsCommandList *cmdList,
+                            DataLoader *dataLoader)
+{
+    auto repeat = GResource::config["Scene"]["RepeatScene"].as<MathHelper::Vec3ui>();
+    mTransforms = dataLoader->GenerateTransforms(repeat);
+    mMeshesData = dataLoader->GetMeshes();
+    mMaterials.emplace_back(Material{0, 0, 0.3, 0, {0.8, 0.8, 0.8, 1}, nullptr});
+    CreateModels(dataLoader->GetModels(), device, cmdList, repeat);
 }
 
 void Scene::CreateMaterials(const std::vector<ModelMaterial> &info,
@@ -228,15 +244,21 @@ void Scene::CreateEnvironmentMap(ID3D12Device *device, ID3D12GraphicsCommandList
     textures.push_back(std::move(texture));
 }
 
-void Scene::CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12GraphicsCommandList *commandList, uint repeat)
+void Scene::CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12GraphicsCommandList *commandList, MathHelper::Vec3ui repeat)
 {
-    for (uint i = 0; i < repeat + 1; i++) {
+    uint total = repeat.x * repeat.y * repeat.z;
+    for (uint i = 0; i < total; i++) {
         for (const auto &item : info) {
             Entity entity(EntityType::Opaque);
-            entity.Transform = mTransforms[item.transform + i * info.size()];
+            if (GResource::config["Scene"]["SceneType"].as<std::string>() == "singleModel") {
+                entity.Transform = mTransforms[i];
+            } else {
+                entity.Transform = mTransforms[item.transform];
+            }
+
             entity.MaterialIndex = item.material;
             entity.EntityIndex = mEntities.size();
-            if (mSceneName == "common") {
+            if (GResource::config["Scene"]["SceneType"].as<std::string>() == "singleModel") {
                 entity.ShaderID = static_cast<uint>(ShaderID::Opaque);
             } else {
                 entity.ShaderID = static_cast<uint>(ShaderID::OpaqueWithTexture);
@@ -248,7 +270,7 @@ void Scene::CreateModels(std::vector<Model> info, ID3D12Device *device, ID3D12Gr
     }
 }
 
-void Scene::BuildVertex2Constant(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList, UploadBuffer<ModelVertex> *verticesBuffer, UploadBuffer<uint16> *indicesBuffer)
+void Scene::BuildVertex2Constant(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList, UploadBuffer<ModelVertex> *verticesBuffer, UploadBuffer<uint> *indicesBuffer)
 {
     // Upload Vertex Index Data
 
@@ -268,7 +290,7 @@ void Scene::BuildVertex2Constant(ID3D12Device *device, ID3D12GraphicsCommandList
                            item.MeshInfo.VertexCount)
             .SetIndexInfo(item.MeshInfo.IndexOffset,
                           indicesBuffer->resource()->GetGPUVirtualAddress(),
-                          sizeof(uint16),
+                          sizeof(uint),
                           item.MeshInfo.IndexCount)
             .SetConstantInfo(item.EntityIndex,
                              sizeof(EntityInfo),
@@ -370,7 +392,15 @@ void Scene::UpdateEntityConstant(UploadBuffer<EntityInfo> *uploader)
 
 void Scene::UpdateCamera()
 {
-    const float deltaTime = 0.1F;
+    float deltaTime = 0.01F;
+    std::string speed = GResource::GUIManager->State.CameraSpeed;
+    try {
+        deltaTime = std::stof(speed);
+    } catch (std::exception &ex) {
+        deltaTime = 0.01F;
+        strcpy_s(GResource::GUIManager->State.CameraSpeed, "0.01");
+    }
+
     if (GetAsyncKeyState('W') & 0x8000) {
         mCamera["default"].Walk(1.0F * deltaTime);
     }

@@ -55,7 +55,6 @@ void StageBeacon::OnRender()
     GResource::CPUTimerManager->BeginTimer("UpdatePass");
     SetPass(backend, deviceIndex);
     GResource::CPUTimerManager->EndTimer("UpdatePass");
-    // SyncExecutePass(backend, deviceIndex);
 
     TimePoint now = std::chrono::high_resolution_clock::now();
     static uint fpsCount = 0;
@@ -132,9 +131,9 @@ void StageBeacon::CreateDeviceResource(HWND handle)
 
         auto hr = adapter->EnumOutputs(0, &output);
         if (SUCCEEDED(hr) && output != nullptr) {
-            //     auto outputStr = std::format(L"iGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
-            //     OutputDebugStringW(outputStr.c_str());
-            //     mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
+            auto outputStr = std::format(L"iGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
+            OutputDebugStringW(outputStr.c_str());
+            mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
         } else {
             static uint id = 0;
             if (id == 0) {
@@ -149,6 +148,7 @@ void StageBeacon::CreateDeviceResource(HWND handle)
             auto startFrameIndex = GetBackendStartFrameIndex();
             auto backendResource = std::make_unique<BackendResource>(mFactory.Get(), adapter.Get(), FrameCount, startFrameIndex);
             mBackendResource.push_back(std::move(backendResource));
+            break;
         }
     }
     if (mBackendResource.empty()) {
@@ -261,8 +261,8 @@ void StageBeacon::CreateSharedFence()
 void StageBeacon::LoadAssets()
 {
     // Backend Device VB IB
-    std::string assetsPath = "Assets";
-    auto sceneName = GResource::config["SceneName"].as<std::string>();
+    std::string assetsPath = GResource::config["Scene"]["ScenePath"].as<std::string>();
+    auto sceneName = GResource::config["Scene"]["SceneName"].as<std::string>();
     auto scene = std::make_unique<Scene>(assetsPath, sceneName);
     for (const auto &backend : mBackendResource) {
         auto *device = backend->Device.Get();

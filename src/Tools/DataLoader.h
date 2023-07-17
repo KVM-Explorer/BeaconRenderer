@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <DataStruct.h>
 #include <unordered_map>
+#include "MathHelper.h"
 
 struct ModelLight {
     DirectX::XMFLOAT4 background;
@@ -33,22 +34,26 @@ struct Model {
 };
 
 struct ModelProps {
-    enum class ModelType {
+    enum class ColorType {
         BliningPhong,
-        PBRM
+        PBRM,
     };
     ModelLight LightInfo;
     std::vector<ModelMaterial> Materials;
     std::vector<DirectX::XMFLOAT4X4> Transforms;
     std::vector<Model> Models;
-    ModelType Type;
+    ColorType ColorType;
 };
 
 class DataLoader {
 public:
     DataLoader(std::string path, std::string name);
 
-    [[nodiscard]] std::vector<DirectX::XMFLOAT4X4> GetTransforms(uint repeat = 0) const;
+    [[nodiscard]] std::vector<DirectX::XMFLOAT4X4> GetTransforms(MathHelper::Vec3ui repeat = {1, 1, 1}) const;
+    /*
+    @brief: Generate transforms for sinle model to render multiple models
+    */
+    [[nodiscard]] std::vector<DirectX::XMFLOAT4X4> GenerateTransforms(MathHelper::Vec3ui repeat) const;
     [[nodiscard]] ModelLight GetLight() const;
     [[nodiscard]] std::vector<ModelMaterial> GetMaterials() const;
     std::unordered_map<std::string, Mesh> GetMeshes();
@@ -56,7 +61,7 @@ public:
 
 private:
     void ReadSceneFromFile();
-
+    void ReadSingleModel();
     void GetModelMetaFile();
 
     std::string ReadType(std::stringstream &reader);

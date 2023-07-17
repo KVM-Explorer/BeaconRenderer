@@ -35,7 +35,7 @@ public:
     const uint mFrameCount;
 
     std::unique_ptr<UploadBuffer<ModelVertex>> mSceneVB;
-    std::unique_ptr<UploadBuffer<uint16_t>> mSceneIB;
+    std::unique_ptr<UploadBuffer<uint>> mSceneIB;
     std::vector<Texture> mSceneTextures;
     Scene::RenderItemsMap mRenderItems;
 

@@ -11,7 +11,7 @@ RenderItem &RenderItem::SetIndexInfo(uint index, D3D12_GPU_VIRTUAL_ADDRESS base,
 {
     mIndexBufferView.BufferLocation = base + index * elementSize;
     mIndexBufferView.SizeInBytes = elementSize * elementNum;
-    mIndexBufferView.Format = DXGI_FORMAT_R16_UINT;
+    mIndexBufferView.Format = DXGI_FORMAT_R32_UINT;
     if (is32Byte) mIndexBufferView.Format = DXGI_FORMAT_R32_UINT;
     mIndexCount = elementNum;
     return *this;
