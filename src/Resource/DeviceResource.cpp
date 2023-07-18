@@ -42,7 +42,7 @@ DeviceResource::~DeviceResource()
         }
         frameResource.Sync3D();
     }
-
+    mCopyHeap = nullptr;
     FR.clear();
     Signature.clear();
     PSO.clear();
@@ -79,16 +79,45 @@ HANDLE DeviceResource::InitFrameResource(uint width, uint height, uint frameInde
     CrossFrameResource resource(mResourceRegister.get(), Device.Get());
     if (mDeviceType == Gpu::Discrete) {
         resource.InitByMainGpu(Device.Get(), width, height);
+        resource.CmdList3D->SetName(L"DGPU 3D Command List");
+        resource.CmdList3D->SetName(L"DGPU Copy Command List");
     }
 
     if (mDeviceType == Gpu::Integrated) {
         ComPtr<ID3D12Resource> swapChainBuffer;
         SwapChain4->GetBuffer(frameIndex, IID_PPV_ARGS(&swapChainBuffer));
         resource.InitByAuxGpu(Device.Get(), swapChainBuffer.Get(), fenceHandle);
+        resource.CmdList3D->SetName(L"IGPU 3D Command List");
+        resource.CmdList3D->SetName(L"IGPU Copy Command List");
     }
 
     FR.push_back(std::move(resource));
 
     if (mDeviceType == Gpu::Discrete) return FR.back().SharedFenceHandle;
     return nullptr;
+}
+
+HANDLE DeviceResource::CreateCopyHeap(uint width, uint height, ID3D12Device *device, uint frameCount)
+{
+    auto textureDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, width, height, 1, 1, 1);
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT layouts;
+    device->GetCopyableFootprints(&textureDesc, 0, 1, 0, &layouts, nullptr, nullptr, nullptr);
+
+    uint64 bufferSize = UpperMemorySize(layouts.Footprint.RowPitch * layouts.Footprint.Height, D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT);
+
+    auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(bufferSize, D3D12_RESOURCE_FLAG_ALLOW_CROSS_ADAPTER);
+
+    auto heapDesc = CD3DX12_HEAP_DESC(bufferSize * frameCount, D3D12_HEAP_TYPE_DEFAULT, 0, D3D12_HEAP_FLAG_SHARED | D3D12_HEAP_FLAG_SHARED_CROSS_ADAPTER);
+
+    HANDLE handle;
+    ThrowIfFailed(device->CreateHeap(&heapDesc, IID_PPV_ARGS(&mCopyHeap)));
+    ThrowIfFailed(device->CreateSharedHandle(mCopyHeap.Get(), nullptr, GENERIC_ALL, nullptr, &handle));
+    return handle;
+}
+
+void DeviceResource::OpenCopyHeapByHeandle(HANDLE handle)
+{
+    auto hr = Device->OpenSharedHandle(handle, IID_PPV_ARGS(&mCopyHeap));
+    ::CloseHandle(handle);
+    ThrowIfFailed(hr);
 }

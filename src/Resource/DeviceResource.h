@@ -14,6 +14,8 @@ public:
 
     void CreateSwapChain(HWND handle, uint width, uint height, IDXGIFactory6 *factory);
     HANDLE InitFrameResource(uint width, uint height, uint frameIndex, HANDLE fenceHandle);
+    HANDLE CreateCopyHeap(uint width, uint height, ID3D12Device *device, uint frameCount);
+    void OpenCopyHeapByHeandle(HANDLE handle);
 
     ComPtr<ID3D12Device> Device;
     ComPtr<ID3D12CommandQueue> CmdQueue;
@@ -26,13 +28,14 @@ public:
     uint mRTVDescriptorSize;
     uint mDSVDescriptorSize;
     uint mSRVDescriptorSize;
-    
+
     std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> PSO;
     std::unordered_map<std::string, ComPtr<ID3D12RootSignature>> Signature;
 
     std::unique_ptr<UploadBuffer<ModelVertex>> mQuadVB;
-    std::unique_ptr<UploadBuffer<uint> > mQuadIB;
+    std::unique_ptr<UploadBuffer<uint>> mQuadIB;
 
+    ComPtr<ID3D12Heap> mCopyHeap;
 
 private:
     Gpu mDeviceType;

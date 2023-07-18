@@ -12,15 +12,15 @@ struct StageFrameResource {
     StageFrameResource &operator=(StageFrameResource &&) = default;
 
     void CreateGBuffer(ID3D12Device *device, uint width, uint height, std::vector<DXGI_FORMAT> targetFormat, DXGI_FORMAT depthFormat);
-    // Backend Device Light + Open Light Copy Handle
+    // Backend Device Light(callback CreateLightTexture) + Open Light Copy Handle  
     void CreateLight2CopyTexture(ID3D12Device *device, HANDLE handle, uint width, uint height);
     // Backend Deivce Only Light
     void CreateLightTexture(ID3D12Device *device, uint width, uint height);
-    // Display Device
+    // Display Device Shared Row Major Light Texture not Shared Heap
     HANDLE CreateLightCopyTexture(ID3D12Device *device, uint width, uint height);
-    // Display Device
+    // Display Device Light Texture
     void CreateLightCopyHeapTexture(ID3D12Device *device, uint width, uint height);
-    // Display Device Heap Resource
+    // Display Device Heap Resource Only Copy Buffer
     void CreateLightCopyHeapBuffer(ID3D12Device *device, ID3D12Heap *heap, uint index, uint width, uint height, D3D12_RESOURCE_STATES initalState);
 
     void CreateSharedFence(ID3D12Device *device, HANDLE handle);

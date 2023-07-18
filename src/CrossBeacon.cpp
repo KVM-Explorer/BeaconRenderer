@@ -81,17 +81,6 @@ void CrossBeacon::OnInit()
     CreateQuad();
     mDResource[Gpu::Integrated]->FR.at(0).Signal3D(mDResource[Gpu::Integrated]->CmdQueue.Get());
     mDResource[Gpu::Integrated]->FR.at(0).Sync3D();
-
-    // Sync Cross Resource
-    for (auto &frameResource : mDResource[Gpu::Discrete]->FR) {
-        frameResource.Reset3D();
-        auto barrier1 = CD3DX12_RESOURCE_BARRIER::Transition(frameResource.GetResource("CScreenTexture1"), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_COMMON);
-        auto barrier2 = CD3DX12_RESOURCE_BARRIER::Transition(frameResource.GetResource("ScreenTexture1"), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_COMMON);
-        std::array<D3D12_RESOURCE_BARRIER, 2> barriers = {barrier1, barrier2};
-        frameResource.CmdList3D->ResourceBarrier(barriers.size(), barriers.data());
-        frameResource.Signal3D(mDResource[Gpu::Discrete]->CmdQueue.Get());
-        frameResource.Sync3D();
-    }
 }
 
 void CrossBeacon::OnKeyDown(byte key)
@@ -203,16 +192,20 @@ void CrossBeacon::CreateQuad()
 
 void CrossBeacon::CreateRtv()
 {
+    auto handle =
+        mDResource[Gpu::Discrete]->CreateCopyHeap(GetWidth(), GetHeight(), mDResource[Gpu::Discrete]->Device.Get(), mFrameCount);
+    mDResource[Gpu::Integrated]->OpenCopyHeapByHeandle(handle);
     for (uint i = 0; i < mFrameCount; i++) {
         auto &dFR = mDResource[Gpu::Discrete]->FR.at(i);
         auto &iFR = mDResource[Gpu::Integrated]->FR.at(i);
         ComPtr<ID3D12Resource> swapChainBuffer;
         mDResource[Gpu::Integrated]->SwapChain4->GetBuffer(i, IID_PPV_ARGS(&swapChainBuffer));
-        HANDLE sharedResourceHandle = nullptr;
 
-        sharedResourceHandle =
-            dFR.CreateMainRenderTarget(mDResource[Gpu::Discrete]->Device.Get(), GetWidth(), GetHeight());
-        iFR.CreateAuxRenderTarget(mDResource[Gpu::Integrated]->Device.Get(), swapChainBuffer.Get(), sharedResourceHandle);
+        auto *igpuHeap = mDResource[Gpu::Integrated]->mCopyHeap.Get();
+        auto *dgpuHeap = mDResource[Gpu::Discrete]->mCopyHeap.Get();
+
+        dFR.CreateMainRenderTarget(mDResource[Gpu::Discrete]->Device.Get(), GetWidth(), GetHeight(), dgpuHeap, i);
+        iFR.CreateAuxRenderTarget(mDResource[Gpu::Integrated]->Device.Get(), swapChainBuffer.Get(), igpuHeap, i);
     }
 }
 
@@ -320,19 +313,19 @@ void CrossBeacon::SetPass(uint frameIndex)
     mGBufferPass->SetRTVDescriptorSize(mDResource[Gpu::Discrete]->Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV));
 
     // ===================== Light Pass =====================
-    mLightPass->SetRenderTarget(dFR.GetResource("ScreenTexture1"), dFR.GetRtv("ScreenTexture1"));
+    mLightPass->SetRenderTarget(dFR.GetResource("LightTexture"), dFR.GetRtv("LightTexture"));
     mLightPass->SetGBuffer(dFR.GetSrvCbvUavHeap(), dFR.GetSrvCbvUav("GBuffer0"));
     mLightPass->SetTexture(dFR.GetSrvCbvUavHeap(), dFR.GetSrvBase());
 
     // ===================== Sobel Pass =====================
-    mSobelPass->SetInput(iFR.GetSrvCbvUav("CScreenTexture1"));
+    mSobelPass->SetInput(iFR.GetSrvCbvUav("LightTexture"));
     mSobelPass->SetSrvHeap(iFR.GetSrvCbvUavHeap());
     mSobelPass->SetTarget(iFR.GetResource("ScreenTexture2"), iFR.GetSrvCbvUav("ScreenTexture2"));
 
     // ===================== Quad Pass =====================
     mQuadPass->SetTarget(iFR.GetResource("SwapChain"), iFR.GetRtv("SwapChain"));
     mQuadPass->SetRenderType(QuadShader::MixQuad);
-    mQuadPass->SetSrvHandle(iFR.GetSrvCbvUav("CScreenTexture1")); // LightCopy Sobel SwapChain
+    mQuadPass->SetSrvHandle(iFR.GetSrvCbvUav("LightTexture")); // LightCopy Sobel SwapChain
 }
 
 void CrossBeacon::ExecutePass(uint frameIndex)
@@ -373,8 +366,21 @@ void CrossBeacon::ExecutePass(uint frameIndex)
     dFR.ResetCopy();
     PIXBeginEvent(mDResource[Gpu::Discrete]->CopyQueue.Get(), PIX_COLOR_DEFAULT, L"CopyResource");
     {
-        dFR.CopyCmdList->CopyResource(dFR.GetResource("CScreenTexture1"),
-                                      dFR.GetResource("ScreenTexture1"));
+        auto copyDstBarrier = CD3DX12_RESOURCE_BARRIER::Transition(dFR.GetResource("LightCopyBuffer"), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
+        auto copySrcBarrier = CD3DX12_RESOURCE_BARRIER::Transition(dFR.GetResource("LightCopyBuffer"), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COPY_SOURCE);
+
+        auto targetDesc = dFR.GetResource("LightTexture")->GetDesc();
+        D3D12_PLACED_SUBRESOURCE_FOOTPRINT layout = {};
+
+        mDResource[Gpu::Discrete]->Device->GetCopyableFootprints(&targetDesc, 0, 1, 0, &layout, nullptr, nullptr, nullptr);
+
+        CD3DX12_TEXTURE_COPY_LOCATION dst(dFR.GetResource("LightCopyBuffer"), layout);
+        CD3DX12_TEXTURE_COPY_LOCATION src(dFR.GetResource("LightTexture"), 0);
+        // CD3DX12_BOX box(0, 0, GetWidth(), GetHeight());
+
+        dFR.CopyCmdList->ResourceBarrier(1, &copyDstBarrier);
+        dFR.CopyCmdList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+        dFR.CopyCmdList->ResourceBarrier(1, &copySrcBarrier);
     }
     PIXEndEvent(mDResource[Gpu::Discrete]->CopyQueue.Get());
     dFR.SignalCopy(mDResource[Gpu::Discrete]->CopyQueue.Get());
@@ -386,6 +392,23 @@ void CrossBeacon::ExecutePass(uint frameIndex)
     iFR.Reset3D();
     iFR.CmdList3D->RSSetViewports(1, &mViewPort);
     iFR.CmdList3D->RSSetScissorRects(1, &mScissor);
+
+    {
+        auto copyDstBarrier = CD3DX12_RESOURCE_BARRIER::Transition(iFR.GetResource("LightTexture"), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST);
+        auto shaderResourceBarrier = CD3DX12_RESOURCE_BARRIER::Transition(iFR.GetResource("LightTexture"), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON);
+
+        auto targetDesc = iFR.GetResource("LightTexture")->GetDesc();
+        D3D12_PLACED_SUBRESOURCE_FOOTPRINT layout = {};
+        mDResource[Gpu::Integrated]->Device->GetCopyableFootprints(&targetDesc, 0, 1, 0, &layout, nullptr, nullptr, nullptr);
+
+        CD3DX12_TEXTURE_COPY_LOCATION dst(iFR.GetResource("LightTexture"), 0);
+        CD3DX12_TEXTURE_COPY_LOCATION src(iFR.GetResource("LightCopyBuffer"), layout);
+        CD3DX12_BOX box(0, 0, GetWidth(), GetHeight());
+
+        iFR.CmdList3D->ResourceBarrier(1, &copyDstBarrier);
+        iFR.CmdList3D->CopyTextureRegion(&dst, 0, 0, 0, &src, &box);
+        iFR.CmdList3D->ResourceBarrier(1, &shaderResourceBarrier);
+    }
 
     PIXBeginEvent(iFR.CmdList3D.Get(), PIX_COLOR_DEFAULT, L"SobelPass");
     {
