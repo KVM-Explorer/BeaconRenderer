@@ -47,7 +47,7 @@ void CrossBeacon::OnRender()
         GResource::GUIManager->State.FPSCount = fpsCount;
         fpsCount = 0;
     }
-    
+
     GResource::CPUTimerManager->BeginTimer("DrawCall");
     ExecutePass(frameIndex);
     GResource::CPUTimerManager->EndTimer("DrawCall");
@@ -112,11 +112,11 @@ void CrossBeacon::OnMouseDown(WPARAM btnState, int x, int y)
 
 void CrossBeacon::OnDestory()
 {
-    for(auto &item : mDResource[Gpu::Discrete]->FR) {
+    for (auto &item : mDResource[Gpu::Discrete]->FR) {
         item.Sync3D();
         item.SyncCopy(item.SharedFenceValue);
     }
-    for(auto &item : mDResource[Gpu::Integrated]->FR) {
+    for (auto &item : mDResource[Gpu::Integrated]->FR) {
         item.Sync3D();
     }
 
@@ -153,14 +153,24 @@ void CrossBeacon::CreateDeviceResource(HWND handle)
         std::wstring str = adapterDesc.Description;
 
         auto hr = adapter->EnumOutputs(0, &output);
+        if (output != nullptr) continue;
         if (SUCCEEDED(hr) && output != nullptr) {
             auto outputStr = std::format(L"iGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
             OutputDebugStringW(outputStr.c_str());
             mDResource[Gpu::Integrated] = std::make_unique<DeviceResource>(mFactory.Get(), adapter.Get(), mFrameCount, Gpu::Integrated);
         } else {
-            auto outputStr = std::format(L"dGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
-            OutputDebugStringW(outputStr.c_str());
-            mDResource[Gpu::Discrete] = std::make_unique<DeviceResource>(mFactory.Get(), adapter.Get(), mFrameCount, Gpu::Discrete);
+            static int device_num = 0;
+            if (device_num == 0) {
+                auto outputStr = std::format(L"dGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
+                OutputDebugStringW(outputStr.c_str());
+                mDResource[Gpu::Discrete] = std::make_unique<DeviceResource>(mFactory.Get(), adapter.Get(), mFrameCount, Gpu::Discrete);
+            }
+            if (device_num == 1) {
+                auto outputStr = std::format(L"iGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
+                OutputDebugStringW(outputStr.c_str());
+                mDResource[Gpu::Integrated] = std::make_unique<DeviceResource>(mFactory.Get(), adapter.Get(), mFrameCount, Gpu::Integrated);
+            }
+            device_num++;
         }
     }
 

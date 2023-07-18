@@ -3,7 +3,7 @@
 #include "Tools/FrameworkHelper.h"
 #include "DataStruct.h"
 #include "GpuEntryLayout.h"
-#include "pix3/pix3.h"
+// #include "pix3/pix3.h"
 Beacon::Beacon(uint width, uint height, std::wstring title) :
     RendererBase(width, height, title),
     mViewPort(0.0F, 0.0F, static_cast<float>(width), static_cast<float>(height)),
@@ -54,6 +54,8 @@ void Beacon::OnInit()
 void Beacon::OnRender()
 {
     GResource::CPUTimerManager->UpdateTimer("RenderTime");
+    GResource::CPUTimerManager->UpdateAvgTimer("AvgTime1000");
+
     TimePoint now = std::chrono::high_resolution_clock::now();
     static uint fpsCount = 0;
     fpsCount++;
@@ -65,8 +67,6 @@ void Beacon::OnRender()
     }
 
     int frameIndex = mCurrentBackBuffer;
-
-    mFR.at(frameIndex).Reset();
 
     // ============================= Init Stage =================================
     GResource::GPUTimer->BeginTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::FPS));
@@ -99,6 +99,7 @@ void Beacon::OnUpdate()
     uint frameIndex = mCurrentBackBuffer;
 
     mFR.at(frameIndex).Sync();
+    mFR.at(frameIndex).Reset();
 
     mScene->UpdateCamera();
     mScene->UpdateSceneConstant(mFR.at(frameIndex).SceneConstant.get());
@@ -114,7 +115,7 @@ void Beacon::OnDestory()
         mCommandQueue->Signal(item.Fence.Get(), ++item.FenceValue);
         item.Sync();
     }
-    
+
     GResource::GPUTimer = nullptr;
     GResource::GPUTimer = nullptr;
     mScene = nullptr;
@@ -167,19 +168,22 @@ void Beacon::CreateDevice(HWND handle)
         mDeviceAdapter->GetDesc1(&adapterDesc);
         if (adapterDesc.Flags & DXGI_ADAPTER_FLAG3_SOFTWARE) continue;
         std::wstring str = adapterDesc.Description;
-        OutputDebugStringW(str.c_str());
-        if (i == 1 && SUCCEEDED(D3D12CreateDevice(mDeviceAdapter.Get(), D3D_FEATURE_LEVEL_12_0, _uuidof(ID3D12Device), nullptr))) break;
+
+        if (i == 2 && SUCCEEDED((D3D12CreateDevice(mDeviceAdapter.Get(), D3D_FEATURE_LEVEL_12_0, _uuidof(ID3D12Device), nullptr)))) {
+            OutputDebugStringW(str.c_str());
+            break;
+        }
     }
     auto deviceName = adapterDesc.Description;
     ThrowIfFailed(D3D12CreateDevice(mDeviceAdapter.Get(), D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&mDevice)));
 
-    ComPtr<ID3D12InfoQueue> infoQueue;
-    if (SUCCEEDED(mDevice->QueryInterface(IID_PPV_ARGS(&infoQueue)))) {
-        infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
-        infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
-        infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, TRUE);
-        infoQueue->GetMuteDebugOutput();
-    }
+    // ComPtr<ID3D12InfoQueue> infoQueue;
+    // if (SUCCEEDED(mDevice->QueryInterface(IID_PPV_ARGS(&infoQueue)))) {
+    //     infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
+    //     infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
+    //     infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, TRUE);
+    //     infoQueue->GetMuteDebugOutput();
+    // }
 }
 
 void Beacon::CreateCommandQueue()
@@ -317,19 +321,19 @@ void Beacon::ExecutePass(uint frameIndex)
 {
     auto constantAddress = mFR.at(frameIndex).EntityConstant->resource()->GetGPUVirtualAddress();
     // ===============================G-Buffer Pass===============================
-    PIXBeginEvent(mFR.at(frameIndex).CmdList.Get(), 0, L"GBufferPass");
-    {
-        GResource::GPUTimer->BeginTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::GBuffer));
+    // PIXBeginEvent(mFR.at(frameIndex).CmdList.Get(), 0, L"GBufferPass");
+    // {
+    GResource::GPUTimer->BeginTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::GBuffer));
 
-        mGBufferPass->BeginPass(mFR.at(frameIndex).CmdList.Get());
-        mFR.at(frameIndex).SetSceneConstant();
-        mScene->RenderScene(mFR.at(frameIndex).CmdList.Get(), constantAddress);
-        mScene->RenderSphere(mFR.at(frameIndex).CmdList.Get(), constantAddress);
-        mGBufferPass->EndPass(mFR.at(frameIndex).CmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
+    mGBufferPass->BeginPass(mFR.at(frameIndex).CmdList.Get());
+    mFR.at(frameIndex).SetSceneConstant();
+    mScene->RenderScene(mFR.at(frameIndex).CmdList.Get(), constantAddress);
+    mScene->RenderSphere(mFR.at(frameIndex).CmdList.Get(), constantAddress);
+    mGBufferPass->EndPass(mFR.at(frameIndex).CmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
 
-        GResource::GPUTimer->EndTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::GBuffer));
-    }
-    PIXEndEvent(mFR.at(frameIndex).CmdList.Get());
+    GResource::GPUTimer->EndTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::GBuffer));
+    // }
+    // PIXEndEvent(mFR.at(frameIndex).CmdList.Get());
 
     // ===============================Light Pass =================================
     GResource::GPUTimer->BeginTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::LightPass));

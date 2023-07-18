@@ -1,17 +1,17 @@
 
 
 Application:
-  Width: 600
-  Height: 600
+  Width: 1024
+  Height: 768
 
 Optional:
   PassInfoUI: false
 
 Scene:
   ScenePath: Assets/single
-  SceneName: Armadillo
+  SceneName: bunny
   SceneType: singleModel # singleModel, multiModel
-  RepeatScene: [2,2,2] # 重复场景次数
+  RepeatScene: [4,4,4] # 重复场景次数
   LightPassLoop: 1
   PostProcessLoop: 1
 

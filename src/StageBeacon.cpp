@@ -55,6 +55,7 @@ void StageBeacon::OnRender()
     GResource::CPUTimerManager->BeginTimer("UpdatePass");
     SetPass(backend, deviceIndex);
     GResource::CPUTimerManager->EndTimer("UpdatePass");
+    GResource::CPUTimerManager->UpdateAvgTimer("AvgTime1000");
 
     TimePoint now = std::chrono::high_resolution_clock::now();
     static uint fpsCount = 0;
@@ -130,25 +131,42 @@ void StageBeacon::CreateDeviceResource(HWND handle)
         std::wstring str = adapterDesc.Description;
 
         auto hr = adapter->EnumOutputs(0, &output);
-        if (SUCCEEDED(hr) && output != nullptr) {
-            auto outputStr = std::format(L"iGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
-            OutputDebugStringW(outputStr.c_str());
-            mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
-        } else {
-            static uint id = 0;
-            // if (id == 0) {
-            //     OutputDebugStringW(std::format(L"Found Display dGPU:  {}\n", str).c_str());
-            //     mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
-            //     id++;
-            //     continue;
-            // }
+        if (output != nullptr) continue;
+        // if (SUCCEEDED(hr) && output != nullptr) {
+        //     auto outputStr = std::format(L"iGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
+        //     OutputDebugStringW(outputStr.c_str());
+        //     mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
+        // } else
+        //  {
+        //     static uint id = 0;
+        //     if (id == 0) {
+        //         OutputDebugStringW(std::format(L"Found Display dGPU:  {}\n", str).c_str());
+        //         mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
+        //         id++;
+        //         continue;
+        //     }
 
-            auto outputStr = std::format(L"dGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
-            OutputDebugStringW(outputStr.c_str());
-            auto startFrameIndex = GetBackendStartFrameIndex();
-            auto backendResource = std::make_unique<BackendResource>(mFactory.Get(), adapter.Get(), FrameCount, startFrameIndex);
-            mBackendResource.push_back(std::move(backendResource));
-            break;
+        //     auto outputStr = std::format(L"dGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
+        //     OutputDebugStringW(outputStr.c_str());
+        //     auto startFrameIndex = GetBackendStartFrameIndex();
+        //     auto backendResource = std::make_unique<BackendResource>(mFactory.Get(), adapter.Get(), FrameCount, startFrameIndex);
+        //     mBackendResource.push_back(std::move(backendResource));
+        //     break;
+        // }
+        if (str.find(L"1060") != std::string::npos) {
+            static int id = 0;
+            if (id == 1) {
+                OutputDebugStringW(std::format(L"Found Display dGPU:  {}\n", str).c_str());
+                mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
+            } else {
+                auto outputStr = std::format(L"dGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
+                OutputDebugStringW(outputStr.c_str());
+                auto startFrameIndex = GetBackendStartFrameIndex();
+                auto backendResource = std::make_unique<BackendResource>(mFactory.Get(), adapter.Get(), FrameCount, startFrameIndex);
+                mBackendResource.push_back(std::move(backendResource));
+            }
+            id++;
+            // if (id == 2) break;
         }
     }
     if (mBackendResource.empty()) {
@@ -430,7 +448,7 @@ void StageBeacon::SyncExecutePass(BackendResource *backend, uint backendIndex)
     stage1->SignalDirect(backend->DirectQueue.Get());
 
     // ========================Stage 2 Copy Texture ========================
-    stage2->FlushCopy(); // 等待上一帧拷贝完毕
+    stage2->FlushCopy();                                               // 等待上一帧拷贝完毕
     stage2->ResetCopy();
     backend->CopyQueue->Wait(stage2->Fence.Get(), stage2->FenceValue); // 等待上一帧渲染完毕
 
@@ -550,7 +568,7 @@ void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
         stage1->SignalDirect(backend->DirectQueue.Get());
     });
     g.run([this, stage2, backend]() {
-        stage2->FlushCopy(); // 等待上一帧拷贝完毕
+        stage2->FlushCopy();                                               // 等待上一帧拷贝完毕
         stage2->ResetCopy();
         backend->CopyQueue->Wait(stage2->Fence.Get(), stage2->FenceValue); // 等待上一帧渲染完毕
         // backend->GpuTimer->BeginTimer(stage2->CopyCmdList.Get(),static_cast<uint>(GpuTimers::CopyPass));
