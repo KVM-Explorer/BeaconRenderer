@@ -12,6 +12,7 @@ class ImguiManager {
         float UpdatePassTime;
         float GBufferTime;
         float ComputeShaderTime;
+        float AvgFPS;
         bool EnableSphere = false;
         bool EnableModel = true;
         uint FPSCount;

@@ -9,6 +9,7 @@
 #include <DirectXColors.h>
 #include <cstdint>
 #include <vector>
+#include <queue>
 #include <d3d12.h>
 #include <d3dx12.h>
 #include <dxgidebug.h>

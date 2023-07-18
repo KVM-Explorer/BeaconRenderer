@@ -38,6 +38,26 @@ void CPUTimer::UpdateTimer(std::string name)
     }
 }
 
+void CPUTimer::UpdateAvgTimer(std::string name)
+{
+    if (mTimerPoints.contains(name)) {
+        auto timePoint = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(timePoint - mTimerPoints[name]).count();
+        mTotalTime[name] += duration;
+        mTimerPoints[name] = timePoint;
+        mTimerState[name]++;
+        mTimeQueue[name].push(duration);
+        if(mTimeQueue[name].size() == 1000) {
+            mDuration[name] = mTotalTime[name] / mTimeQueue[name].size();
+            mTotalTime[name] -= mTimeQueue[name].front();
+            mTimeQueue[name].pop();
+        }
+    } else {
+        mTimerPoints[name] = std::chrono::high_resolution_clock::now();
+
+    }
+}
+
 uint CPUTimer::QueryDuration(std::string name)
 {
     if (mDuration.contains(name)) return mDuration[name];

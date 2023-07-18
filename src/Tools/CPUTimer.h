@@ -9,11 +9,12 @@ public:
     CPUTimer(CPUTimer &&) = delete;
     CPUTimer &operator=(CPUTimer &&) = delete;
 
-    uint GetStaticTimeDuration(std::string name,TimePoint time);
-    void SetStaticTime(std::string name,TimePoint time);
+    uint GetStaticTimeDuration(std::string name, TimePoint time);
+    void SetStaticTime(std::string name, TimePoint time);
     void BeginTimer(std::string name);
     void EndTimer(std::string name);
     void UpdateTimer(std::string name);
+    void UpdateAvgTimer(std::string name);
     uint QueryDuration(std::string name);
 
 private:
@@ -21,4 +22,5 @@ private:
     std::unordered_map<std::string, uint> mTimerState;
     std::unordered_map<std::string, uint> mDuration;
     std::unordered_map<std::string, uint> mTotalTime;
+    std::unordered_map<std::string, std::queue<uint>> mTimeQueue;
 };

@@ -32,13 +32,6 @@ target("CrossBeacon")
     add_packages("yaml-cpp")
     add_defines("UNICODE")
 
-target("CrossDevice")
-    set_kind("binary")
-    add_files("Test/CrossDeviceTest.cpp")
-    add_deps("Renderer")
-    add_syslinks("User32", "kernel32", "Gdi32", "Shell32", "DXGI", "D3D12", "D3DCompiler","dxguid")
-    add_defines("UNICODE")
-
 target("StageBeacon")
     set_kind("binary")
     add_files("Test/StagePipelineBeacon.cpp","StageBeacon.cpp")
