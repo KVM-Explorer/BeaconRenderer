@@ -7,6 +7,7 @@ CrossFrameResource::CrossFrameResource(ResourceRegister *resourceRegister, ID3D1
     mSrvCbvUavHeap(resourceRegister->SrvCbvUavDescriptorHeap),
     FenceValue(0)
 {
+    
     ThrowIfFailed(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&CmdAllocator3D)));
     ThrowIfFailed(device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, CmdAllocator3D.Get(), nullptr, IID_PPV_ARGS(&CmdList3D)));
     CmdList3D->Close();
@@ -117,7 +118,6 @@ void CrossFrameResource::InitByMainGpu(ID3D12Device *device, uint width, uint he
 
     ThrowIfFailed(device->CreateSharedHandle(SharedFence.Get(), nullptr, GENERIC_ALL, nullptr, &SharedFenceHandle));
 
-    CreateMainRenderTarget(device, width, height);
 }
 
 void CrossFrameResource::InitByAuxGpu(ID3D12Device *device, ID3D12Resource *backBuffer, HANDLE sharedHandle)
@@ -128,7 +128,7 @@ void CrossFrameResource::InitByAuxGpu(ID3D12Device *device, ID3D12Resource *back
     ThrowIfFailed(hrOpenSharedHandleResult);
 }
 
-HANDLE CrossFrameResource::CreateMainRenderTarget(ID3D12Device *device, uint width, uint height)
+void CrossFrameResource::CreateMainRenderTarget(ID3D12Device *device, uint width, uint height,ID3D12Heap* heap,uint frameIndex)
 {
     ///================== Create Render Target Resource ================
     // Render Target Resource GBuffer*4
@@ -181,43 +181,37 @@ HANDLE CrossFrameResource::CreateMainRenderTarget(ID3D12Device *device, uint wid
     mSrvCbvUavMap["Depth"] = mSrvCbvUavHeap->AddSrvDescriptor(device, GetResource("Depth"), &srvDescriptor);
 
     // ScreenTexture1 Resource
-    mResourceMap["ScreenTexture1"] = mRenderTargets.size();
+    mResourceMap["LightTexture"] = mRenderTargets.size();
     mRenderTargets.emplace_back(device,
                                 DXGI_FORMAT_R8G8B8A8_UNORM,
                                 width,
                                 height,
                                 D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET,
-                                false);
-    GetResource("ScreenTexture1")->SetName(L"ScreenTexture1");
-
-    mRtvMap["ScreenTexture1"] = mRtvHeap->AddRtvDescriptor(device, GetResource("ScreenTexture1"));
-
-    // Screen Texture1 Shared Texture
-    mResourceMap["CScreenTexture1"] = mRenderTargets.size();
-    mRenderTargets.emplace_back(device,
-                                DXGI_FORMAT_R8G8B8A8_UNORM,
-                                width,
-                                height,
-                                D3D12_RESOURCE_FLAG_ALLOW_CROSS_ADAPTER,
                                 false,
-                                D3D12_HEAP_FLAG_SHARED_CROSS_ADAPTER | D3D12_HEAP_FLAG_SHARED);
-    GetResource("CScreenTexture1")->SetName(L"CScreenTexture1");
-    HANDLE sharedHandle = nullptr;
-    device->CreateSharedHandle(GetResource("CScreenTexture1"), nullptr, GENERIC_ALL, nullptr, &sharedHandle);
-    return sharedHandle;
+                                D3D12_HEAP_FLAG_NONE,
+                                D3D12_RESOURCE_STATE_COMMON);
+    GetResource("LightTexture")->SetName(L"LightTexture");
+
+    mRtvMap["LightTexture"] = mRtvHeap->AddRtvDescriptor(device, GetResource("LightTexture"));
+    CreateLightCopyHeapBuffer(device,heap,frameIndex,width,height,D3D12_RESOURCE_STATE_COPY_SOURCE);
 }
 
-void CrossFrameResource::CreateAuxRenderTarget(ID3D12Device *device, ID3D12Resource *backBuffer, HANDLE sharedHandle)
+void CrossFrameResource::CreateAuxRenderTarget(ID3D12Device *device, ID3D12Resource *backBuffer, ID3D12Heap* heap, uint frameIndex)
 {
     // Screen Texture1 Shared Texture
-    mResourceMap["CScreenTexture1"] = mRenderTargets.size();
-    ComPtr<ID3D12Resource> resource;
-    auto result = device->OpenSharedHandle(sharedHandle, IID_PPV_ARGS(&resource));
-    ::CloseHandle(sharedHandle);
-    ThrowIfFailed(result);
-    mRenderTargets.push_back(std::move(Texture(resource.Get())));
-    GetResource("CScreenTexture1")->SetName(L"CScreenTexture1");
-    mSrvCbvUavMap["CScreenTexture1"] = mSrvCbvUavHeap->AddSrvDescriptor(device, GetResource("CScreenTexture1"));
+    CreateLightCopyHeapBuffer(device,heap,frameIndex,backBuffer->GetDesc().Width,backBuffer->GetDesc().Height,D3D12_RESOURCE_STATE_COPY_SOURCE);
+
+    mResourceMap["LightTexture"] = mRenderTargets.size();
+    mRenderTargets.emplace_back(device,
+                                DXGI_FORMAT_R8G8B8A8_UNORM,
+                                backBuffer->GetDesc().Width,
+                                backBuffer->GetDesc().Height,
+                                D3D12_RESOURCE_FLAG_NONE,
+                                false,
+                                D3D12_HEAP_FLAG_NONE,
+                                D3D12_RESOURCE_STATE_COMMON);
+    GetResource("LightTexture")->SetName(L"LightTexture");
+    mSrvCbvUavMap["LightTexture"] = mSrvCbvUavHeap->AddSrvDescriptor(device, GetResource("LightTexture"));
 
     // ScreenTexture2
     mResourceMap["ScreenTexture2"] = mRenderTargets.size();
@@ -280,4 +274,32 @@ ID3D12DescriptorHeap *CrossFrameResource::GetSrvCbvUavHeap() const
 CD3DX12_GPU_DESCRIPTOR_HANDLE CrossFrameResource::GetSrvBase() const
 {
     return mSrvCbvUavHeap->GPUHandle(0);
+}
+
+
+
+void CrossFrameResource::CreateLightCopyHeapBuffer(ID3D12Device *device, ID3D12Heap *heap, uint index, uint width, uint height, D3D12_RESOURCE_STATES initalState)
+{
+    auto textureDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, width, height, 1, 1, 1);
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT layouts;
+    device->GetCopyableFootprints(&textureDesc, 0, 1, 0, &layouts, nullptr, nullptr, nullptr);
+
+    uint64 bufferSize = UpperMemorySize(layouts.Footprint.RowPitch * layouts.Footprint.Height, D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT);
+
+    auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(bufferSize, D3D12_RESOURCE_FLAG_ALLOW_CROSS_ADAPTER);
+
+    uint64 startAddr = bufferSize * index;
+    ComPtr<ID3D12Resource> resource;
+    device->CreatePlacedResource(
+        heap,
+        startAddr,
+        &bufferDesc,
+        initalState,
+        nullptr,
+        IID_PPV_ARGS(&resource));
+
+    Texture texture(resource.Get());
+    mRenderTargets.push_back(std::move(texture));
+    mResourceMap["LightCopyBuffer"] = mRenderTargets.size() - 1;
+    GetResource("LightCopyBuffer")->SetName(L"LightCopyBuffer");
 }

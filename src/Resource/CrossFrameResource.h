@@ -29,11 +29,14 @@ public:
     void InitByMainGpu(ID3D12Device *device, uint width, uint height);
     void InitByAuxGpu(ID3D12Device *device, ID3D12Resource *backBuffer, HANDLE sharedHandle);
 
-    HANDLE CreateMainRenderTarget(ID3D12Device *device, uint width, uint height);
-    void CreateAuxRenderTarget(ID3D12Device *device, ID3D12Resource *backBuffer,HANDLE sharedHandle);
+    void CreateMainRenderTarget(ID3D12Device *device, uint width, uint height, ID3D12Heap *heap, uint frameIndex);
+    void CreateAuxRenderTarget(ID3D12Device *device, ID3D12Resource *backBuffer, ID3D12Heap *heap, uint frameIndex);
 
     void CreateConstantBuffer(ID3D12Device *device, uint entityCount, uint lightCount, uint materialCount);
     void SetSceneConstant();
+
+    /// Shared Heap
+    void CreateLightCopyHeapBuffer(ID3D12Device *device, ID3D12Heap *heap, uint index, uint width, uint height, D3D12_RESOURCE_STATES initalState);
 
     ID3D12Resource *GetResource(const std::string &name) const;
 
