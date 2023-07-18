@@ -45,7 +45,7 @@ void LightPass::BeginPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STA
     cmdList->SetDescriptorHeaps(1, &mSrvHeap);
     cmdList->SetGraphicsRootDescriptorTable(3, mGBufferHandle);
     cmdList->SetGraphicsRootDescriptorTable(4, mTextureHandle);
-    cmdList->SetGraphicsRootDescriptorTable(7, mCubeMapHandle);
+    // cmdList->SetGraphicsRootDescriptorTable(7, mCubeMapHandle);
 }
 
 void LightPass::EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES resultState) const

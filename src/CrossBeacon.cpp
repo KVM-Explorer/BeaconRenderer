@@ -37,6 +37,17 @@ void CrossBeacon::OnRender()
     uint frameIndex = mCurrentBackBuffer;
     GResource::CPUTimerManager->UpdateTimer("RenderTime");
 
+    // update gui fps
+    TimePoint now = std::chrono::high_resolution_clock::now();
+    static uint fpsCount = 0;
+    fpsCount++;
+    auto duration = GResource::CPUTimerManager->GetStaticTimeDuration("FPS", now);
+    if (duration > 1000) {
+        GResource::CPUTimerManager->SetStaticTime("FPS", now);
+        GResource::GUIManager->State.FPSCount = fpsCount;
+        fpsCount = 0;
+    }
+    
     GResource::CPUTimerManager->BeginTimer("DrawCall");
     ExecutePass(frameIndex);
     GResource::CPUTimerManager->EndTimer("DrawCall");
@@ -101,6 +112,14 @@ void CrossBeacon::OnMouseDown(WPARAM btnState, int x, int y)
 
 void CrossBeacon::OnDestory()
 {
+    for(auto &item : mDResource[Gpu::Discrete]->FR) {
+        item.Sync3D();
+        item.SyncCopy(item.SharedFenceValue);
+    }
+    for(auto &item : mDResource[Gpu::Integrated]->FR) {
+        item.Sync3D();
+    }
+
     mIGpuQuadVB.reset();
     mScene = nullptr;
     mDResource.clear();
@@ -200,6 +219,9 @@ void CrossBeacon::CompileShaders()
     // AuxGpu
     ThrowIfFailed(D3DCompileFromFile(L"Shaders/PostProcess.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "SobelMain", "cs_5_1", compileFlags, 0, &GResource::Shaders["SobelCS"], &error));
     ThrowIfFailed(D3DCompileFromFile(L"Shaders/ScreenQuad.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PSMain", "ps_5_1", compileFlags, 0, &GResource::Shaders["ScreenQuadPS"], &error));
+    if (error != nullptr) {
+        OutputDebugStringA(static_cast<char *>(error->GetBufferPointer()));
+    }
     ThrowIfFailed(D3DCompileFromFile(L"Shaders/ScreenQuad.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VSMain", "vs_5_1", compileFlags, 0, &GResource::Shaders["ScreenQuadVS"], &error));
 
     if (error != nullptr) {
@@ -329,7 +351,7 @@ void CrossBeacon::ExecutePass(uint frameIndex)
     PIXEndEvent(dFR.CmdList3D.Get());
     PIXBeginEvent(dFR.CmdList3D.Get(), PIX_COLOR_DEFAULT, L"LightPass");
     {
-        mLightPass->BeginPass(dFR.CmdList3D.Get(),D3D12_RESOURCE_STATE_COMMON);
+        mLightPass->BeginPass(dFR.CmdList3D.Get(), D3D12_RESOURCE_STATE_COMMON);
         mScene->RenderQuad(dFR.CmdList3D.Get(), dConstantAddr);
         mLightPass->EndPass(dFR.CmdList3D.Get(), D3D12_RESOURCE_STATE_COMMON);
     }
@@ -368,7 +390,7 @@ void CrossBeacon::ExecutePass(uint frameIndex)
         iFR.CmdList3D->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
         iFR.CmdList3D->IASetVertexBuffers(0, 1, &mIGpuQuadVBView);
         iFR.CmdList3D->DrawInstanced(4, 1, 0, 0);
-        mQuadPass->EndPass(iFR.CmdList3D.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET); 
+        mQuadPass->EndPass(iFR.CmdList3D.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
     }
     PIXEndEvent(iFR.CmdList3D.Get());
 

@@ -304,7 +304,7 @@ void Beacon::SetPass(uint frameIndex)
     mLightPass->SetCubeMap(mFR.at(0).SrvCbvUavDescriptorHeap->Resource(), mFR.at(0).SrvCbvUavDescriptorHeap->GPUHandle(mEnvMapIndex));
 
     // ================== SobelPass ==================
-    mSobelPass->SetInput(mFR.at(frameIndex).GetSrvCbvUav("Depth"));
+    mSobelPass->SetInput(mFR.at(frameIndex).GetSrvCbvUav("ScreenTexture1"));
     mSobelPass->SetSrvHeap(mFR.at(frameIndex).SrvCbvUavDescriptorHeap->Resource());
     mSobelPass->SetTarget(mFR.at(frameIndex).GetResource("ScreenTexture2"), mFR.at(frameIndex).GetSrvCbvUav("ScreenTexture2"));
 
