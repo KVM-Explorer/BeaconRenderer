@@ -36,6 +36,7 @@ void CrossBeacon::OnRender()
 {
     uint frameIndex = mCurrentBackBuffer;
     GResource::CPUTimerManager->UpdateTimer("RenderTime");
+    GResource::CPUTimerManager->UpdateAvgTimer("AvgTime1000");
 
     // update gui fps
     TimePoint now = std::chrono::high_resolution_clock::now();
@@ -142,27 +143,38 @@ void CrossBeacon::CreateDeviceResource(HWND handle)
         std::wstring str = adapterDesc.Description;
 
         auto hr = adapter->EnumOutputs(0, &output);
-        if (output != nullptr) continue;
-        if (SUCCEEDED(hr) && output != nullptr) {
-            auto outputStr = std::format(L"iGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
-            OutputDebugStringW(outputStr.c_str());
-            mDResource[Gpu::Integrated] = std::make_unique<DeviceResource>(mFactory.Get(), adapter.Get(), mFrameCount, Gpu::Integrated);
-        } else {
-            static int device_num = 0;
-            if (device_num == 0) {
+        // if (output != nullptr) continue;
+        // if (SUCCEEDED(hr) && output != nullptr) {
+        //     auto outputStr = std::format(L"iGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
+        //     OutputDebugStringW(outputStr.c_str());
+        //     mDResource[Gpu::Integrated] = std::make_unique<DeviceResource>(mFactory.Get(), adapter.Get(), mFrameCount, Gpu::Integrated);
+        // } else {
+        //     static int device_num = 0;
+        //     if (device_num == 0) {
+        //         auto outputStr = std::format(L"dGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
+        //         OutputDebugStringW(outputStr.c_str());
+        //         mDResource[Gpu::Discrete] = std::make_unique<DeviceResource>(mFactory.Get(), adapter.Get(), mFrameCount, Gpu::Discrete);
+        //     }
+        //     if (device_num == 1) {
+        //         auto outputStr = std::format(L"iGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
+        //         OutputDebugStringW(outputStr.c_str());
+        //         mDResource[Gpu::Integrated] = std::make_unique<DeviceResource>(mFactory.Get(), adapter.Get(), mFrameCount, Gpu::Integrated);
+        //     }
+        //   device_num++;
+        if (str.find(L"1060") != std::string::npos) {
+            static int id = 0;
+            if (id == 1) {
+                OutputDebugStringW(std::format(L"Found Display IGPU:  {}\n", str).c_str());
+                mDResource[Gpu::Integrated] = std::make_unique<DeviceResource>(mFactory.Get(), adapter.Get(), mFrameCount, Gpu::Integrated);
+            } else {
                 auto outputStr = std::format(L"dGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
                 OutputDebugStringW(outputStr.c_str());
                 mDResource[Gpu::Discrete] = std::make_unique<DeviceResource>(mFactory.Get(), adapter.Get(), mFrameCount, Gpu::Discrete);
             }
-            if (device_num == 1) {
-                auto outputStr = std::format(L"iGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
-                OutputDebugStringW(outputStr.c_str());
-                mDResource[Gpu::Integrated] = std::make_unique<DeviceResource>(mFactory.Get(), adapter.Get(), mFrameCount, Gpu::Integrated);
-            }
-            device_num++;
+            id++;
+            // if (id == 2) break;
         }
     }
-
     mDResource[Gpu::Integrated]->CreateSwapChain(handle, GetWidth(), GetHeight(), mFactory.Get());
 }
 
