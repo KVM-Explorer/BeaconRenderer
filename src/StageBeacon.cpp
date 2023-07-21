@@ -19,6 +19,9 @@ void StageBeacon::OnInit()
 {
     auto handle = Application::GetHandle();
     CreateDeviceResource(handle);
+
+    SetGpuTimers();
+
     CompileShaders();
     CreateSignature2PSO();
 
@@ -131,7 +134,7 @@ void StageBeacon::CreateDeviceResource(HWND handle)
         std::wstring str = adapterDesc.Description;
 
         auto hr = adapter->EnumOutputs(0, &output);
-        if (output != nullptr) continue;
+        // if (output != nullptr) continue;
         // if (SUCCEEDED(hr) && output != nullptr) {
         //     auto outputStr = std::format(L"iGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
         //     OutputDebugStringW(outputStr.c_str());
@@ -155,7 +158,7 @@ void StageBeacon::CreateDeviceResource(HWND handle)
         // }
         if (str.find(L"1060") != std::string::npos) {
             static int id = 0;
-            if (id == 1) {
+            if (id == 0) {
                 OutputDebugStringW(std::format(L"Found Display dGPU:  {}\n", str).c_str());
                 mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
             } else {
@@ -166,11 +169,41 @@ void StageBeacon::CreateDeviceResource(HWND handle)
                 mBackendResource.push_back(std::move(backendResource));
             }
             id++;
-            // if (id == 2) break;
+            if (id == 2) break;
         }
+        // if (str.find(L"1080") != std::string::npos) {
+        //     auto outputStr = std::format(L"dGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
+        //     OutputDebugStringW(outputStr.c_str());
+        //     auto startFrameIndex = GetBackendStartFrameIndex();
+        //     auto backendResource = std::make_unique<BackendResource>(mFactory.Get(), adapter.Get(), FrameCount, startFrameIndex);
+        //     mBackendResource.push_back(std::move(backendResource));
+        // }
     }
     if (mBackendResource.empty()) {
         throw std::runtime_error("No backend device found");
+    }
+}
+
+void StageBeacon::SetGpuTimers()
+{
+    // Display Gpu Timer
+    GResource::GPUTimer = std::make_unique<D3D12GpuTimer>(mDisplayResource->Device.Get(), mDisplayResource->DirectQueue.Get(), 1);
+    GResource::GPUTimer->SetTimerName(0, "Stage3");
+
+    // Backend Gpu Timer
+    for (uint i = 0; i < mBackendResource.size(); i++) {
+        auto *device = mBackendResource[i]->Device.Get();
+        auto *renderQueue = mBackendResource[i]->DirectQueue.Get();
+        // auto *copyQueue = mBackendResource[i]->CopyQueue.Get();
+        std::string id = std::to_string(i);
+        mBackendResource[i]
+            ->mRenderGTimer = std::make_unique<D3D12GpuTimer>(device, renderQueue, 1);
+        mBackendResource[i]->mRenderGTimer->SetTimerName(0, "GPU:" + id + "Stage1");
+
+        // copy queue can;t query timestamp
+        // mBackendResource[i]
+        //     ->mCopyGTimer = std::make_unique<D3D12GpuTimer>(device, copyQueue, 1);
+        // mBackendResource[i]->mCopyGTimer->SetTimerName(0, "GPU:" + id + "Copy");
     }
 }
 
@@ -515,7 +548,7 @@ void StageBeacon::SyncExecutePass(BackendResource *backend, uint backendIndex)
         quadPass.EndPass(stage3->DirectCmdList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
     }
 
-    GResource::GUIManager->DrawUI(stage3->DirectCmdList.Get(), stage3->GetResource("SwapChain"));
+    GResource::GUIManager->DrawUI(stage3->DirectCmdList.Get(), stage3->GetResource("SwapChain"), {});
 
     stage3->SubmitDirect(mDisplayResource->DirectQueue.Get());
     stage3->SignalDirect(mDisplayResource->DirectQueue.Get());
@@ -548,7 +581,7 @@ void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
         stage1->DirectCmdList->RSSetScissorRects(1, &mScissor);
         backend->DirectQueue->Wait(stage1->SharedFence.Get(), stage1->SharedFenceValue);
         auto entitiesCB = stage1->mSceneCB.EntityCB->resource()->GetGPUVirtualAddress();
-
+        backend->mRenderGTimer->BeginTimer(stage1->DirectCmdList.Get(), 0);
         {
             gbufferPass.BeginPass(stage1->DirectCmdList.Get());
             stage1->SetCurrentFrameCB();
@@ -564,6 +597,8 @@ void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
             }
             lightPass.EndPass(stage1->DirectCmdList.Get(), D3D12_RESOURCE_STATE_COMMON);
         }
+        backend->mRenderGTimer->EndTimer(stage1->DirectCmdList.Get(), 0);
+        backend->mRenderGTimer->ResolveAllTimers(stage1->DirectCmdList.Get());
         stage1->SubmitDirect(backend->DirectQueue.Get());
         stage1->SignalDirect(backend->DirectQueue.Get());
     });
@@ -571,7 +606,8 @@ void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
         stage2->FlushCopy();                                               // 等待上一帧拷贝完毕
         stage2->ResetCopy();
         backend->CopyQueue->Wait(stage2->Fence.Get(), stage2->FenceValue); // 等待上一帧渲染完毕
-        // backend->GpuTimer->BeginTimer(stage2->CopyCmdList.Get(),static_cast<uint>(GpuTimers::CopyPass));
+
+        // backend->mCopyGTimer->BeginTimer(stage2->CopyCmdList.Get(), 0);
         {
             if (CrossAdapterTextureSupport) {
                 stage2->CopyCmdList->CopyResource(stage2->GetResource("LightCopy"), stage2->GetResource("Light"));
@@ -593,16 +629,18 @@ void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
                 stage2->CopyCmdList->ResourceBarrier(1, &copySrcBarrier);
             }
         }
-        // backend->GpuTimer->EndTimer(stage2->CopyCmdList.Get(),static_cast<uint>(GpuTimers::CopyPass));
+        // backend->mCopyGTimer->EndTimer(stage2->CopyCmdList.Get(), 0);
+        // backend->mCopyGTimer->ResolveAllTimers(stage2->CopyCmdList.Get());
         stage2->SubmitCopy(backend->CopyQueue.Get());
         stage2->SignalCopy(backend->CopyQueue.Get());
     });
-    g.run([this, stage3, sobelPass, quadPass, copyFenceValue]() {
+    g.run([this, stage3, sobelPass, quadPass, copyFenceValue, backend]() {
         stage3->FlushDirect();
         stage3->ResetDirect();
         mDisplayResource->DirectQueue->Wait(stage3->SharedFence.Get(), copyFenceValue);
         stage3->DirectCmdList->RSSetViewports(1, &mViewPort);
         stage3->DirectCmdList->RSSetScissorRects(1, &mScissor);
+        GResource::GPUTimer->BeginTimer(stage3->DirectCmdList.Get(), 0);
 
         // Copy Light
         if (!CrossAdapterTextureSupport) {
@@ -635,8 +673,12 @@ void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
             quadPass.EndPass(stage3->DirectCmdList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
         }
 
-        GResource::GUIManager->DrawUI(stage3->DirectCmdList.Get(), stage3->GetResource("SwapChain"));
+        GResource::GUIManager->DrawUI(stage3->DirectCmdList.Get(),
+                                      stage3->GetResource("SwapChain"),
+                                      {backend->mRenderGTimer.get()});
 
+        GResource::GPUTimer->EndTimer(stage3->DirectCmdList.Get(), 0);
+        GResource::GPUTimer->ResolveAllTimers(stage3->DirectCmdList.Get());
         stage3->SubmitDirect(mDisplayResource->DirectQueue.Get());
         stage3->SignalDirect(mDisplayResource->DirectQueue.Get());
 

@@ -2,6 +2,7 @@
 #include "Framework/Application.h"
 #include "GlobalResource.h"
 
+
 ImguiManager::ImguiManager()
 {
     IMGUI_CHECKVERSION();
@@ -37,7 +38,7 @@ void ImguiManager::Init(ID3D12Device *device)
     ImGui_ImplDX12_CreateDeviceObjects();
 }
 
-void ImguiManager::DrawUI(ID3D12GraphicsCommandList *cmdList, ID3D12Resource *target)
+void ImguiManager::DrawUI(ID3D12GraphicsCommandList *cmdList, ID3D12Resource *target, std::vector<D3D12GpuTimer *>backendTimers)
 {
     // Update State
     State.RenderTime = GResource::CPUTimerManager->QueryDuration("RenderTime") / 1000.0F;
@@ -66,6 +67,11 @@ void ImguiManager::DrawUI(ID3D12GraphicsCommandList *cmdList, ID3D12Resource *ta
     if (GResource::config["Optional"]["PassInfoUI"].as<bool>()) {
         for (auto &timer : GResource::GPUTimer->GetTimes()) {
             ImGui::Text("%s %f", timer.second.c_str(), timer.first * 1000.0F);
+        }
+        for(auto &item: backendTimers){
+            for (auto &timer : item->GetTimes()) {
+                ImGui::Text("%s %f", timer.second.c_str(), timer.first * 1000.0F);
+            }
         }
     }
 
