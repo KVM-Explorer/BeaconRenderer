@@ -38,11 +38,8 @@
 
 enum class GpuTimers {
     FPS,
-    GBuffer,
-    LightPass,
-    CopyPass,
-    ComputeShader,
-    UI,
+    stage1,
+    stage3,
     NumTimers
 };
 
