@@ -167,8 +167,9 @@ void Beacon::CreateDevice(HWND handle)
         if (adapterDesc.Flags & DXGI_ADAPTER_FLAG3_SOFTWARE) continue;
         std::wstring str = adapterDesc.Description;
 
-        if (i == 1 && SUCCEEDED((D3D12CreateDevice(mDeviceAdapter.Get(), D3D_FEATURE_LEVEL_12_0, _uuidof(ID3D12Device), nullptr)))) {
+        if (str.find(L"1060 6G")!=std::string::npos && SUCCEEDED((D3D12CreateDevice(mDeviceAdapter.Get(), D3D_FEATURE_LEVEL_12_0, _uuidof(ID3D12Device), nullptr)))) {
             OutputDebugStringW(str.c_str());
+
             break;
         }
     }
@@ -345,9 +346,11 @@ void Beacon::ExecutePass(uint frameIndex)
      GResource::GPUTimer->BeginTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::stage3));
 
     mSobelPass->BeginPass(mFR.at(frameIndex).CmdList.Get());
-    for (uint i = 0; i < GResource::config["Scene"]["PostProcessLoop"].as<uint>(); i++) {
-        mSobelPass->ExecutePass(mFR.at(frameIndex).CmdList.Get());
-    }
+
+
+
+
+
     mSobelPass->EndPass(mFR.at(frameIndex).CmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
 
     // ============================= Screen Quad Pass ===========================

@@ -71,6 +71,7 @@ void StageBeacon::OnRender()
     }
 
     AsyncExecutePass(backend, deviceIndex);
+    // SyncExecutePass(backend, deviceIndex);
     GResource::CPUTimerManager->EndTimer("DrawCall");
 
     IncrementBackendIndex();
@@ -119,10 +120,10 @@ void StageBeacon::CreateDeviceResource(HWND handle)
     ComPtr<IDXGIOutput> output;
     UINT dxgiFactoryFlags = 0;
 
-    if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController)))) {
-        debugController->EnableDebugLayer();
-        dxgiFactoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
-    }
+    // if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController)))) {
+    //     debugController->EnableDebugLayer();
+    //     dxgiFactoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
+    // }
 
     ThrowIfFailed(CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&mFactory)));
     ThrowIfFailed(mFactory->MakeWindowAssociation(handle, DXGI_MWA_NO_ALT_ENTER | DXGI_MWA_NO_WINDOW_CHANGES));
@@ -156,7 +157,7 @@ void StageBeacon::CreateDeviceResource(HWND handle)
         //     mBackendResource.push_back(std::move(backendResource));
         //     break;
         // }
-        if (str.find(L"1060") != std::string::npos) {
+        if (str.find(L"1060 6GB") != std::string::npos) {
             static int id = 0;
             if (id == 0) {
                 OutputDebugStringW(std::format(L"Found Display dGPU:  {}\n", str).c_str());
@@ -537,7 +538,10 @@ void StageBeacon::SyncExecutePass(BackendResource *backend, uint backendIndex)
     auto &sobelPass = *(mDisplayResource->mSobelPass);
     {
         sobelPass.BeginPass(stage3->DirectCmdList.Get());
-        sobelPass.ExecutePass(stage3->DirectCmdList.Get());
+
+        for (uint i = 0; i < GResource::config["Scene"]["PostProcessLoop"].as<uint>(); i++) {
+            sobelPass.ExecutePass(stage3->DirectCmdList.Get());
+        }
         sobelPass.EndPass(stage3->DirectCmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
     }
 
@@ -640,7 +644,6 @@ void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
         mDisplayResource->DirectQueue->Wait(stage3->SharedFence.Get(), copyFenceValue);
         stage3->DirectCmdList->RSSetViewports(1, &mViewPort);
         stage3->DirectCmdList->RSSetScissorRects(1, &mScissor);
-        GResource::GPUTimer->BeginTimer(stage3->DirectCmdList.Get(), 0);
 
         // Copy Light
         if (!CrossAdapterTextureSupport) {
@@ -659,6 +662,7 @@ void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
             stage3->DirectCmdList->CopyTextureRegion(&dst, 0, 0, 0, &src, &box);
             stage3->DirectCmdList->ResourceBarrier(1, &shaderResourceBarrier);
         }
+        GResource::GPUTimer->BeginTimer(stage3->DirectCmdList.Get(), 0);
         {
             sobelPass.BeginPass(stage3->DirectCmdList.Get());
             for (uint i = 0; i < GResource::config["Scene"]["PostProcessLoop"].as<uint>(); i++) {
@@ -667,6 +671,7 @@ void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
 
             sobelPass.EndPass(stage3->DirectCmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
         }
+        GResource::GPUTimer->EndTimer(stage3->DirectCmdList.Get(), 0);
         {
             quadPass.BeginPass(stage3->DirectCmdList.Get());
             mScene->RenderScreenQuad(stage3->DirectCmdList.Get(), &mDisplayResource->ScreenQuadVBView, &mDisplayResource->ScreenQuadIBView);
@@ -677,7 +682,6 @@ void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
                                       stage3->GetResource("SwapChain"),
                                       {backend->mRenderGTimer.get()});
 
-        GResource::GPUTimer->EndTimer(stage3->DirectCmdList.Get(), 0);
         GResource::GPUTimer->ResolveAllTimers(stage3->DirectCmdList.Get());
         stage3->SubmitDirect(mDisplayResource->DirectQueue.Get());
         stage3->SignalDirect(mDisplayResource->DirectQueue.Get());

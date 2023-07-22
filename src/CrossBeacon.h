@@ -35,6 +35,7 @@ private:
     void LoadScene();
     void CreateQuad();
     void CreateRtv();
+    void SetGpuTimers();
 
     void SetPass(uint frameIndex);
     void ExecutePass(uint frameIndex);
