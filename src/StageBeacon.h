@@ -26,6 +26,7 @@ public:
     void OnDestory() override;
 
 private:
+    void SetGpuTimers();
     void LoadAssets();
     void CreateQuad();
     void PopulateCommandList();

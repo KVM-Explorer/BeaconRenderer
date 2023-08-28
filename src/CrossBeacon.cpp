@@ -60,12 +60,13 @@ void CrossBeacon::OnInit()
 {
     HWND handle = Application::GetHandle();
     CreateDeviceResource(handle);
+
     CompileShaders();
     CreateSignature2PSO();
 
     GResource::GUIManager->Init(mDResource[Gpu::Integrated]->Device.Get());
     CreateFrameResource();
-
+    SetGpuTimers();
     CreateRtv();
 
     // CreatePass
@@ -121,6 +122,22 @@ int CrossBeacon::GetCurrentBackBuffer()
     return mCurrentBackBuffer = (mCurrentBackBuffer + 1) % 3;
 }
 
+void CrossBeacon::SetGpuTimers()
+{
+    // Display Gpu Timer
+    GResource::GPUTimer = std::make_unique<D3D12GpuTimer>(mDResource[Gpu::Integrated]->Device.Get(),
+                                                          mDResource[Gpu::Integrated]->CmdQueue.Get(), 1);
+    GResource::GPUTimer->SetTimerName(0, "Stage3");
+
+    // Backend Gpu Timer
+
+    auto *device = mDResource[Gpu::Discrete]->Device.Get();
+    auto *renderQueue = mDResource[Gpu::Discrete]->CmdQueue.Get();
+    // mBackendResource[i]
+    //     ->mRenderGTimer = std::make_unique<D3D12GpuTimer>(device, renderQueue, 1);
+    // mBackendResource[i]->mRenderGTimer->SetTimerName(0, "GPU:" + id + "Stage1");
+}
+
 void CrossBeacon::CreateDeviceResource(HWND handle)
 {
     ComPtr<ID3D12Debug3> debugController;
@@ -161,7 +178,7 @@ void CrossBeacon::CreateDeviceResource(HWND handle)
         //         mDResource[Gpu::Integrated] = std::make_unique<DeviceResource>(mFactory.Get(), adapter.Get(), mFrameCount, Gpu::Integrated);
         //     }
         //   device_num++;
-        if (str.find(L"1060") != std::string::npos) {
+        if (str.find(L"1060 6G") != std::string::npos) {
             static int id = 0;
             if (id == 1) {
                 OutputDebugStringW(std::format(L"Found Display IGPU:  {}\n", str).c_str());
@@ -422,10 +439,15 @@ void CrossBeacon::ExecutePass(uint frameIndex)
         iFR.CmdList3D->ResourceBarrier(1, &shaderResourceBarrier);
     }
 
+    GResource::GPUTimer->BeginTimer(iFR.CmdList3D.Get(), 0);
     PIXBeginEvent(iFR.CmdList3D.Get(), PIX_COLOR_DEFAULT, L"SobelPass");
     {
         mSobelPass->BeginPass(iFR.CmdList3D.Get());
-        mSobelPass->ExecutePass(iFR.CmdList3D.Get());
+
+        for (uint i = 0; i < GResource::config["Scene"]["PostProcessLoop"].as<uint>(); i++) {
+            mSobelPass->ExecutePass(mFR.at(frameIndex).CmdList.Get());
+        }
+
         mSobelPass->EndPass(iFR.CmdList3D.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
     }
     PIXEndEvent(iFR.CmdList3D.Get());
@@ -441,13 +463,15 @@ void CrossBeacon::ExecutePass(uint frameIndex)
 
     PIXBeginEvent(iFR.CmdList3D.Get(), PIX_COLOR_DEFAULT, L"GUI");
     {
-        GResource::GUIManager->DrawUI(iFR.CmdList3D.Get(), iFR.GetResource("SwapChain"));
+        GResource::GUIManager->DrawUI(iFR.CmdList3D.Get(), iFR.GetResource("SwapChain"), {});
     }
     PIXEndEvent(iFR.CmdList3D.Get());
     auto rtv2present = CD3DX12_RESOURCE_BARRIER::Transition(iFR.GetResource("SwapChain"),
                                                             D3D12_RESOURCE_STATE_RENDER_TARGET,
                                                             D3D12_RESOURCE_STATE_PRESENT);
     // iFR.CmdList3D->ResourceBarrier(1, &rtv2present);
+    GResource::GPUTimer->EndTimer(iFR.CmdList3D.Get(), 0);
+    GResource::GPUTimer->ResolveAllTimers(iFR.CmdList3D.Get());
 
     iFR.Signal3D(mDResource[Gpu::Integrated]->CmdQueue.Get());
     mDResource[Gpu::Integrated]->SwapChain4->Present(0, 0);

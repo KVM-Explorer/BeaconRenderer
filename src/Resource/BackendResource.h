@@ -19,7 +19,7 @@ public:
     void CreateSharedFence(std::vector<HANDLE> &handle);
     std::tuple<StageFrameResource *, uint> GetCurrentFrame(Stage stage);
     void IncrementFrameIndex() { mCurrentFrameIndex = (mCurrentFrameIndex + 1) % mFrameCount; };
-    
+
     ComPtr<ID3D12Device> Device;
     ComPtr<ID3D12CommandQueue> DirectQueue;
     ComPtr<ID3D12CommandQueue> CopyQueue;
@@ -42,14 +42,15 @@ public:
     std::unique_ptr<ResourceRegister> mResourceRegister;
 
     int mEnvMapIndex;
-    
+
     uint mRTVDescriptorSize;
     uint mDSVDescriptorSize;
     uint mCBVSRVUAVDescriptorSize;
 
     std::vector<StageFrameResource> mSFR; // Frame Count
 
-    std::unique_ptr<D3D12GpuTimer> GpuTimer;
+    std::unique_ptr<D3D12GpuTimer> mRenderGTimer;
+    std::unique_ptr<D3D12GpuTimer> mCopyGTimer;
 
 private:
     uint mCurrentFrameIndex;
