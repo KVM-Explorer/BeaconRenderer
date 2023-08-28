@@ -32,8 +32,8 @@ StageFrameResource::~StageFrameResource()
     mDescriptorMap.Sampler.clear();
 
     Fence = nullptr;
-    DirectCmdList = nullptr;
-    DirectCmdAllocator = nullptr;
+    DirectCmdList.Reset();
+    DirectCmdAllocator.Reset() ;
     CopyCmdList = nullptr;
     CopyCmdAllocator = nullptr;
 }

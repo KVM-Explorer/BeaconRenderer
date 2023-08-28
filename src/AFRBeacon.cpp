@@ -105,6 +105,10 @@ void AFRBeacon::OnDestory()
             frameResource.FlushDirect();
         }
     }
+    for (auto &displayResource : mDisplayResource->mSFR) {
+        displayResource.SignalDirect(mDisplayResource->DirectQueue.Get());
+        displayResource.FlushDirect();
+    }
     mScene = nullptr;
     mBackendResource.clear();
     mDisplayResource = nullptr;

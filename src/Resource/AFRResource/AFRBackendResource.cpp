@@ -11,7 +11,7 @@ AFRBackendResource::AFRBackendResource(IDXGIFactory *factory, IDXGIAdapter1 *ada
 
 AFRBackendResource::~AFRBackendResource()
 {
-    mCopyHeap = nullptr;
+    mCopyHeap.Reset();
     CopyQueue.Reset();
     Release();
 }

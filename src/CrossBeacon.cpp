@@ -445,7 +445,7 @@ void CrossBeacon::ExecutePass(uint frameIndex)
         mSobelPass->BeginPass(iFR.CmdList3D.Get());
 
         for (uint i = 0; i < GResource::config["Scene"]["PostProcessLoop"].as<uint>(); i++) {
-            mSobelPass->ExecutePass(mFR.at(frameIndex).CmdList.Get());
+            mSobelPass->ExecutePass(iFR.CmdList3D.Get());
         }
 
         mSobelPass->EndPass(iFR.CmdList3D.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
