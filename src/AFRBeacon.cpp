@@ -580,9 +580,9 @@ void AFRBeacon::SyncExecutePass(AFRResourceBase *ctx, bool isDisplay)
         mScene->RenderScreenQuad(displayFrame->DirectCmdList.Get(),
                                  &mDisplayResource->ScreenQuadVBView,
                                  &mDisplayResource->ScreenQuadIBView);
-        quadPass->EndPass(displayFrame->DirectCmdList.Get(), D3D12_RESOURCE_STATE_PRESENT);
+        quadPass->EndPass(displayFrame->DirectCmdList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
     }
-    // GResource::GUIManager->DrawUI(displayFrame->DirectCmdList.Get(), displayFrame->GetResource("SwapChain"));
+    GResource::GUIManager->DrawUI(displayFrame->DirectCmdList.Get(), displayFrame->GetResource("SwapChain"),{});
 
     displayFrame->SubmitDirect(mDisplayResource->DirectQueue.Get());
     displayFrame->SignalDirect(mDisplayResource->DirectQueue.Get());

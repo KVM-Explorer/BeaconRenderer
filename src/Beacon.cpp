@@ -270,7 +270,7 @@ void Beacon::CreateSignature2PSO()
                                                            GBufferPass::GetDepthFormat());
     mPSO["LightPass"] = GpuEntryLayout::CreateLightPassPSO(mDevice.Get(), mSignature["Graphic"].Get());
     mPSO["SobelPass"] = GpuEntryLayout::CreateSobelPSO(mDevice.Get(), mSignature["Compute"].Get());
-    mPSO["QuadPass"] = GpuEntryLayout::CreateQuadPassPSO(mDevice.Get(), mSignature["Graphic"].Get());
+    mPSO["QuadPass"] = GpuEntryLayout::CreateMixQuadPassPSO(mDevice.Get(), mSignature["Graphic"].Get());
 }
 
 void Beacon::CreatePass()

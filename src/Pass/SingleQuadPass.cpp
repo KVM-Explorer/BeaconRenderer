@@ -34,6 +34,7 @@ void SingleQuadPass::BeginPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURC
 
 void SingleQuadPass::EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES resultState) const
 {
+    if(resultState == D3D12_RESOURCE_STATE_RENDER_TARGET) return;
     auto rtv2state = CD3DX12_RESOURCE_BARRIER::Transition(mTarget,
                                                           D3D12_RESOURCE_STATE_RENDER_TARGET,
                                                           resultState);
