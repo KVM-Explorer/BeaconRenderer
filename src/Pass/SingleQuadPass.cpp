@@ -1,27 +1,22 @@
-#include "QuadPass.h"
+#include "SingleQuadPass.h"
 
-QuadPass::QuadPass(ID3D12PipelineState *pso, ID3D12RootSignature *rs) :
+SingleQuadPass::SingleQuadPass(ID3D12PipelineState *pso, ID3D12RootSignature *rs) :
     mPSO(pso),mRS(rs)
 {
 }
 
-void QuadPass::SetTarget(ID3D12Resource *target, CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle)
+void SingleQuadPass::SetTarget(ID3D12Resource *target, CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle)
 {
     mTarget = target;
     mRtvHandle = rtvHandle;
 }
 
-void QuadPass::SetRenderType(QuadShader renderType)
-{
-    mRenderType = renderType;
-}
-
-void QuadPass::SetSrvHandle(CD3DX12_GPU_DESCRIPTOR_HANDLE srvHandle)
+void SingleQuadPass::SetSrvHandle(CD3DX12_GPU_DESCRIPTOR_HANDLE srvHandle)
 {
     mSrvHandle = srvHandle;
 }
 
-void QuadPass::BeginPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES beforeState) const
+void SingleQuadPass::BeginPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES beforeState) const
 {
     auto present2rtv = CD3DX12_RESOURCE_BARRIER::Transition(mTarget,
                                                             beforeState,
@@ -34,13 +29,11 @@ void QuadPass::BeginPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STAT
     cmdList->OMSetRenderTargets(1, &mRtvHandle, true, nullptr);
     cmdList->ClearRenderTargetView(mRtvHandle, DirectX::Colors::LightSteelBlue, 0, nullptr);
 
-    cmdList->SetGraphicsRootDescriptorTable(3, mSrvHandle);// 复用GBuffer对应位置的SRV
-    cmdList->SetGraphicsRoot32BitConstants(6,1,&renderType,0);
+    cmdList->SetGraphicsRootDescriptorTable(3, mSrvHandle);// TODO update src Index
 }
 
-void QuadPass::EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES resultState) const
+void SingleQuadPass::EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES resultState) const
 {
-    if(resultState == D3D12_RESOURCE_STATE_RENDER_TARGET) return;
     auto rtv2state = CD3DX12_RESOURCE_BARRIER::Transition(mTarget,
                                                           D3D12_RESOURCE_STATE_RENDER_TARGET,
                                                           resultState);

@@ -2,16 +2,15 @@
 #include <stdafx.h>
 #include "DataStruct.h"
 
-class QuadPass {
+class SingleQuadPass {
 public:
-    QuadPass(ID3D12PipelineState *pso, ID3D12RootSignature *rs);
-    QuadPass(const QuadPass &) = default;
-    QuadPass &operator=(const QuadPass &) = default;
-    QuadPass(QuadPass &&) = default;
-    QuadPass &operator=(QuadPass &&) = default;
+    SingleQuadPass(ID3D12PipelineState *pso, ID3D12RootSignature *rs);
+    SingleQuadPass(const SingleQuadPass &) = default;
+    SingleQuadPass &operator=(const SingleQuadPass &) = default;
+    SingleQuadPass(SingleQuadPass &&) = default;
+    SingleQuadPass &operator=(SingleQuadPass &&) = default;
 
     void SetTarget(ID3D12Resource *target, CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle);
-    void SetRenderType(QuadShader renderType);
     void SetSrvHandle(CD3DX12_GPU_DESCRIPTOR_HANDLE srvHandle);
     void BeginPass(ID3D12GraphicsCommandList *cmdList,D3D12_RESOURCE_STATES beforeState = D3D12_RESOURCE_STATE_PRESENT) const;
     void EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES resultState) const;

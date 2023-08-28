@@ -131,43 +131,43 @@ void StageBeacon::CreateDeviceResource(HWND handle)
         std::wstring str = adapterDesc.Description;
 
         auto hr = adapter->EnumOutputs(0, &output);
-        if (output != nullptr) continue;
-        // if (SUCCEEDED(hr) && output != nullptr) {
-        //     auto outputStr = std::format(L"iGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
-        //     OutputDebugStringW(outputStr.c_str());
-        //     mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
-        // } else
-        //  {
-        //     static uint id = 0;
-        //     if (id == 0) {
+        // if (output != nullptr) continue;
+        if (SUCCEEDED(hr) && output != nullptr) {
+            auto outputStr = std::format(L"iGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
+            OutputDebugStringW(outputStr.c_str());
+            mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
+        } else
+         {
+            static uint id = 0;
+            // if (id == 0) {
+            //     OutputDebugStringW(std::format(L"Found Display dGPU:  {}\n", str).c_str());
+            //     mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
+            //     id++;
+            //     continue;
+            // }
+
+            auto outputStr = std::format(L"dGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
+            OutputDebugStringW(outputStr.c_str());
+            auto startFrameIndex = GetBackendStartFrameIndex();
+            auto backendResource = std::make_unique<BackendResource>(mFactory.Get(), adapter.Get(), FrameCount, startFrameIndex);
+            mBackendResource.push_back(std::move(backendResource));
+            break;
+        }
+        // if (str.find(L"1060") != std::string::npos) {
+        //     static int id = 0;
+        //     if (id == 1) {
         //         OutputDebugStringW(std::format(L"Found Display dGPU:  {}\n", str).c_str());
         //         mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
-        //         id++;
-        //         continue;
+        //     } else {
+        //         auto outputStr = std::format(L"dGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
+        //         OutputDebugStringW(outputStr.c_str());
+        //         auto startFrameIndex = GetBackendStartFrameIndex();
+        //         auto backendResource = std::make_unique<BackendResource>(mFactory.Get(), adapter.Get(), FrameCount, startFrameIndex);
+        //         mBackendResource.push_back(std::move(backendResource));
         //     }
-
-        //     auto outputStr = std::format(L"dGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
-        //     OutputDebugStringW(outputStr.c_str());
-        //     auto startFrameIndex = GetBackendStartFrameIndex();
-        //     auto backendResource = std::make_unique<BackendResource>(mFactory.Get(), adapter.Get(), FrameCount, startFrameIndex);
-        //     mBackendResource.push_back(std::move(backendResource));
-        //     break;
+        //     id++;
+        //     // if (id == 2) break;
         // }
-        if (str.find(L"1060") != std::string::npos) {
-            static int id = 0;
-            if (id == 1) {
-                OutputDebugStringW(std::format(L"Found Display dGPU:  {}\n", str).c_str());
-                mDisplayResource = std::make_unique<DisplayResource>(mFactory.Get(), adapter.Get(), FrameCount);
-            } else {
-                auto outputStr = std::format(L"dGPU:\n\tIndex: {} DeviceName: {}\n", i, str);
-                OutputDebugStringW(outputStr.c_str());
-                auto startFrameIndex = GetBackendStartFrameIndex();
-                auto backendResource = std::make_unique<BackendResource>(mFactory.Get(), adapter.Get(), FrameCount, startFrameIndex);
-                mBackendResource.push_back(std::move(backendResource));
-            }
-            id++;
-            // if (id == 2) break;
-        }
     }
     if (mBackendResource.empty()) {
         throw std::runtime_error("No backend device found");
@@ -360,7 +360,7 @@ void StageBeacon::InitPass()
     mDisplayResource->mSobelPass = std::make_unique<SobelPass>(
         mDisplayResource->PSO["Sobel"].Get(),
         mDisplayResource->Signature["Compute"].Get());
-    mDisplayResource->mQuadPass = std::make_unique<QuadPass>(
+    mDisplayResource->mQuadPass = std::make_unique<MixQuadPass>(
         mDisplayResource->PSO["QuadPass"].Get(),
         mDisplayResource->Signature["Graphics"].Get());
     for (auto &backend : mBackendResource) {

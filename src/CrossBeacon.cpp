@@ -271,8 +271,8 @@ void CrossBeacon::CreateSignature2PSO()
         GpuEntryLayout::CreateSobelPSO(mDResource[Gpu::Integrated]->Device.Get(),
                                        mDResource[Gpu::Integrated]->Signature["Compute"].Get());
     mDResource[Gpu::Integrated]->PSO["QuadPass"] =
-        GpuEntryLayout::CreateQuadPassPSO(mDResource[Gpu::Integrated]->Device.Get(),
-                                          mDResource[Gpu::Integrated]->Signature["Graphic"].Get());
+        GpuEntryLayout::CreateMixQuadPassPSO(mDResource[Gpu::Integrated]->Device.Get(),
+                                             mDResource[Gpu::Integrated]->Signature["Graphic"].Get());
 }
 
 void CrossBeacon::CreatePass()
@@ -286,8 +286,8 @@ void CrossBeacon::CreatePass()
     mSobelPass = std::make_unique<SobelPass>(mDResource[Gpu::Integrated]->PSO["SobelPass"].Get(),
                                              mDResource[Gpu::Integrated]->Signature["Compute"].Get());
 
-    mQuadPass = std::make_unique<QuadPass>(mDResource[Gpu::Integrated]->PSO["QuadPass"].Get(),
-                                           mDResource[Gpu::Integrated]->Signature["Graphic"].Get());
+    mQuadPass = std::make_unique<MixQuadPass>(mDResource[Gpu::Integrated]->PSO["QuadPass"].Get(),
+                                              mDResource[Gpu::Integrated]->Signature["Graphic"].Get());
 }
 
 void CrossBeacon::LoadScene()

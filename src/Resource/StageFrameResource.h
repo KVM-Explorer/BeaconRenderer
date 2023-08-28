@@ -12,7 +12,7 @@ struct StageFrameResource {
     StageFrameResource &operator=(StageFrameResource &&) = default;
 
     void CreateGBuffer(ID3D12Device *device, uint width, uint height, std::vector<DXGI_FORMAT> targetFormat, DXGI_FORMAT depthFormat);
-    // Backend Device Light(callback CreateLightTexture) + Open Light Copy Handle  
+    // Backend Device Light(callback CreateLightTexture) + Open Light Copy Handle
     void CreateLight2CopyTexture(ID3D12Device *device, HANDLE handle, uint width, uint height);
     // Backend Deivce Only Light
     void CreateLightTexture(ID3D12Device *device, uint width, uint height);
@@ -28,6 +28,7 @@ struct StageFrameResource {
 
     void CreateSobelBuffer(ID3D12Device *device, UINT width, UINT height);
     void CreateSwapChain(ID3D12Resource *resource);
+    void CreateQuadRtvBuffer(ID3D12Device *device, uint width, uint height, std::string name);
 
     void CreateConstantBuffer(ID3D12Device *device, uint entityCount, uint lightCount, uint materialCount);
     void SetSceneTextureBase(uint index);

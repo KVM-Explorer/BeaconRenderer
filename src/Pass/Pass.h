@@ -1,4 +1,5 @@
 #include "GBufferPass.h"
 #include "LightPass.h"
-#include "QuadPass.h"
+#include "MixQuadPass.h"
 #include "SobelPass.h"
+#include "SingleQuadPass.h"

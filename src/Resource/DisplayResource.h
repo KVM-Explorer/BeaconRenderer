@@ -1,6 +1,6 @@
 #pragma once
 #include <stdafx.h>
-#include "Pass/QuadPass.h"
+#include "Pass/MixQuadPass.h"
 #include "Pass/SobelPass.h"
 #include "D3DHelpler/UploadBuffer.h"
 #include "D3DHelpler/ResourceRegister.h"
@@ -26,7 +26,7 @@ public:
     std::unordered_map<std::string, ComPtr<ID3D12RootSignature>> Signature;
     std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> PSO;
 
-    std::unique_ptr<QuadPass> mQuadPass;
+    std::unique_ptr<MixQuadPass> mQuadPass;
     std::unique_ptr<SobelPass> mSobelPass;
 
     std::unique_ptr<UploadBuffer<ModelVertex>> mQuadVB;

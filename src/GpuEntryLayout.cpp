@@ -159,13 +159,35 @@ ComPtr<ID3D12PipelineState> GpuEntryLayout::CreateSobelPSO(ID3D12Device *device,
     return ret;
 }
 
-ComPtr<ID3D12PipelineState> GpuEntryLayout::CreateQuadPassPSO(ID3D12Device *device, ID3D12RootSignature *signature)
+ComPtr<ID3D12PipelineState> GpuEntryLayout::CreateMixQuadPassPSO(ID3D12Device *device, ID3D12RootSignature *signature)
 {
     ComPtr<ID3D12PipelineState> ret;
     D3D12_GRAPHICS_PIPELINE_STATE_DESC quadDesc = {};
     quadDesc.InputLayout = {GResource::InputLayout.data(), static_cast<uint>(GResource::InputLayout.size())};
     quadDesc.VS = CD3DX12_SHADER_BYTECODE(GResource::Shaders["ScreenQuadVS"].Get());
     quadDesc.PS = CD3DX12_SHADER_BYTECODE(GResource::Shaders["ScreenQuadPS"].Get());
+    quadDesc.pRootSignature = signature;
+    quadDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+    quadDesc.DepthStencilState.DepthEnable = false;
+    quadDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+    quadDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+    quadDesc.RasterizerState.DepthClipEnable = false;
+    quadDesc.SampleMask = UINT_MAX;
+    quadDesc.NumRenderTargets = 1;
+    quadDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+    quadDesc.SampleDesc.Count = 1;
+    quadDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+    ThrowIfFailed(device->CreateGraphicsPipelineState(&quadDesc, IID_PPV_ARGS(&ret)));
+    return ret;
+}
+
+ComPtr<ID3D12PipelineState> GpuEntryLayout::CreateSingleQuadPassPSO(ID3D12Device *device, ID3D12RootSignature *signature)
+{
+    ComPtr<ID3D12PipelineState> ret;
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC quadDesc = {};
+    quadDesc.InputLayout = {GResource::InputLayout.data(), static_cast<uint>(GResource::InputLayout.size())};
+    quadDesc.VS = CD3DX12_SHADER_BYTECODE(GResource::Shaders["SingleQuadVS"].Get());
+    quadDesc.PS = CD3DX12_SHADER_BYTECODE(GResource::Shaders["SingleQuadPS"].Get());
     quadDesc.pRootSignature = signature;
     quadDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
     quadDesc.DepthStencilState.DepthEnable = false;

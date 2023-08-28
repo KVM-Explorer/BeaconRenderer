@@ -92,6 +92,7 @@ void StageFrameResource::CreateLightTexture(ID3D12Device *device, uint width, ui
     mTexture.push_back(std::move(lightTexture));
     mResourceMap["Light"] = mTexture.size() - 1;
     mDescriptorMap.RTV["Light"] = mRtvHeap->AddRtvDescriptor(device, mTexture.back().Resource());
+    mDescriptorMap.CBVSRVUAV["Light"] = mSrvCbvUavHeap->AddSrvDescriptor(device, mTexture.back().Resource());
     mTexture.back().Resource()->SetName(L"Light");
 }
 
@@ -194,6 +195,22 @@ void StageFrameResource::CreateSharedFence(ID3D12Device *device, HANDLE handle)
     auto hr = device->OpenSharedHandle(handle, IID_PPV_ARGS(&SharedFence));
     ::CloseHandle(handle);
     ThrowIfFailed(hr);
+}
+
+void StageFrameResource::CreateQuadRtvBuffer(ID3D12Device *device, uint width, uint height, std::string name)
+{
+    Texture targetTex(device,
+                      DXGI_FORMAT_R8G8B8A8_UNORM,
+                      width, height,
+                      D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET,
+                      false,
+                      D3D12_HEAP_FLAG_NONE,
+                      D3D12_RESOURCE_STATE_COMMON);
+    mTexture.push_back(std::move(targetTex));
+    mResourceMap[name] = mTexture.size() - 1;
+    mDescriptorMap.RTV[name] = mRtvHeap->AddRtvDescriptor(device, mTexture.back().Resource());
+    mDescriptorMap.CBVSRVUAV[name] = mSrvCbvUavHeap->AddSrvDescriptor(device, mTexture.back().Resource());
+    GetResource(name)->SetName(L"QuadRtvMix");
 }
 
 HANDLE StageFrameResource::CreateSharedFence(ID3D12Device *device)

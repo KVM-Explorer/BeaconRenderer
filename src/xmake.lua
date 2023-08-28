@@ -39,6 +39,13 @@ target("StageBeacon")
     add_packages("yaml-cpp")
     add_defines("UNICODE")
 
+target("AFRBeacon")
+    set_kind("binary")
+    add_files("Test/AFRBeacon.cpp","AFRBeacon.cpp")
+    add_deps("Renderer")
+    add_packages("yaml-cpp")
+    add_defines("UNICODE")
+
 target("AsyncTest")
     set_kind("binary")
     add_files("Test/AsyncCoroutineTest.cpp")

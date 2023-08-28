@@ -8,8 +8,8 @@ public:
     static ComPtr<ID3D12PipelineState> CreateLightPassPSO(ID3D12Device *device, ID3D12RootSignature *signature);
     static ComPtr<ID3D12PipelineState> CreateSkyBoxPassPSO(ID3D12Device *device, ID3D12RootSignature *signature);
     static ComPtr<ID3D12PipelineState> CreateShadowPassPSO(ID3D12Device *device, ID3D12RootSignature *signature);
-    static ComPtr<ID3D12PipelineState> CreateQuadPassPSO(ID3D12Device *device, ID3D12RootSignature *signature);
-
+    static ComPtr<ID3D12PipelineState> CreateMixQuadPassPSO(ID3D12Device *device, ID3D12RootSignature *signature);
+    static ComPtr<ID3D12PipelineState> CreateSingleQuadPassPSO(ID3D12Device *device, ID3D12RootSignature *signature);
     static ComPtr<ID3D12PipelineState> CreateSobelPSO(ID3D12Device *device, ID3D12RootSignature *signature);
 
     static ComPtr<ID3D12RootSignature> CreateRenderSignature(ID3D12Device *device, uint gbufferNum);

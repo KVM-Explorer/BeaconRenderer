@@ -169,7 +169,7 @@ void Beacon::CreateDevice(HWND handle)
         if (adapterDesc.Flags & DXGI_ADAPTER_FLAG3_SOFTWARE) continue;
         std::wstring str = adapterDesc.Description;
 
-        if (i == 2 && SUCCEEDED((D3D12CreateDevice(mDeviceAdapter.Get(), D3D_FEATURE_LEVEL_12_0, _uuidof(ID3D12Device), nullptr)))) {
+        if (i == 1 && SUCCEEDED((D3D12CreateDevice(mDeviceAdapter.Get(), D3D_FEATURE_LEVEL_12_0, _uuidof(ID3D12Device), nullptr)))) {
             OutputDebugStringW(str.c_str());
             break;
         }
@@ -282,7 +282,7 @@ void Beacon::CreatePass()
 
     mSobelPass = std::make_unique<SobelPass>(mPSO["SobelPass"].Get(), mSignature["Compute"].Get());
 
-    mQuadPass = std::make_unique<QuadPass>(mPSO["QuadPass"].Get(), mSignature["Graphic"].Get());
+    mQuadPass = std::make_unique<MixQuadPass>(mPSO["QuadPass"].Get(), mSignature["Graphic"].Get());
 }
 
 void Beacon::SetPass(uint frameIndex)

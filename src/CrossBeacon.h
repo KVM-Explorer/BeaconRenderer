@@ -54,10 +54,9 @@ private:
     std::unique_ptr<UploadBuffer<ModelVertex>> mIGpuQuadVB;
     D3D12_VERTEX_BUFFER_VIEW mIGpuQuadVBView;
 
-    
     // Pass
     std::unique_ptr<GBufferPass> mGBufferPass;
     std::unique_ptr<LightPass> mLightPass;
     std::unique_ptr<SobelPass> mSobelPass;
-    std::unique_ptr<QuadPass> mQuadPass;
+    std::unique_ptr<MixQuadPass> mQuadPass;
 };
