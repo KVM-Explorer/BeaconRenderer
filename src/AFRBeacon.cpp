@@ -143,16 +143,32 @@ void AFRBeacon::CreateDeviceResource(HWND handle)
 
         auto hr = adapter->EnumOutputs(0, &output);
         // if (output != nullptr) continue;
-        if (SUCCEEDED(hr) && output != nullptr) {
-            auto outputStr = std::format(L"iGPU|tIndex: {} DeviceName: {}", i, str);
-            OutputDebugStringW(outputStr.c_str());
-            mDisplayResource = std::make_unique<AFRDisplayResource>(mFactory.Get(), adapter.Get(), FrameCount, outputStr);
-        } else {
-            static uint id = 0;
-            auto outputStr = std::format(L"dGPU|Index: {} DeviceName: {}", i, str);
-            OutputDebugStringW(outputStr.c_str());
-            auto backendResource = std::make_unique<AFRBackendResource>(mFactory.Get(), adapter.Get(), FrameCount, outputStr);
-            mBackendResource.push_back(std::move(backendResource));
+        // if (SUCCEEDED(hr) && output != nullptr) {
+        //     auto outputStr = std::format(L"iGPU|tIndex: {} DeviceName: {}", i, str);
+        //     OutputDebugStringW(outputStr.c_str());
+        //     mDisplayResource = std::make_unique<AFRDisplayResource>(mFactory.Get(), adapter.Get(), FrameCount, outputStr);
+        // } else {
+        //     static uint id = 0;
+        //     auto outputStr = std::format(L"dGPU|Index: {} DeviceName: {}", i, str);
+        //     OutputDebugStringW(outputStr.c_str());
+        //     auto backendResource = std::make_unique<AFRBackendResource>(mFactory.Get(), adapter.Get(), FrameCount, outputStr);
+        //     mBackendResource.push_back(std::move(backendResource));
+        // }
+
+        if (str.find(L"1060 6GB") != std::string::npos) {
+            static int id = 0;
+            if (id == 0) {
+                auto outputStr = std::format(L"iGPU|tIndex: {} DeviceName: {}", i, str);
+                OutputDebugStringW(outputStr.c_str());
+                mDisplayResource = std::make_unique<AFRDisplayResource>(mFactory.Get(), adapter.Get(), FrameCount, outputStr);
+            } else {
+                auto outputStr = std::format(L"dGPU|Index: {} DeviceName: {}", i, str);
+                OutputDebugStringW(outputStr.c_str());
+                auto backendResource = std::make_unique<AFRBackendResource>(mFactory.Get(), adapter.Get(), FrameCount, outputStr);
+                mBackendResource.push_back(std::move(backendResource));
+            }
+            id++;
+            if (id == 2) break;
         }
     }
     // if (mBackendResource.empty()) {
