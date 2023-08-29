@@ -109,7 +109,6 @@ void Beacon::OnUpdate()
 void Beacon::OnDestory()
 {
     for (auto &item : mFR) {
-        GResource::GPUTimer->ResolveAllTimers(item.CmdList.Get());
         mCommandQueue->Signal(item.Fence.Get(), ++item.FenceValue);
         item.Sync();
     }
@@ -347,12 +346,15 @@ void Beacon::ExecutePass(uint frameIndex)
     GResource::GPUTimer->BeginTimer(mFR.at(frameIndex).CmdList.Get(), static_cast<uint>(GpuTimers::stage3));
 
     mSobelPass->BeginPass(mFR.at(frameIndex).CmdList.Get());
+    for (uint i = 0; i < GResource::config["Scene"]["PostProcessLoop"].as<uint>(); i++) {
+        mSobelPass->ExecutePass(mFR.at(frameIndex).CmdList.Get());
+    }
 
     mSobelPass->EndPass(mFR.at(frameIndex).CmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
 
     // ============================= Screen Quad Pass ===========================
 
-    mQuadPass->BeginPass(mFR.at(frameIndex).CmdList.Get());
+    mQuadPass->BeginPass(mFR.at(frameIndex).CmdList.Get(), D3D12_RESOURCE_STATE_PRESENT, true);
     mScene->RenderQuad(mFR.at(frameIndex).CmdList.Get(), constantAddress);
     mQuadPass->EndPass(mFR.at(frameIndex).CmdList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
 }
