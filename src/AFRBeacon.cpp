@@ -536,7 +536,9 @@ void AFRBeacon::SyncExecutePass(AFRResourceBase *ctx, bool isDisplay)
     auto &sobelPass = *(ctx->mSobelPass);
     {
         sobelPass.BeginPass(frame->DirectCmdList.Get());
-        sobelPass.ExecutePass(frame->DirectCmdList.Get());
+        for (uint i = 0; i < GResource::config["Scene"]["PostProcessLoop"].as<uint>(); i++) {
+            sobelPass.ExecutePass(frame->DirectCmdList.Get());
+        }
         sobelPass.EndPass(frame->DirectCmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
     }
 
