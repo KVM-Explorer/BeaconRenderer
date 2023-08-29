@@ -247,7 +247,7 @@ void StageBeacon::CreateSignature2PSO()
     auto *device = mDisplayResource->Device.Get();
     // TODO
     mDisplayResource->Signature["Graphics"] = GpuEntryLayout::CreateRenderSignature(device, GBufferPass::GetTargetCount());
-    mDisplayResource->PSO["QuadPass"] = GpuEntryLayout::CreateQuadPassPSO(device, mDisplayResource->Signature["Graphics"].Get());
+    mDisplayResource->PSO["QuadPass"] = GpuEntryLayout::CreateMixQuadPassPSO(device, mDisplayResource->Signature["Graphics"].Get());
 
     mDisplayResource->Signature["Compute"] = GpuEntryLayout::CreateComputeSignature(device);
     mDisplayResource->PSO["Sobel"] = GpuEntryLayout::CreateSobelPSO(device, mDisplayResource->Signature["Compute"].Get());

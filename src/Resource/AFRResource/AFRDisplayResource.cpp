@@ -26,7 +26,7 @@ std::vector<HANDLE> AFRDisplayResource::CreateRenderTargets(uint width, uint hei
             SwapChain->GetBuffer(index, IID_PPV_ARGS(&backBuffer));
             StageFrameResource frameResource(Device.Get(), mResourceRegister.get());
             frameResource.CreateLightCopyHeapBuffer(Device.Get(), mCopyHeaps[i].Get(), j, width, height, D3D12_RESOURCE_STATE_COPY_SOURCE);
-            frameResource.CreateLightCopyTexture(Device.Get(), width, height);
+            frameResource.CreateLightCopyHeapTexture(Device.Get(), width, height);
             frameResource.CreateSwapChain(backBuffer.Get());
             deviceFrames.push_back(std::move(frameResource));
         }
