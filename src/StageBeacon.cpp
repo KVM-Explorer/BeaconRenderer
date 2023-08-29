@@ -107,7 +107,7 @@ void StageBeacon::OnDestory()
             frameResource.FlushDirect();
         }
     }
-    GResource::GUIManager = nullptr;
+    GResource::Desctory();
     mScene = nullptr;
     mBackendResource.clear();
     mDisplayResource = nullptr;

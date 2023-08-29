@@ -111,7 +111,8 @@ void AFRBeacon::OnDestory()
         displayResource.SignalDirect(mDisplayResource->DirectQueue.Get());
         displayResource.FlushDirect();
     }
-    GResource::GUIManager = nullptr;
+
+    GResource::Desctory();
 
     mScene = nullptr;
     mBackendResource.clear();

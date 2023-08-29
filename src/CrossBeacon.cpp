@@ -110,7 +110,7 @@ void CrossBeacon::OnDestory()
     for (auto &item : mDResource[Gpu::Integrated]->FR) {
         item.Sync3D();
     }
-    GResource::GUIManager = nullptr;
+    GResource::Desctory();
     mIGpuQuadVB.reset();
     mScene = nullptr;
     mDResource.clear();

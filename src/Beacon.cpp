@@ -113,9 +113,7 @@ void Beacon::OnDestory()
         item.Sync();
     }
 
-    GResource::GPUTimer = nullptr;
-    GResource::GPUTimer = nullptr;
-    GResource::GUIManager = nullptr;
+    GResource::Desctory();
     mScene = nullptr;
     mFR.clear();
     mQuadPass = nullptr;

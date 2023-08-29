@@ -19,6 +19,7 @@ struct GResource {
     {
         GPUTimer = nullptr;
         CPUTimerManager = nullptr;
+        GUIManager = nullptr;
     }
     inline static YAML::Node config;
 

@@ -61,7 +61,6 @@ int Application::Run(RendererBase *renderer, HINSTANCE hInstance, int hCmdShow)
             DispatchMessage(&msg);
         }
     }
-    GResource::Desctory();
     renderer->OnDestory();
     renderer = nullptr;
 
