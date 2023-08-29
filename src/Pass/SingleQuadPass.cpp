@@ -1,7 +1,7 @@
 #include "SingleQuadPass.h"
 
 SingleQuadPass::SingleQuadPass(ID3D12PipelineState *pso, ID3D12RootSignature *rs) :
-    mPSO(pso),mRS(rs)
+    mPSO(pso), mRS(rs)
 {
 }
 
@@ -25,18 +25,24 @@ void SingleQuadPass::BeginPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURC
 
     cmdList->SetGraphicsRootSignature(mRS);
     cmdList->SetPipelineState(mPSO);
+    if (mSrvHeap != nullptr) cmdList->SetDescriptorHeaps(1, &mSrvHeap);
     cmdList->ResourceBarrier(1, &present2rtv);
     cmdList->OMSetRenderTargets(1, &mRtvHandle, true, nullptr);
     cmdList->ClearRenderTargetView(mRtvHandle, DirectX::Colors::LightSteelBlue, 0, nullptr);
 
-    cmdList->SetGraphicsRootDescriptorTable(3, mSrvHandle);// TODO update src Index
+    cmdList->SetGraphicsRootDescriptorTable(3, mSrvHandle); // TODO update src Index
 }
 
 void SingleQuadPass::EndPass(ID3D12GraphicsCommandList *cmdList, D3D12_RESOURCE_STATES resultState) const
 {
-    if(resultState == D3D12_RESOURCE_STATE_RENDER_TARGET) return;
+    if (resultState == D3D12_RESOURCE_STATE_RENDER_TARGET) return;
     auto rtv2state = CD3DX12_RESOURCE_BARRIER::Transition(mTarget,
                                                           D3D12_RESOURCE_STATE_RENDER_TARGET,
                                                           resultState);
     cmdList->ResourceBarrier(1, &rtv2state);
+}
+
+void SingleQuadPass::SetSrvHeap(ID3D12DescriptorHeap *srvHeap)
+{
+    mSrvHeap = srvHeap;
 }

@@ -51,7 +51,20 @@ void AFRResourceBase::Release()
     mSceneTextures.clear();
     mSceneIB = nullptr;
     mSceneVB = nullptr;
+    mQuadIB = nullptr;
+    mQuadVB = nullptr;
     mResourceRegister.reset();
     DirectQueue.Reset();
     Device.Reset();
+}
+
+void AFRResourceBase::CreateScreenQuadView()
+{
+    ScreenQuadVBView.BufferLocation = mQuadVB->resource()->GetGPUVirtualAddress();
+    ScreenQuadVBView.StrideInBytes = sizeof(ModelVertex);
+    ScreenQuadVBView.SizeInBytes = sizeof(ModelVertex) * 4;
+
+    ScreenQuadIBView.BufferLocation = mQuadIB->resource()->GetGPUVirtualAddress();
+    ScreenQuadIBView.Format = DXGI_FORMAT_R32_UINT;
+    ScreenQuadIBView.SizeInBytes = sizeof(uint) * 6;
 }

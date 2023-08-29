@@ -95,7 +95,9 @@ void AFRBeacon::OnDestory()
 {
     for (auto &backend : mBackendResource) {
         for (auto &frameResource : backend->mSFR) {
+            frameResource.SignalCopy(backend->CopyQueue.Get());
             frameResource.FlushCopy();
+            frameResource.SignalDirect(backend->DirectQueue.Get());
             frameResource.FlushDirect();
         }
     }
@@ -109,9 +111,12 @@ void AFRBeacon::OnDestory()
         displayResource.SignalDirect(mDisplayResource->DirectQueue.Get());
         displayResource.FlushDirect();
     }
+    GResource::GUIManager = nullptr;
+
     mScene = nullptr;
     mBackendResource.clear();
     mDisplayResource = nullptr;
+
     mFactory = nullptr;
 }
 
@@ -142,7 +147,6 @@ void AFRBeacon::CreateDeviceResource(HWND handle)
             auto outputStr = std::format(L"iGPU|tIndex: {} DeviceName: {}", i, str);
             OutputDebugStringW(outputStr.c_str());
             mDisplayResource = std::make_unique<AFRDisplayResource>(mFactory.Get(), adapter.Get(), FrameCount, outputStr);
-            break;
         } else {
             static uint id = 0;
             auto outputStr = std::format(L"dGPU|Index: {} DeviceName: {}", i, str);
@@ -193,7 +197,7 @@ void AFRBeacon::CreateSignature2PSO()
         backendResource->PSO["LightPass"] = GpuEntryLayout::CreateLightPassPSO(device, backendResource->Signature["Graphics"].Get());
 
         backendResource->Signature["Graphics"] = GpuEntryLayout::CreateRenderSignature(device, GBufferPass::GetTargetCount());
-        backendResource->PSO["MiaxQuadPass"] = GpuEntryLayout::CreateMixQuadPassPSO(device, backendResource->Signature["Graphics"].Get());
+        backendResource->PSO["MixQuadPass"] = GpuEntryLayout::CreateMixQuadPassPSO(device, backendResource->Signature["Graphics"].Get());
 
         backendResource->PSO["SingleQuadPass"] = GpuEntryLayout::CreateSingleQuadPassPSO(device, backendResource->Signature["Graphics"].Get());
 
@@ -329,6 +333,7 @@ void AFRBeacon::LoadAssets()
 
 void AFRBeacon::CreateQuad()
 {
+    // Display Quad
     auto *device = mDisplayResource->Device.Get();
     auto &frameResource = mDisplayResource->mSFR.at(0);
     mScene = std::make_unique<Scene>("Assets", "lighthouse");
@@ -341,6 +346,21 @@ void AFRBeacon::CreateQuad()
     frameResource.SubmitDirect(mDisplayResource->DirectQueue.Get());
     frameResource.SignalDirect(mDisplayResource->DirectQueue.Get());
     frameResource.FlushDirect();
+
+    // Backend Quad
+    for (auto &backend : mBackendResource) {
+        auto *device = backend->Device.Get();
+        auto &frameResource = backend->mSFR.at(0);
+        frameResource.ResetDirect();
+        mScene->InitWithDisplay(device,
+                                frameResource.DirectCmdList.Get(),
+                                backend->mQuadVB,
+                                backend->mQuadIB);
+        backend->CreateScreenQuadView();
+        frameResource.SubmitDirect(backend->DirectQueue.Get());
+        frameResource.SignalDirect(backend->DirectQueue.Get());
+        frameResource.FlushDirect();
+    }
 }
 void AFRBeacon::InitSceneCB()
 {
@@ -457,10 +477,11 @@ void AFRBeacon::SetPass(AFRResourceBase *ctx, bool isDisplay)
         quadPass->SetTarget(frame->GetResource("SwapChain"), frame->GetRtv("SwapChain"));
         quadPass->SetSrvHandle(frame->GetSrvCbvUav("MixTex"));
     } else {
-        auto &quadPass = mDisplayResource->mMixPass;
-        auto *frame = mDisplayResource->GetSharedFrameResource(CurrentContextIndex, frameIndex);
-        quadPass->SetTarget(frame->GetResource("SwapChain"), frameResource->GetRtv("SwapChain"));
-        quadPass->SetSrvHandle(frame->GetSrvCbvUav("LightCopy"));
+        auto &quadPass = mDisplayResource->mSingleQuadPass;
+        auto *displayFrame = mDisplayResource->GetSharedFrameResource(CurrentContextIndex, frameIndex);
+        quadPass->SetTarget(displayFrame->GetResource("SwapChain"), displayFrame->GetRtv("SwapChain"));
+        quadPass->SetSrvHandle(displayFrame->GetSrvCbvUav("LightCopy"));
+        quadPass->SetSrvHeap(displayFrame->mSrvCbvUavHeap->Resource());
     }
 }
 
@@ -471,6 +492,11 @@ void AFRBeacon::SyncExecutePass(AFRResourceBase *ctx, bool isDisplay)
     // =============================== Stage 1 DeferredRendering ===============================
     frame->FlushDirect();
     frame->ResetDirect();
+    if (!isDisplay) {
+        auto *backendCtx = static_cast<AFRBackendResource *>(ctx);
+        backendCtx->DirectQueue->Wait(frame->SharedFence.Get(), frame->SharedFenceValue);
+    }
+
     frame->DirectCmdList->RSSetViewports(1, &mViewPort);
     frame->DirectCmdList->RSSetScissorRects(1, &mScissor);
 
@@ -498,76 +524,78 @@ void AFRBeacon::SyncExecutePass(AFRResourceBase *ctx, bool isDisplay)
         sobelPass.EndPass(frame->DirectCmdList.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
     }
 
-    auto &mixPass = *(ctx->mMixPass);
-    {
-        mixPass.BeginPass(frame->DirectCmdList.Get(), D3D12_RESOURCE_STATE_COMMON, false);
-        mScene->RenderScreenQuad(frame->DirectCmdList.Get(), &mDisplayResource->ScreenQuadVBView, &mDisplayResource->ScreenQuadIBView);
-        mixPass.EndPass(frame->DirectCmdList.Get(), D3D12_RESOURCE_STATE_COMMON);
-    }
-
     StageFrameResource *displayFrame = nullptr;
     if (!isDisplay) {
+        auto *backendCtx = static_cast<AFRBackendResource *>(ctx);
+        auto &mixPass = *(ctx->mMixPass);
+        {
+            mixPass.BeginPass(frame->DirectCmdList.Get(), D3D12_RESOURCE_STATE_COMMON, false);
+            mScene->RenderScreenQuad(frame->DirectCmdList.Get(), &backendCtx->ScreenQuadVBView, &backendCtx->ScreenQuadIBView);
+            mixPass.EndPass(frame->DirectCmdList.Get(), D3D12_RESOURCE_STATE_COMMON);
+        }
+
+        frame->SubmitDirect(backendCtx->DirectQueue.Get());
+        frame->SignalDirect(backendCtx->DirectQueue.Get());
+
+        displayFrame = mDisplayResource->GetSharedFrameResource(CurrentContextIndex, frameIndex);
+
+        // ========================Stage 2 Copy Texture ========================
+        frame->FlushCopy(); // 等待上一帧拷贝完毕
+        frame->ResetCopy();
+
+        backendCtx->CopyQueue->Wait(frame->Fence.Get(), frame->FenceValue); // 等待上一帧渲染完毕
+
+        {
+            auto copyDstBarrier = CD3DX12_RESOURCE_BARRIER::Transition(frame->GetResource("LightCopyBuffer"), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
+            auto copySrcBarrier = CD3DX12_RESOURCE_BARRIER::Transition(frame->GetResource("LightCopyBuffer"), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COPY_SOURCE);
+
+            auto targetDesc = frame->GetResource("MixTex")->GetDesc();
+            D3D12_PLACED_SUBRESOURCE_FOOTPRINT layout = {};
+
+            ctx->Device->GetCopyableFootprints(&targetDesc, 0, 1, 0, &layout, nullptr, nullptr, nullptr);
+
+            CD3DX12_TEXTURE_COPY_LOCATION dst(frame->GetResource("LightCopyBuffer"), layout);
+            CD3DX12_TEXTURE_COPY_LOCATION src(frame->GetResource("MixTex"), 0);
+
+            frame->CopyCmdList->ResourceBarrier(1, &copyDstBarrier);
+            frame->CopyCmdList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+            frame->CopyCmdList->ResourceBarrier(1, &copySrcBarrier);
+        }
+
+        frame->SubmitCopy(backendCtx->CopyQueue.Get());
+        frame->SignalCopy(backendCtx->CopyQueue.Get());
+
         displayFrame->FlushDirect();
         displayFrame->ResetDirect();
+        mDisplayResource->DirectQueue->Wait(displayFrame->SharedFence.Get(), frame->SharedFenceValue);
         displayFrame->DirectCmdList->RSSetViewports(1, &mViewPort);
         displayFrame->DirectCmdList->RSSetScissorRects(1, &mScissor);
-        // TODO Copy Render Result
-        // ========================Stage 2 Copy Texture ========================
-        // stage2->FlushCopy(); // 等待上一帧拷贝完毕
-        // stage2->ResetCopy();
-        // ctx->CopyQueue->Wait(stage2->Fence.Get(), stage2->FenceValue); // 等待上一帧渲染完毕
 
-        // {
-        //     if (CrossAdapterTextureSupport) {
-        //         stage2->CopyCmdList->CopyResource(stage2->GetResource("LightCopy"), stage2->GetResource("Light"));
-        //     } else {
-        //         auto copyDstBarrier = CD3DX12_RESOURCE_BARRIER::Transition(stage2->GetResource("LightCopyBuffer"), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
-        //         auto copySrcBarrier = CD3DX12_RESOURCE_BARRIER::Transition(stage2->GetResource("LightCopyBuffer"), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COPY_SOURCE);
+        // Copy Light
+        {
+            auto copyDstBarrier = CD3DX12_RESOURCE_BARRIER::Transition(displayFrame->GetResource("LightCopy"), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST);
+            auto shaderResourceBarrier = CD3DX12_RESOURCE_BARRIER::Transition(displayFrame->GetResource("LightCopy"), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON);
 
-        //         auto targetDesc = stage2->GetResource("Light")->GetDesc();
-        //         D3D12_PLACED_SUBRESOURCE_FOOTPRINT layout = {};
+            auto targetDesc = displayFrame->GetResource("LightCopy")->GetDesc();
+            D3D12_PLACED_SUBRESOURCE_FOOTPRINT layout = {};
+            mDisplayResource->Device->GetCopyableFootprints(&targetDesc, 0, 1, 0, &layout, nullptr, nullptr, nullptr);
 
-        //         ctx->Device->GetCopyableFootprints(&targetDesc, 0, 1, 0, &layout, nullptr, nullptr, nullptr);
+            CD3DX12_TEXTURE_COPY_LOCATION dst(displayFrame->GetResource("LightCopy"), 0);
+            CD3DX12_TEXTURE_COPY_LOCATION src(displayFrame->GetResource("LightCopyBuffer"), layout);
+            CD3DX12_BOX box(0, 0, GetWidth(), GetHeight());
 
-        //         CD3DX12_TEXTURE_COPY_LOCATION dst(stage2->GetResource("LightCopyBuffer"), layout);
-        //         CD3DX12_TEXTURE_COPY_LOCATION src(stage2->GetResource("Light"), 0);
-        //         // CD3DX12_BOX box(0, 0, GetWidth(), GetHeight());
+            displayFrame->DirectCmdList->ResourceBarrier(1, &copyDstBarrier);
+            displayFrame->DirectCmdList->CopyTextureRegion(&dst, 0, 0, 0, &src, &box);
+            displayFrame->DirectCmdList->ResourceBarrier(1, &shaderResourceBarrier);
+        }
 
-        //         stage2->CopyCmdList->ResourceBarrier(1, &copyDstBarrier);
-        //         stage2->CopyCmdList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
-        //         stage2->CopyCmdList->ResourceBarrier(1, &copySrcBarrier);
-        //     }
-        // }
-        // stage2->SubmitCopy(backend->CopyQueue.Get());
-        // stage2->SignalCopy(backend->CopyQueue.Get());
-
-        // // ========================Stage 3 PostProcess ========================
-        // stage3->FlushDirect();
-        // stage3->ResetDirect();
-        // mDisplayResource->DirectQueue->Wait(stage3->SharedFence.Get(), stage3Backend->SharedFenceValue);
-        // stage3->DirectCmdList->RSSetViewports(1, &mViewPort);
-        // stage3->DirectCmdList->RSSetScissorRects(1, &mScissor);
-
-        // // Copy Light
-        // {
-        //     auto copyDstBarrier = CD3DX12_RESOURCE_BARRIER::Transition(stage3->GetResource("LightCopy"), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST);
-        //     auto shaderResourceBarrier = CD3DX12_RESOURCE_BARRIER::Transition(stage3->GetResource("LightCopy"), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON);
-
-        //     auto targetDesc = stage3->GetResource("LightCopy")->GetDesc();
-        //     D3D12_PLACED_SUBRESOURCE_FOOTPRINT layout = {};
-        //     mDisplayResource->Device->GetCopyableFootprints(&targetDesc, 0, 1, 0, &layout, nullptr, nullptr, nullptr);
-
-        //     CD3DX12_TEXTURE_COPY_LOCATION dst(stage3->GetResource("LightCopy"), 0);
-        //     CD3DX12_TEXTURE_COPY_LOCATION src(stage3->GetResource("LightCopyBuffer"), layout);
-        //     CD3DX12_BOX box(0, 0, GetWidth(), GetHeight());
-
-        //     stage3->DirectCmdList->ResourceBarrier(1, &copyDstBarrier);
-        //     stage3->DirectCmdList->CopyTextureRegion(&dst, 0, 0, 0, &src, &box);
-        //     stage3->DirectCmdList->ResourceBarrier(1, &shaderResourceBarrier);
-        // }
-
-        // }
     } else {
+        auto &mixPass = *(ctx->mMixPass);
+        {
+            mixPass.BeginPass(frame->DirectCmdList.Get(), D3D12_RESOURCE_STATE_COMMON, false);
+            mScene->RenderScreenQuad(frame->DirectCmdList.Get(), &mDisplayResource->ScreenQuadVBView, &mDisplayResource->ScreenQuadIBView);
+            mixPass.EndPass(frame->DirectCmdList.Get(), D3D12_RESOURCE_STATE_COMMON);
+        }
         auto target = mDisplayResource->GetCurrentFrameResource();
         displayFrame = std::get<0>(target);
     }
@@ -582,7 +610,7 @@ void AFRBeacon::SyncExecutePass(AFRResourceBase *ctx, bool isDisplay)
                                  &mDisplayResource->ScreenQuadIBView);
         quadPass->EndPass(displayFrame->DirectCmdList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
     }
-    GResource::GUIManager->DrawUI(displayFrame->DirectCmdList.Get(), displayFrame->GetResource("SwapChain"),{});
+    GResource::GUIManager->DrawUI(displayFrame->DirectCmdList.Get(), displayFrame->GetResource("SwapChain"), {});
 
     displayFrame->SubmitDirect(mDisplayResource->DirectQueue.Get());
     displayFrame->SignalDirect(mDisplayResource->DirectQueue.Get());

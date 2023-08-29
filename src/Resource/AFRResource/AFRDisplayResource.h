@@ -10,7 +10,6 @@ public:
     std::vector<HANDLE> CreateSharedFence(size_t backendCount);
 
     std::vector<HANDLE> CreateCopyHeap(uint width, uint height, size_t backendCount);
-    void CreateScreenQuadView();
 
     StageFrameResource *GetSharedFrameResource(int backendIndex, int frameIndex)
     {
@@ -18,16 +17,10 @@ public:
     }
 
     std::unique_ptr<SingleQuadPass> mSingleQuadPass;
-    
+
     ComPtr<IDXGISwapChain4> SwapChain;
 
-    std::unique_ptr<UploadBuffer<ModelVertex>> mQuadVB;
-    std::unique_ptr<UploadBuffer<uint>> mQuadIB;
-
     std::vector<std::vector<StageFrameResource>> mSharedFR; // Device Count, Frame Count
-
-    D3D12_VERTEX_BUFFER_VIEW ScreenQuadVBView;
-    D3D12_INDEX_BUFFER_VIEW ScreenQuadIBView;
 
 private:
     std::vector<ComPtr<ID3D12Heap>> mCopyHeaps;

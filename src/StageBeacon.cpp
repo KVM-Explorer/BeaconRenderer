@@ -107,6 +107,7 @@ void StageBeacon::OnDestory()
             frameResource.FlushDirect();
         }
     }
+    GResource::GUIManager = nullptr;
     mScene = nullptr;
     mBackendResource.clear();
     mDisplayResource = nullptr;
@@ -481,7 +482,7 @@ void StageBeacon::SyncExecutePass(BackendResource *backend, uint backendIndex)
     stage1->SignalDirect(backend->DirectQueue.Get());
 
     // ========================Stage 2 Copy Texture ========================
-    stage2->FlushCopy();                                               // 等待上一帧拷贝完毕
+    stage2->FlushCopy(); // 等待上一帧拷贝完毕
     stage2->ResetCopy();
     backend->CopyQueue->Wait(stage2->Fence.Get(), stage2->FenceValue); // 等待上一帧渲染完毕
 
@@ -606,7 +607,7 @@ void StageBeacon::AsyncExecutePass(BackendResource *backend, uint backendIndex)
         stage1->SignalDirect(backend->DirectQueue.Get());
     });
     g.run([this, stage2, backend]() {
-        stage2->FlushCopy();                                               // 等待上一帧拷贝完毕
+        stage2->FlushCopy(); // 等待上一帧拷贝完毕
         stage2->ResetCopy();
         backend->CopyQueue->Wait(stage2->Fence.Get(), stage2->FenceValue); // 等待上一帧渲染完毕
 

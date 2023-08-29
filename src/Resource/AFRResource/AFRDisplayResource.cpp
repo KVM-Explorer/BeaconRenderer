@@ -8,8 +8,6 @@ AFRDisplayResource::AFRDisplayResource(IDXGIFactory *factory, IDXGIAdapter1 *ada
 AFRDisplayResource::~AFRDisplayResource()
 {
     SwapChain.Reset();
-    mQuadVB = nullptr;
-    mQuadIB = nullptr;
     mCopyHeaps.clear();
     mSharedFR.clear();
     Release();
@@ -17,7 +15,7 @@ AFRDisplayResource::~AFRDisplayResource()
 
 std::vector<HANDLE> AFRDisplayResource::CreateRenderTargets(uint width, uint height, size_t backendCount)
 {
-    std::vector<HANDLE> handles;
+    std::vector<HANDLE> handles = CreateCopyHeap(width, height, backendCount);
     auto swapBufferCount = (backendCount + 1) * mFrameCount; // Display Device has the same render resource
 
     for (uint i = 0; i < backendCount; i++) {
@@ -27,10 +25,10 @@ std::vector<HANDLE> AFRDisplayResource::CreateRenderTargets(uint width, uint hei
             uint index = i + j * (backendCount + 1);
             SwapChain->GetBuffer(index, IID_PPV_ARGS(&backBuffer));
             StageFrameResource frameResource(Device.Get(), mResourceRegister.get());
-            HANDLE handle = frameResource.CreateLightCopyTexture(Device.Get(), width, height);
+            frameResource.CreateLightCopyHeapBuffer(Device.Get(), mCopyHeaps[i].Get(), j, width, height, D3D12_RESOURCE_STATE_COPY_SOURCE);
+            frameResource.CreateLightCopyTexture(Device.Get(), width, height);
             frameResource.CreateSwapChain(backBuffer.Get());
             deviceFrames.push_back(std::move(frameResource));
-            handles.push_back(handle);
         }
         mSharedFR.push_back(std::move(deviceFrames));
     }
@@ -38,7 +36,7 @@ std::vector<HANDLE> AFRDisplayResource::CreateRenderTargets(uint width, uint hei
     // Display Render Targets
     for (uint i = 0; i < mFrameCount; i++) {
         ComPtr<ID3D12Resource> backBuffer;
-        uint index = i * (backendCount + 1);
+        uint index = (i + 1) * (backendCount + 1) -1;
         SwapChain->GetBuffer(index, IID_PPV_ARGS(&backBuffer));
         StageFrameResource frameResource(Device.Get(), mResourceRegister.get());
         CreateRenderTarget(&frameResource, width, height);
@@ -79,13 +77,26 @@ void AFRDisplayResource::CreateSwapChain(IDXGIFactory6 *factory, HWND handle, ui
     ThrowIfFailed(swapChain.As(&SwapChain));
 }
 
-void AFRDisplayResource::CreateScreenQuadView()
+std::vector<HANDLE> AFRDisplayResource::CreateCopyHeap(uint width, uint height, size_t backendCount)
 {
-    ScreenQuadVBView.BufferLocation = mQuadVB->resource()->GetGPUVirtualAddress();
-    ScreenQuadVBView.StrideInBytes = sizeof(ModelVertex);
-    ScreenQuadVBView.SizeInBytes = sizeof(ModelVertex) * 4;
+    auto textureDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, width, height, 1, 1, 1);
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT layouts;
+    Device->GetCopyableFootprints(&textureDesc, 0, 1, 0, &layouts, nullptr, nullptr, nullptr);
 
-    ScreenQuadIBView.BufferLocation = mQuadIB->resource()->GetGPUVirtualAddress();
-    ScreenQuadIBView.Format = DXGI_FORMAT_R32_UINT;
-    ScreenQuadIBView.SizeInBytes = sizeof(uint) * 6;
+    uint64 bufferSize = UpperMemorySize(layouts.Footprint.RowPitch * layouts.Footprint.Height, D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT);
+
+    auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(bufferSize, D3D12_RESOURCE_FLAG_ALLOW_CROSS_ADAPTER);
+
+    auto heapDesc = CD3DX12_HEAP_DESC(bufferSize * mFrameCount, D3D12_HEAP_TYPE_DEFAULT, 0, D3D12_HEAP_FLAG_SHARED | D3D12_HEAP_FLAG_SHARED_CROSS_ADAPTER);
+
+    std::vector<HANDLE> handles;
+    for (uint i = 0; i < backendCount; i++) {
+        ComPtr<ID3D12Heap> heap;
+        HANDLE handle;
+        ThrowIfFailed(Device->CreateHeap(&heapDesc, IID_PPV_ARGS(&heap)));
+        ThrowIfFailed(Device->CreateSharedHandle(heap.Get(), nullptr, GENERIC_ALL, nullptr, &handle));
+        mCopyHeaps.push_back(heap);
+        handles.push_back(handle);
+    }
+    return handles;
 }

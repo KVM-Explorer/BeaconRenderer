@@ -2,7 +2,6 @@
 #include "Framework/Application.h"
 #include "GlobalResource.h"
 
-
 ImguiManager::ImguiManager()
 {
     IMGUI_CHECKVERSION();
@@ -12,10 +11,20 @@ ImguiManager::ImguiManager()
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableSetMousePos + ImGuiBackendFlags_HasSetMousePos; // Enable Keyboard Controls
 }
 
+void ImguiManager::ReleaseDX12Resource()
+{
+    if (mUiSrvHeap) {
+        ImGui_ImplDX12_Shutdown();
+        mUiSrvHeap = nullptr;
+    }
+}
+
 ImguiManager::~ImguiManager()
 {
-    ImGui_ImplDX12_Shutdown();
-    mUiSrvHeap = nullptr;
+    if (mUiSrvHeap) {
+        ImGui_ImplDX12_Shutdown();
+        mUiSrvHeap = nullptr;
+    }
     ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();
 }
@@ -38,7 +47,7 @@ void ImguiManager::Init(ID3D12Device *device)
     ImGui_ImplDX12_CreateDeviceObjects();
 }
 
-void ImguiManager::DrawUI(ID3D12GraphicsCommandList *cmdList, ID3D12Resource *target, std::vector<D3D12GpuTimer *>backendTimers)
+void ImguiManager::DrawUI(ID3D12GraphicsCommandList *cmdList, ID3D12Resource *target, std::vector<D3D12GpuTimer *> backendTimers)
 {
     // Update State
     State.RenderTime = GResource::CPUTimerManager->QueryDuration("RenderTime") / 1000.0F;
@@ -68,7 +77,7 @@ void ImguiManager::DrawUI(ID3D12GraphicsCommandList *cmdList, ID3D12Resource *ta
         for (auto &timer : GResource::GPUTimer->GetTimes()) {
             ImGui::Text("%s %f", timer.second.c_str(), timer.first * 1000.0F);
         }
-        for(auto &item: backendTimers){
+        for (auto &item : backendTimers) {
             for (auto &timer : item->GetTimes()) {
                 ImGui::Text("%s %f", timer.second.c_str(), timer.first * 1000.0F);
             }

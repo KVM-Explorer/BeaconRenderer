@@ -29,11 +29,11 @@ public:
     ImguiManager &operator=(ImguiManager &&) = delete;
 
     void Init(ID3D12Device *device);
-    void DrawUI(ID3D12GraphicsCommandList *cmdList, ID3D12Resource *target,std::vector<D3D12GpuTimer*> backendTimer);
+    void DrawUI(ID3D12GraphicsCommandList *cmdList, ID3D12Resource *target, std::vector<D3D12GpuTimer *> backendTimer);
+    void ReleaseDX12Resource();
 
     GUIState State;
 
 private:
-    std::unique_ptr<DescriptorHeap>
-        mUiSrvHeap;
+    std::unique_ptr<DescriptorHeap> mUiSrvHeap;
 };

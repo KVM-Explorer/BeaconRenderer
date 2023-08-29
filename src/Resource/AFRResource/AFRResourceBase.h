@@ -13,6 +13,7 @@ public:
     void CreateRenderTarget(StageFrameResource *frameResource, uint width, uint height);
     std::tuple<StageFrameResource *, uint> GetCurrentFrameResource();
     void IncreaseFrameIndex();
+    void CreateScreenQuadView();
 
     ComPtr<ID3D12Device> Device;
     ComPtr<ID3D12CommandQueue> DirectQueue;
@@ -35,6 +36,11 @@ public:
     Scene::RenderItemsMap mRenderItems;
 
     std::unique_ptr<ResourceRegister> mResourceRegister;
+
+    std::unique_ptr<UploadBuffer<ModelVertex>> mQuadVB;
+    std::unique_ptr<UploadBuffer<uint>> mQuadIB;
+    D3D12_VERTEX_BUFFER_VIEW ScreenQuadVBView;
+    D3D12_INDEX_BUFFER_VIEW ScreenQuadIBView;
 
     int mEnvMapIndex;
 
