@@ -363,6 +363,8 @@ void CrossBeacon::ExecutePass(uint frameIndex)
     auto &iFR = mDResource[Gpu::Integrated]->FR.at(frameIndex);
 
     iFR.Sync3D();
+    dFR.Sync3D();
+    dFR.SyncCopy(dFR.SharedFenceValue);
     dFR.Reset3D();
     dFR.CmdList3D->RSSetViewports(1, &mViewPort);
     dFR.CmdList3D->RSSetScissorRects(1, &mScissor);

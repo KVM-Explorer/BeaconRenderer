@@ -27,7 +27,7 @@ target("Beacon")
 
 target("CrossBeacon")
     set_kind("binary")
-    add_files("Test/FramePipelineBeacon.cpp","CrossBeacon.cpp")
+    add_files("Test/CrossPipelineBeacon.cpp","CrossBeacon.cpp")
     add_deps("Renderer")
     add_packages("yaml-cpp")
     add_defines("UNICODE")
