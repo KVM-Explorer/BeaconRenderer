@@ -70,8 +70,8 @@ void StageBeacon::OnRender()
         fpsCount = 0;
     }
 
-    AsyncExecutePass(backend, deviceIndex);
-    // SyncExecutePass(backend, deviceIndex);
+    // AsyncExecutePass(backend, deviceIndex);
+    SyncExecutePass(backend, deviceIndex);
     GResource::CPUTimerManager->EndTimer("DrawCall");
 
     IncrementBackendIndex();
@@ -380,7 +380,7 @@ std::tuple<BackendResource *, uint> StageBeacon::GetCurrentBackend() const
 
 void StageBeacon::IncrementBackendIndex()
 {
-    CurrentBackendIndex = (CurrentBackendIndex + 1) % mBackendResource.size();
+    CurrentBackendIndex = (CurrentBackendIndex - 1 + mBackendResource.size()) % mBackendResource.size();
 }
 
 uint StageBeacon::GetBackendStartFrameIndex() const

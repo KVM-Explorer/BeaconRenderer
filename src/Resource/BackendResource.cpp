@@ -86,10 +86,10 @@ std::tuple<StageFrameResource *, uint> BackendResource::GetCurrentFrame(Stage st
     case Stage::DeferredRendering:
         return {&mSFR[mCurrentFrameIndex], mCurrentFrameIndex};
     case Stage::CopyTexture:
-        frameIndex = (mCurrentFrameIndex - 1 + mFrameCount) % mFrameCount;
+        frameIndex = (mCurrentFrameIndex + 1 + mFrameCount) % mFrameCount;
         return {&mSFR[frameIndex], frameIndex};
     case Stage::PostProcess:
-        frameIndex = (mCurrentFrameIndex - 2 + mFrameCount) % mFrameCount;
+        frameIndex = (mCurrentFrameIndex + 2 + mFrameCount) % mFrameCount;
         return {&mSFR[frameIndex], frameIndex};
     default:
         throw std::runtime_error("Stage not supported");
