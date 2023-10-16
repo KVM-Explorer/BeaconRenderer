@@ -12,7 +12,7 @@ DeviceResource::DeviceResource(IDXGIFactory6 *factory, IDXGIAdapter1 *adapter, u
     queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
     queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
     ThrowIfFailed(Device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&CmdQueue)));
-    auto cmdQueueName = name + L" Command Queue";
+    auto cmdQueueName = name + L" 3D Command Queue";
     CmdQueue->SetName(cmdQueueName.c_str());
     queueDesc.Type = D3D12_COMMAND_LIST_TYPE_COPY;
     ThrowIfFailed(Device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&CopyQueue)));

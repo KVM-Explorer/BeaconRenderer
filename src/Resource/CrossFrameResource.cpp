@@ -17,10 +17,13 @@ CrossFrameResource::CrossFrameResource(ResourceRegister *resourceRegister, ID3D1
     CopyCmdList->Close();
 
     ThrowIfFailed(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&Fence)));
+
+    mCopyFR = std::make_unique<MemCopyFrameResource>();
 }
 
 CrossFrameResource::~CrossFrameResource()
 {
+    mCopyFR = nullptr;
     mRtvHeap.reset();
     mDsvHeap.reset();
     mSrvCbvUavHeap.reset();
@@ -82,8 +85,12 @@ void CrossFrameResource::Signal3D(ID3D12CommandQueue *cmdQueue)
     CmdList3D->Close();
     std::array<ID3D12CommandList *, 1> taskList = {CmdList3D.Get()};
     cmdQueue->ExecuteCommandLists(taskList.size(), taskList.data());
-    auto tmp = Fence->GetCompletedValue();
     cmdQueue->Signal(Fence.Get(), ++FenceValue);
+}
+
+void CrossFrameResource::SignalOnly(ID3D12CommandQueue *cmdQueue)
+{
+    cmdQueue->Signal(SharedFence.Get(), ++SharedFenceValue);
 }
 
 void CrossFrameResource::SignalCopy(ID3D12CommandQueue *cmdQueue)

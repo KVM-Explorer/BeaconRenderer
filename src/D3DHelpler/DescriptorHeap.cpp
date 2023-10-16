@@ -10,7 +10,10 @@ DescriptorHeap::DescriptorHeap(ID3D12Device *device, D3D12_DESCRIPTOR_HEAP_TYPE 
 
     device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&mHeap));
     mCPUHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(mHeap->GetCPUDescriptorHandleForHeapStart());
-    mGPUHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mHeap->GetGPUDescriptorHandleForHeapStart());
+    if(isShaderVisiable)
+        mGPUHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mHeap->GetGPUDescriptorHandleForHeapStart());
+    else
+        mGPUHandle.ptr = 0;
 
 }
 

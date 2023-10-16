@@ -9,6 +9,11 @@ public:
     Texture &operator=(Texture &&) = default;
     Texture &operator=(const Texture &) = delete;
     Texture(const Texture &) = delete;
+    ~Texture()
+    {
+        mTexture.Reset();
+        mUploader.Reset();
+    }
 
     Texture(ID3D12Resource *resource, ID3D12Resource *uploader = nullptr); 
     Texture(ID3D12Device *device, ID3D12GraphicsCommandList *commandList,

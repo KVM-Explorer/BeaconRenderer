@@ -4,6 +4,7 @@
 #include "D3DHelpler/Texture.h"
 #include "D3DHelpler/UploadBuffer.h"
 #include "D3DHelpler/ResourceRegister.h"
+#include "MemResource/MemCopyFrameResource.h"
 #include "DataStruct.h"
 #include "FrameResource.h"
 #include <stdafx.h>
@@ -22,6 +23,7 @@ public:
     void ResetCopy() const;
     void SyncCopy(uint value) const;
     void Signal3D(ID3D12CommandQueue *queue);
+    void SignalOnly(ID3D12CommandQueue *queue);
     void SignalCopy(ID3D12CommandQueue *queue);
     void Wait3D(ID3D12CommandQueue *queue) const;
     void WaitCopy(ID3D12CommandQueue *queue, uint64 fenceValue) const;
@@ -63,6 +65,8 @@ public:
     std::unique_ptr<UploadBuffer<EntityInfo>> EntityConstant;
     std::unique_ptr<UploadBuffer<Light>> LightConstant;
     std::unique_ptr<UploadBuffer<MaterialInfo>> MaterialConstant;
+
+    std::unique_ptr<MemCopyFrameResource> mCopyFR;
 
 private:
     std::shared_ptr<DescriptorHeap> mRtvHeap;
