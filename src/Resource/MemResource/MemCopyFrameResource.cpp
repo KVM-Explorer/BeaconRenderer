@@ -26,8 +26,6 @@ void MemCopyFrameResource::CreateReadBackResource(ID3D12Device *device, uint wid
                                                   nullptr,
                                                   IID_PPV_ARGS(&ReadBackBuffer)));
     ReadBackBuffer->SetName(L"ReadBackBuffer");
-    auto tmp = std::make_unique<uint8_t[]>(rowPitch * height);
-    data = std::move(tmp);
 }
 
 void MemCopyFrameResource::CreateUploadResource(ID3D12Device *device, uint width, uint height, uint rowPitch)
@@ -54,11 +52,7 @@ void MemCopyFrameResource::CreateUploadResource(ID3D12Device *device, uint width
 
 void MemCopyFrameResource::ImageToReadBackBuffer(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList, ID3D12Resource *src)
 {
-    D3D12_PLACED_SUBRESOURCE_FOOTPRINT layout = {};
-    auto desc = src->GetDesc();
-
-    device->GetCopyableFootprints(&desc, 0, 1, 0, &layout, nullptr, nullptr, nullptr);
-
+    auto layout = GetResourceLayout(device,src);
     if (ReadBackBuffer == nullptr)
         CreateReadBackResource(device,
                                layout.Footprint.Width,
@@ -67,29 +61,30 @@ void MemCopyFrameResource::ImageToReadBackBuffer(ID3D12Device *device, ID3D12Gra
 
     CD3DX12_TEXTURE_COPY_LOCATION copySrc(src, 0);
     CD3DX12_TEXTURE_COPY_LOCATION copyDst(ReadBackBuffer.Get(), layout);
-    Layout = layout;
+    layout = layout;
 
     cmdList->CopyTextureRegion(&copyDst, 0, 0, 0, &copySrc, nullptr);
 }
 
-void MemCopyFrameResource::DeviceBufferToDeviceBuffer(ID3D12Device *device)
+void MemCopyFrameResource::DeviceBufferToDeviceBuffer(ID3D12Device *device, ID3D12Resource *res)
 {
+    auto layout = GetResourceLayout(device,res);
     if (UploadBuffer == nullptr)
         CreateUploadResource(device,
-                             Layout.Footprint.Width,
-                             Layout.Footprint.Height,
-                             Layout.Footprint.RowPitch);
+                             layout.Footprint.Width,
+                             layout.Footprint.Height,
+                             layout.Footprint.RowPitch);
     void *src = nullptr;
     void *dst = nullptr;
     ReadBackBuffer->Map(0, nullptr, reinterpret_cast<void **>(&src));
     UploadBuffer->Map(0, nullptr, reinterpret_cast<void **>(&dst));
-    memcpy(dst, src, Layout.Footprint.Height * Layout.Footprint.RowPitch);
-    // memcpy(data.get(), dst, Layout.Footprint.Height * Layout.Footprint.RowPitch);
+    memcpy(dst, src, layout.Footprint.Height * layout.Footprint.RowPitch);
+    // memcpy(data.get(), dst, layout.Footprint.Height * layout.Footprint.RowPitch);
     ReadBackBuffer->Unmap(0, nullptr);
     UploadBuffer->Unmap(0, nullptr);
 }
 
-void MemCopyFrameResource::BufferToImage(ID3D12Device *device,ID3D12GraphicsCommandList *cmdList, ID3D12Resource *dst)
+void MemCopyFrameResource::BufferToImage(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList, ID3D12Resource *dst)
 {
     auto targetDesc = dst->GetDesc();
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT layout = {};
@@ -99,4 +94,12 @@ void MemCopyFrameResource::BufferToImage(ID3D12Device *device,ID3D12GraphicsComm
     CD3DX12_TEXTURE_COPY_LOCATION copyDst(dst, 0);
 
     cmdList->CopyTextureRegion(&copyDst, 0, 0, 0, &copySrc, nullptr);
+}
+
+D3D12_PLACED_SUBRESOURCE_FOOTPRINT MemCopyFrameResource::GetResourceLayout(ID3D12Device *device, ID3D12Resource *res)
+{
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT layout = {};
+    auto desc = res->GetDesc();
+    device->GetCopyableFootprints(&desc, 0, 1, 0, &layout, nullptr, nullptr, nullptr);
+    return layout;
 }

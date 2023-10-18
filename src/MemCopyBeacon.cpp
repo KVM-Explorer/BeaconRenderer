@@ -4,6 +4,7 @@
 #include <iostream>
 #include "Pass/Pass.h"
 #include "GpuEntryLayout.h"
+#include <future>
 
 MemCopyBeacon::MemCopyBeacon(uint width, uint height, std::wstring title) :
     RendererBase(width, height, title),
@@ -74,6 +75,8 @@ void MemCopyBeacon::OnInit()
     CreatePass();
 
     LoadScene();
+
+    CreateCopyResource();
 
     // Sync
     mDResource[Gpu::Discrete]->FR.at(0).Signal3D(mDResource[Gpu::Discrete]->CmdQueue.Get());
@@ -325,10 +328,29 @@ void MemCopyBeacon::LoadScene()
     }
 }
 
+void MemCopyBeacon::CreateCopyResource()
+{
+    for (auto &item : mDResource[Gpu::Discrete]->FR) {
+        auto *resource = item.GetResource("LightTexture");
+        D3D12_PLACED_SUBRESOURCE_FOOTPRINT layout = {};
+        auto desc = resource->GetDesc();
+
+        mDResource[Gpu::Discrete]->Device->GetCopyableFootprints(&desc, 0, 1, 0, &layout, nullptr, nullptr, nullptr);
+        item.mCopyFR->CreateReadBackResource(mDResource[Gpu::Discrete]->Device.Get(),
+                                             layout.Footprint.Width,
+                                             layout.Footprint.Height,
+                                             layout.Footprint.RowPitch);
+        item.mCopyFR->CreateUploadResource(mDResource[Gpu::Integrated]->Device.Get(),
+                                           layout.Footprint.Width,
+                                           layout.Footprint.Height,
+                                           layout.Footprint.RowPitch);
+    }
+}
+
 void MemCopyBeacon::SetPass(uint frameIndex)
 {
+    auto &dFR = mDResource[Gpu::Discrete]->FR.at((frameIndex + 2) % mFrameCount);
     auto &iFR = mDResource[Gpu::Integrated]->FR.at(frameIndex);
-    auto &dFR = mDResource[Gpu::Discrete]->FR.at(frameIndex);
 
     // ===================== GBuffer Pass =====================
     std::vector<ID3D12Resource *> gbuffer;
@@ -361,130 +383,97 @@ void MemCopyBeacon::SetPass(uint frameIndex)
 
 void MemCopyBeacon::ExecutePass(uint frameIndex)
 {
-    auto &dFR = mDResource[Gpu::Discrete]->FR.at(frameIndex);
-    auto &iFR = mDResource[Gpu::Integrated]->FR.at(frameIndex);
-
-    iFR.Sync3D();
-    dFR.Sync3D();
-    dFR.SyncCopy(dFR.SharedFenceValue);
-    dFR.Reset3D();
-    dFR.CmdList3D->RSSetViewports(1, &mViewPort);
-    dFR.CmdList3D->RSSetScissorRects(1, &mScissor);
+    auto &nnextFrame = mDResource[Gpu::Discrete]->FR.at((frameIndex + 2) % mFrameCount);
+    auto &nextFrame = mDResource[Gpu::Discrete]->FR.at((frameIndex + 1) % mFrameCount);
+    auto &nextFrameIntegrated = mDResource[Gpu::Integrated]->FR.at((frameIndex + 1) % mFrameCount);
+    auto &currentFrame = mDResource[Gpu::Integrated]->FR.at(frameIndex);
 
     SetPass(frameIndex);
 
-    auto dConstantAddr = dFR.EntityConstant->resource()->GetGPUVirtualAddress();
+    auto dConstantAddr = nnextFrame.EntityConstant->resource()->GetGPUVirtualAddress();
 
-    // ===================== Discrete GPU 3D Stage =====================
-    PIXBeginEvent(dFR.CmdList3D.Get(), PIX_COLOR_DEFAULT, L"GBufferPass");
+    auto renderFuture = std::async(std::launch::async, [&]() {
+        RenderStage(nnextFrame, dConstantAddr);
+    });
+
+    auto displayFuture = std::async(std::launch::async, [&]() {
+        DisplayStage(currentFrame);
+    });
+    
+    MemCopyStage(nextFrame);
+    HostDeviceCopyStage(nextFrame, nextFrameIntegrated);
+    renderFuture.wait();
+    displayFuture.wait();
+}
+
+void MemCopyBeacon::RenderStage(CrossFrameResource &ctx, D3D12_GPU_VIRTUAL_ADDRESS constantAddr)
+{
+    ctx.Reset3D();
+    ctx.CmdList3D->RSSetViewports(1, &mViewPort);
+    ctx.CmdList3D->RSSetScissorRects(1, &mScissor);
     {
-        mGBufferPass->BeginPass(dFR.CmdList3D.Get());
-        dFR.SetSceneConstant();
-        mScene->RenderSphere(dFR.CmdList3D.Get(), dConstantAddr);
-        mScene->RenderScene(dFR.CmdList3D.Get(), dConstantAddr);
-        mGBufferPass->EndPass(dFR.CmdList3D.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
+        mGBufferPass->BeginPass(ctx.CmdList3D.Get());
+        ctx.SetSceneConstant();
+        mScene->RenderSphere(ctx.CmdList3D.Get(), constantAddr);
+        mScene->RenderScene(ctx.CmdList3D.Get(), constantAddr);
+        mGBufferPass->EndPass(ctx.CmdList3D.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
     }
-    PIXEndEvent(dFR.CmdList3D.Get());
-    PIXBeginEvent(dFR.CmdList3D.Get(), PIX_COLOR_DEFAULT, L"LightPass");
     {
-        mLightPass->BeginPass(dFR.CmdList3D.Get(), D3D12_RESOURCE_STATE_COMMON);
-        mScene->RenderQuad(dFR.CmdList3D.Get(), dConstantAddr);
-        mLightPass->EndPass(dFR.CmdList3D.Get(), D3D12_RESOURCE_STATE_COMMON);
+        mLightPass->BeginPass(ctx.CmdList3D.Get(), D3D12_RESOURCE_STATE_COMMON);
+        mScene->RenderQuad(ctx.CmdList3D.Get(), constantAddr);
+        mLightPass->EndPass(ctx.CmdList3D.Get(), D3D12_RESOURCE_STATE_COMMON);
     }
-    PIXEndEvent(dFR.CmdList3D.Get());
-    dFR.Signal3D(mDResource[Gpu::Discrete]->CmdQueue.Get());
+    ctx.Signal3D(mDResource[Gpu::Discrete]->CmdQueue.Get());
+    ctx.Sync3D();
+}
 
-    // ===================== Discrete GPU Copy Stage =====================
-    dFR.Wait3D(mDResource[Gpu::Discrete]->CopyQueue.Get());
-    dFR.ResetCopy();
-    PIXBeginEvent(mDResource[Gpu::Discrete]->CopyQueue.Get(), PIX_COLOR_DEFAULT, L"CopyResource");
+void MemCopyBeacon::MemCopyStage(CrossFrameResource &ctx)
+{
+    ctx.mCopyFR->DeviceBufferToDeviceBuffer(mDResource[Gpu::Integrated]->Device.Get(),
+                                            mDResource[Gpu::Integrated]->FR.at(0).GetResource("LightTexture")); // 动态构建Integrated GPU的资源
+}
+
+void MemCopyBeacon::DisplayStage(CrossFrameResource &ctx)
+{
+    ctx.Reset3D();
+    ctx.CmdList3D->RSSetViewports(1, &mViewPort);
+    ctx.CmdList3D->RSSetScissorRects(1, &mScissor);
+
+    GResource::GPUTimer->BeginTimer(ctx.CmdList3D.Get(), 0);
     {
-        // auto copyDstBarrier = CD3DX12_RESOURCE_BARRIER::Transition(dFR.GetResource("LightCopyBuffer"), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
-        // auto copySrcBarrier = CD3DX12_RESOURCE_BARRIER::Transition(dFR.GetResource("LightCopyBuffer"), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COPY_SOURCE);
+        mSobelPass->BeginPass(ctx.CmdList3D.Get());
 
-        // auto targetDesc = dFR.GetResource("LightTexture")->GetDesc();
-        // D3D12_PLACED_SUBRESOURCE_FOOTPRINT layout = {};
+        for (uint i = 0; i < GResource::config["Scene"]["PostProcessLoop"].as<uint>(); i++) {
+            mSobelPass->ExecutePass(ctx.CmdList3D.Get());
+        }
 
-        // mDResource[Gpu::Discrete]->Device->GetCopyableFootprints(&targetDesc, 0, 1, 0, &layout, nullptr, nullptr, nullptr);
-
-        // CD3DX12_TEXTURE_COPY_LOCATION dst(dFR.GetResource("LightCopyBuffer"), layout);
-        // CD3DX12_TEXTURE_COPY_LOCATION src(dFR.GetResource("LightTexture"), 0);
-        // CD3DX12_BOX box(0, 0, GetWidth(), GetHeight());
-
-        // dFR.CopyCmdList->ResourceBarrier(1, &copyDstBarrier);
-        // dFR.CopyCmdList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
-        // dFR.CopyCmdList->ResourceBarrier(1, &copySrcBarrier);
-        dFR.mCopyFR->ImageToReadBackBuffer(mDResource[Gpu::Discrete]->Device.Get(),
-                                           dFR.CopyCmdList.Get(),
-                                           dFR.GetResource("LightTexture"));
-        dFR.mCopyFR->DeviceBufferToDeviceBuffer(mDResource[Gpu::Integrated]->Device.Get());
+        mSobelPass->EndPass(ctx.CmdList3D.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
     }
-    PIXEndEvent(mDResource[Gpu::Discrete]->CopyQueue.Get());
-    dFR.SignalCopy(mDResource[Gpu::Discrete]->CopyQueue.Get());
-    // dFR.SyncCopy(dFR.SharedFenceValue);
+    {
+        mQuadPass->BeginPass(ctx.CmdList3D.Get());
+        ctx.CmdList3D->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+        ctx.CmdList3D->IASetVertexBuffers(0, 1, &mIGpuQuadVBView);
+        ctx.CmdList3D->DrawInstanced(4, 1, 0, 0);
+        mQuadPass->EndPass(ctx.CmdList3D.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
+    }
 
     // ===================== Integrated GPU 3D Stage =====================
 
-    iFR.WaitCopy(mDResource[Gpu::Integrated]->CmdQueue.Get(), dFR.SharedFenceValue);
-    iFR.Reset3D();
-    iFR.CmdList3D->RSSetViewports(1, &mViewPort);
-    iFR.CmdList3D->RSSetScissorRects(1, &mScissor);
-
     {
-        // auto copyDstBarrier = CD3DX12_RESOURCE_BARRIER::Transition(iFR.GetResource("LightTexture"), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST);
-        // auto shaderResourceBarrier = CD3DX12_RESOURCE_BARRIER::Transition(iFR.GetResource("LightTexture"), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON);
-
-        // auto targetDesc = iFR.GetResource("LightTexture")->GetDesc();
-        // D3D12_PLACED_SUBRESOURCE_FOOTPRINT layout = {};
-        // mDResource[Gpu::Integrated]->Device->GetCopyableFootprints(&targetDesc, 0, 1, 0, &layout, nullptr, nullptr, nullptr);
-
-        // CD3DX12_TEXTURE_COPY_LOCATION dst(iFR.GetResource("LightTexture"), 0);
-        // CD3DX12_TEXTURE_COPY_LOCATION src(iFR.GetResource("LightCopyBuffer"), layout);
-        // CD3DX12_BOX box(0, 0, GetWidth(), GetHeight());
-
-        // iFR.CmdList3D->ResourceBarrier(1, &copyDstBarrier);
-        // iFR.CmdList3D->CopyTextureRegion(&dst, 0, 0, 0, &src, &box);
-        // iFR.CmdList3D->ResourceBarrier(1, &shaderResourceBarrier);
-        dFR.mCopyFR->BufferToImage(mDResource[Gpu::Integrated]->Device.Get(),
-                                   iFR.CmdList3D.Get(),
-                                   iFR.GetResource("LightTexture"));
+        GResource::GUIManager->DrawUI(ctx.CmdList3D.Get(), ctx.GetResource("SwapChain"), {});
     }
 
-    GResource::GPUTimer->BeginTimer(iFR.CmdList3D.Get(), 0);
-    PIXBeginEvent(iFR.CmdList3D.Get(), PIX_COLOR_DEFAULT, L"SobelPass");
-    {
-        mSobelPass->BeginPass(iFR.CmdList3D.Get());
-
-        for (uint i = 0; i < GResource::config["Scene"]["PostProcessLoop"].as<uint>(); i++) {
-            mSobelPass->ExecutePass(iFR.CmdList3D.Get());
-        }
-
-        mSobelPass->EndPass(iFR.CmdList3D.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
-    }
-    PIXEndEvent(iFR.CmdList3D.Get());
-    PIXBeginEvent(iFR.CmdList3D.Get(), PIX_COLOR_DEFAULT, L"QuadPass");
-    {
-        mQuadPass->BeginPass(iFR.CmdList3D.Get());
-        iFR.CmdList3D->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-        iFR.CmdList3D->IASetVertexBuffers(0, 1, &mIGpuQuadVBView);
-        iFR.CmdList3D->DrawInstanced(4, 1, 0, 0);
-        mQuadPass->EndPass(iFR.CmdList3D.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
-    }
-    PIXEndEvent(iFR.CmdList3D.Get());
-
-    PIXBeginEvent(iFR.CmdList3D.Get(), PIX_COLOR_DEFAULT, L"GUI");
-    {
-        GResource::GUIManager->DrawUI(iFR.CmdList3D.Get(), iFR.GetResource("SwapChain"), {});
-    }
-    PIXEndEvent(iFR.CmdList3D.Get());
-    auto rtv2present = CD3DX12_RESOURCE_BARRIER::Transition(iFR.GetResource("SwapChain"),
-                                                            D3D12_RESOURCE_STATE_RENDER_TARGET,
-                                                            D3D12_RESOURCE_STATE_PRESENT);
-    // iFR.CmdList3D->ResourceBarrier(1, &rtv2present);
-    GResource::GPUTimer->EndTimer(iFR.CmdList3D.Get(), 0);
-    GResource::GPUTimer->ResolveAllTimers(iFR.CmdList3D.Get());
-
-    iFR.Signal3D(mDResource[Gpu::Integrated]->CmdQueue.Get());
+    ctx.Signal3D(mDResource[Gpu::Integrated]->CmdQueue.Get());
     mDResource[Gpu::Integrated]->SwapChain4->Present(0, 0);
-    // iFR.Sync3D();
+    ctx.Sync3D();
+}
+
+void MemCopyBeacon::HostDeviceCopyStage(CrossFrameResource &resource, CrossFrameResource &ctx)
+{
+    ctx.ResetCopy();
+    resource.mCopyFR->BufferToImage(mDResource[Gpu::Integrated]->Device.Get(),
+                                    ctx.CopyCmdList.Get(),
+                                    ctx.GetResource("LightTexture"));
+    ctx.SignalCopy(mDResource[Gpu::Integrated]->CopyQueue.Get());
+    ctx.SyncCopy(ctx.SharedFenceValue);
 }

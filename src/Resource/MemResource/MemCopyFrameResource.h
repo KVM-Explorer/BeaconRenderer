@@ -20,14 +20,15 @@ public:
     void CreateReadBackResource(ID3D12Device *device, uint width, uint height, uint rowPitch);
 
     /// Seconad GPU Device
-    void DeviceBufferToDeviceBuffer(ID3D12Device *device);
+    void DeviceBufferToDeviceBuffer(ID3D12Device *device, ID3D12Resource *res);
     void BufferToImage(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList, ID3D12Resource *dst);
     void ImageToReadBackBuffer(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList, ID3D12Resource *src);
+
+private:
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT GetResourceLayout(ID3D12Device *device, ID3D12Resource *res);
 
 public:
     ComPtr<ID3D12Resource> UploadBuffer = nullptr;
     ComPtr<ID3D12Resource> ReadBackBuffer = nullptr;
     uint8_t *ReadBackBufferPtr = nullptr;
-    D3D12_PLACED_SUBRESOURCE_FOOTPRINT Layout;
-    std::unique_ptr<uint8_t[]> data;
 };

@@ -34,10 +34,16 @@ private:
     void LoadScene();
     void CreateQuad();
     void CreateRtv();
+    void CreateCopyResource();
     void SetGpuTimers();
 
     void SetPass(uint frameIndex);
     void ExecutePass(uint frameIndex);
+
+    void RenderStage(CrossFrameResource &ctx,D3D12_GPU_VIRTUAL_ADDRESS constantAddr);
+    void MemCopyStage(CrossFrameResource &ctx);
+    void DisplayStage(CrossFrameResource &ctx);
+    void HostDeviceCopyStage(CrossFrameResource &resource,CrossFrameResource &ctx);
 
 private:
     CD3DX12_VIEWPORT mViewPort;
