@@ -40,9 +40,10 @@ private:
     void SetPass(uint frameIndex);
     void ExecutePass(uint frameIndex);
 
-    void RenderStage(CrossFrameResource &ctx,D3D12_GPU_VIRTUAL_ADDRESS constantAddr);
+    void RenderStage(CrossFrameResource &ctx, D3D12_GPU_VIRTUAL_ADDRESS constantAddr);
     void MemCopyStage(CrossFrameResource &ctx);
     void DisplayStage(CrossFrameResource &ctx);
+    void DeviceHostCopyStage(CrossFrameResource &ctx);
     void HostDeviceCopyStage(CrossFrameResource &resource,CrossFrameResource &ctx);
 
 private:

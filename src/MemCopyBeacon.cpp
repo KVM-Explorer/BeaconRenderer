@@ -349,36 +349,36 @@ void MemCopyBeacon::CreateCopyResource()
 
 void MemCopyBeacon::SetPass(uint frameIndex)
 {
-    auto &dFR = mDResource[Gpu::Discrete]->FR.at((frameIndex + 2) % mFrameCount);
-    auto &iFR = mDResource[Gpu::Integrated]->FR.at(frameIndex);
+    auto &nnextFR = mDResource[Gpu::Discrete]->FR.at((frameIndex + 2) % mFrameCount);
+    auto &currentFR = mDResource[Gpu::Integrated]->FR.at(frameIndex);
 
     // ===================== GBuffer Pass =====================
     std::vector<ID3D12Resource *> gbuffer;
     for (uint i = 0; i < GBufferPass::GetTargetCount(); i++) {
         std::string index = "GBuffer" + std::to_string(i);
-        gbuffer.push_back(dFR.GetResource(index));
+        gbuffer.push_back(nnextFR.GetResource(index));
     }
-    auto rtvHandle = dFR.GetRtv("GBuffer0");
-    auto dsvHandle = dFR.GetDsv("Depth");
+    auto rtvHandle = nnextFR.GetRtv("GBuffer0");
+    auto dsvHandle = nnextFR.GetDsv("Depth");
 
     mGBufferPass->SetRenderTarget(gbuffer, rtvHandle);
-    mGBufferPass->SetDepthBuffer(dFR.GetResource("Depth"), dsvHandle);
+    mGBufferPass->SetDepthBuffer(nnextFR.GetResource("Depth"), dsvHandle);
     mGBufferPass->SetRTVDescriptorSize(mDResource[Gpu::Discrete]->Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV));
 
     // ===================== Light Pass =====================
-    mLightPass->SetRenderTarget(dFR.GetResource("LightTexture"), dFR.GetRtv("LightTexture"));
-    mLightPass->SetGBuffer(dFR.GetSrvCbvUavHeap(), dFR.GetSrvCbvUav("GBuffer0"));
-    mLightPass->SetTexture(dFR.GetSrvCbvUavHeap(), dFR.GetSrvBase());
+    mLightPass->SetRenderTarget(nnextFR.GetResource("LightTexture"), nnextFR.GetRtv("LightTexture"));
+    mLightPass->SetGBuffer(nnextFR.GetSrvCbvUavHeap(), nnextFR.GetSrvCbvUav("GBuffer0"));
+    mLightPass->SetTexture(nnextFR.GetSrvCbvUavHeap(), nnextFR.GetSrvBase());
 
     // ===================== Sobel Pass =====================
-    mSobelPass->SetInput(iFR.GetSrvCbvUav("LightTexture"));
-    mSobelPass->SetSrvHeap(iFR.GetSrvCbvUavHeap());
-    mSobelPass->SetTarget(iFR.GetResource("ScreenTexture2"), iFR.GetSrvCbvUav("ScreenTexture2"));
+    mSobelPass->SetInput(currentFR.GetSrvCbvUav("LightTexture"));
+    mSobelPass->SetSrvHeap(currentFR.GetSrvCbvUavHeap());
+    mSobelPass->SetTarget(currentFR.GetResource("ScreenTexture2"), currentFR.GetSrvCbvUav("ScreenTexture2"));
 
     // ===================== Quad Pass =====================
-    mQuadPass->SetTarget(iFR.GetResource("SwapChain"), iFR.GetRtv("SwapChain"));
+    mQuadPass->SetTarget(currentFR.GetResource("SwapChain"), currentFR.GetRtv("SwapChain"));
     mQuadPass->SetRenderType(QuadShader::MixQuad);
-    mQuadPass->SetSrvHandle(iFR.GetSrvCbvUav("LightTexture")); // LightCopy Sobel SwapChain
+    mQuadPass->SetSrvHandle(currentFR.GetSrvCbvUav("LightTexture")); // LightCopy Sobel SwapChain
 }
 
 void MemCopyBeacon::ExecutePass(uint frameIndex)
@@ -394,12 +394,13 @@ void MemCopyBeacon::ExecutePass(uint frameIndex)
 
     auto renderFuture = std::async(std::launch::async, [&]() {
         RenderStage(nnextFrame, dConstantAddr);
+        DeviceHostCopyStage(nnextFrame);
     });
 
     auto displayFuture = std::async(std::launch::async, [&]() {
         DisplayStage(currentFrame);
     });
-    
+
     MemCopyStage(nextFrame);
     HostDeviceCopyStage(nextFrame, nextFrameIntegrated);
     renderFuture.wait();
@@ -430,7 +431,7 @@ void MemCopyBeacon::RenderStage(CrossFrameResource &ctx, D3D12_GPU_VIRTUAL_ADDRE
 void MemCopyBeacon::MemCopyStage(CrossFrameResource &ctx)
 {
     ctx.mCopyFR->DeviceBufferToDeviceBuffer(mDResource[Gpu::Integrated]->Device.Get(),
-                                            mDResource[Gpu::Integrated]->FR.at(0).GetResource("LightTexture")); // 动态构建Integrated GPU的资源
+                                            mDResource[Gpu::Integrated]->FR.at(0).GetResource("LightTexture")); // 动态构建Integrated GPU的资源,只是获取Layout信息
 }
 
 void MemCopyBeacon::DisplayStage(CrossFrameResource &ctx)
@@ -466,6 +467,16 @@ void MemCopyBeacon::DisplayStage(CrossFrameResource &ctx)
     ctx.Signal3D(mDResource[Gpu::Integrated]->CmdQueue.Get());
     mDResource[Gpu::Integrated]->SwapChain4->Present(0, 0);
     ctx.Sync3D();
+}
+
+void MemCopyBeacon::DeviceHostCopyStage(CrossFrameResource &ctx)
+{
+    ctx.ResetCopy();
+    ctx.mCopyFR->ImageToReadBackBuffer(mDResource[Gpu::Discrete]->Device.Get(),
+                                       ctx.CopyCmdList.Get(),
+                                       ctx.GetResource("LightTexture"));
+    ctx.SignalCopy(mDResource[Gpu::Discrete]->CopyQueue.Get());
+    ctx.SyncCopy(ctx.SharedFenceValue);
 }
 
 void MemCopyBeacon::HostDeviceCopyStage(CrossFrameResource &resource, CrossFrameResource &ctx)
