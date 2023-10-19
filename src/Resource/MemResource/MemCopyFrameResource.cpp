@@ -76,8 +76,10 @@ void MemCopyFrameResource::DeviceBufferToDeviceBuffer(ID3D12Device *device, ID3D
                              layout.Footprint.RowPitch);
     void *src = nullptr;
     void *dst = nullptr;
-    ReadBackBuffer->Map(0, nullptr, reinterpret_cast<void **>(&src));
-    UploadBuffer->Map(0, nullptr, reinterpret_cast<void **>(&dst));
+    D3D12_RANGE range;
+    memset(&range,0,sizeof(D3D12_RANGE));
+    ReadBackBuffer->Map(0, &range, reinterpret_cast<void **>(&src));
+    UploadBuffer->Map(0, &range, reinterpret_cast<void **>(&dst));
     memcpy(dst, src, layout.Footprint.Height * layout.Footprint.RowPitch);
     // memcpy(data.get(), dst, layout.Footprint.Height * layout.Footprint.RowPitch);
     ReadBackBuffer->Unmap(0, nullptr);
