@@ -44,7 +44,6 @@ private:
 
     std::tuple<BackendResource *, uint> GetCurrentBackend() const;
     void IncrementBackendIndex();
-    /// 和Present的SwapChain顺序对准
     uint GetBackendStartFrameIndex() const;
 
     void SetPass(BackendResource *backend, uint index);
